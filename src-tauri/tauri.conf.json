@@ -32,7 +32,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
-    "licenseFile": "../LICENSE",
+    "licenseFile": "../kurulum-lisans.txt",
     "publisher": "Paletweb Bilişim",
     "copyright": "Copyright © 2026 Paletweb Bilişim — GPL-3.0-or-later",
     "category": "Utility",
@@ -48,7 +48,6 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "license": "../kurulum-lisans.txt",
         "languages": ["Turkish"],
         "displayLanguageSelector": false
       }
