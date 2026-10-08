@@ -84,7 +84,8 @@ npm run icon           # assets/logo.png → src-tauri/icons/*
 npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
-npm run dogrula        # kod bekçisi: 7 kontrol (aşağıya bakın)
+npm run dogrula        # kod bekçisi: 7 statik kontrol (aşağıya bakın)
+npm run test           # davranış testleri: notlar/takvim + ses (70 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -121,6 +122,22 @@ Her değişiklikten sonra çalıştırın. Yedi kontrol yapar:
 adı üzerinden `<img src=x onerror=…>` çalışabiliyordu. İkisi de bir daha sessizce
 geri gelemeyecek.
 
+### `npm run test` — davranış testleri
+
+`dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
+Gerçek kaynak dosyalar sahte bir DOM ve sahte bir `speechSynthesis` üzerinde
+çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **70 kontrol**:
+
+| Dosya | Kapsam |
+|-------|--------|
+| `araclar/notlar-test.mjs` | Takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı |
+| `araclar/ses-test.mjs` | Ece/Emre eşleşmesi, tek Türkçe seste perde farkı, Türkçe ses yokken yedeğe düşme, hiç ses yokken çökmeme, Türkçe sayı→kelime |
+
+İkisi de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
+pencere gizlendiğinde o tek saniyeyi kaçırıyordu ve notlar hangi güne bakarsanız
+bakın **bugüne** yazılıyordu. Yayın iş akışı, paket derlenmeden **önce** bu
+testleri çalıştırır.
+
 ---
 
 ## Proje yapısı
@@ -130,6 +147,11 @@ PaletZamanAsistani/
 ├─ LICENSE                  ← GNU GPL-3.0 resmî metni
 ├─ kurulum-lisans.txt       ← Kurulum ekranındaki Türkçe lisans açıklaması
 ├─ package.json
+├─ araclar/                 ← geliştirici araçları (uygulamaya girmez)
+│  ├─ dogrula.mjs           ← statik kod bekçisi
+│  ├─ notlar-test.mjs       ← davranış testi: notlar/takvim
+│  ├─ ses-test.mjs          ← davranış testi: sesli okuma
+│  └─ sunucu.mjs            ← `npm run web` önizleme sunucusu
 ├─ src/                     ← arayüz (frontendDist)
 │  ├─ index.html
 │  ├─ styles/widget.css     ← skin token'ları + tüm stiller

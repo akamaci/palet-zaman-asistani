@@ -48,6 +48,10 @@ jobs:
       - name: Kod bekçisi (7 kontrol)
         run: npm run dogrula
 
+      # Derlemeden ÖNCE: kırık bir arayüzün kurulum paketi üretilmesin.
+      - name: Davranış testleri (notlar/takvim + ses)
+        run: npm run test
+
       - name: İkonları üret (assets/logo.png → src-tauri/icons)
         run: npm run icon
 

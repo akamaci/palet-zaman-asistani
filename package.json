@@ -15,7 +15,10 @@
     "build": "tauri build",
     "icon": "tauri icon assets/logo.png",
     "web": "node araclar/sunucu.mjs",
-    "dogrula": "node araclar/dogrula.mjs"
+    "dogrula": "node araclar/dogrula.mjs",
+    "test": "node araclar/notlar-test.mjs && node araclar/ses-test.mjs",
+    "test:notlar": "node araclar/notlar-test.mjs",
+    "test:ses": "node araclar/ses-test.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
