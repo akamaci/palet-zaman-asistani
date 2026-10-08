@@ -37,6 +37,19 @@ fn hide_window(app: tauri::AppHandle) {
     }
 }
 
+/// "Her Zaman Üstte" — ayarlardan yönetilir.
+/// Kapatılınca widget normal bir pencere olur ve tarayıcı/video gibi
+/// uygulamalar önüne geçebilir; açıkken masaüstünde hep görünür kalır.
+#[tauri::command]
+fn set_always_on_top(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let w = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Ana pencere bulunamadı.".to_string())?;
+    w.set_always_on_top(enabled)
+        .map(|_| true)
+        .map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
@@ -44,7 +57,8 @@ fn main() {
             set_autostart,
             get_autostart,
             gcal_connect,
-            hide_window
+            hide_window,
+            set_always_on_top
         ])
         .setup(|app| {
             // ── Sistem tepsisi ──

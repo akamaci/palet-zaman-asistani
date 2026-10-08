@@ -20,6 +20,8 @@ PZA.DEFAULTS = {
   preview: true,      // not başlıkları şeridi
   seconds: true,
   speech: false,      // her saat başı sesli okuma
+  voice: 'female',    // okuyucu sesi: female | male
+  alwaysOnTop: true,  // kapatılınca widget diğer pencerelerin arkasına geçebilir
   autostart: false,
   city: null,         // { name, lat, lon }
   gcal: false
@@ -82,7 +84,14 @@ PZA.apply = function () {
   bind('opt-preview', s.preview);
   bind('opt-seconds', s.seconds);
   bind('opt-speech', s.speech);
+  bind('opt-ontop', s.alwaysOnTop);
   bind('opt-autostart', s.autostart);
+
+  // Okuyucu sesi: Kadın / Erkek
+  document.querySelectorAll('[data-voice]').forEach(b =>
+    b.classList.toggle('on', b.dataset.voice === (s.voice === 'male' ? 'male' : 'female')));
+  const vn = document.getElementById('voice-name');
+  if (vn) vn.textContent = PZA.voiceLabel ? PZA.voiceLabel(s.voice) : '—';
 
   document.querySelectorAll('[data-theme-set]').forEach(b =>
     b.classList.toggle('on', b.dataset.themeSet === s.theme));

@@ -21,19 +21,53 @@
      genişliğe dokunmak pencere↔içerik geri besleme döngüsü kurar. */
   if (TAURI) {
     let sonH = 0;
+
+    /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
+       (Ayarlar / Stüdyo). Bu ikisi #widget'ın KARDEŞİ ve
+       `position: fixed`: widget'ı büyütmedikleri için tek başına
+       ResizeObserver yetmez — 430px'lik pencerede kırpılırlardı. */
+    const gerekliH = () => {
+      let h = 0;
+      const w = document.getElementById('widget');
+      if (w) h = w.getBoundingClientRect().height;
+      for (const id of ['settings', 'studio']) {
+        const el = document.getElementById(id);
+        if (el && !el.hidden) h = Math.max(h, el.scrollHeight + 24);
+      }
+      return Math.ceil(h);
+    };
+
     const fit = async () => {
-      const el = document.getElementById('widget');
-      if (!el) return;
-      const h = Math.ceil(el.getBoundingClientRect().height) + 2;
-      if (Math.abs(h - sonH) < 3) return;        // titremeyi önle
+      let h = gerekliH();
+      if (!h || Math.abs(h - sonH) < 3) return;   // titremeyi önle
       sonH = h;
       try {
         const win = window.__TAURI__.window;
         const w = win.getCurrentWindow();
+        // Ayarlar paneli ekrandan uzun olabilir (Stüdyo özellikle).
+        // Monitöre sığdır; panel kendi içinde kaydırılır.
+        try {
+          const mon = await win.currentMonitor();
+          if (mon && mon.size && mon.size.height) {
+            const enFazla = Math.round(mon.size.height / (mon.scaleFactor || 1)) - 60;
+            if (enFazla > 240) h = Math.min(h, enFazla);
+          }
+        } catch (e) { /* monitör bilgisi alınamadı */ }
         await w.setSize(new win.LogicalSize(document.documentElement.clientWidth, h));
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
-    if (window.ResizeObserver) new ResizeObserver(fit).observe(document.getElementById('widget'));
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(fit);
+      ['widget', 'settings', 'studio'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) ro.observe(el);
+      });
+    }
+    // Ayarlar/Stüdyo açılıp kapandığında (hidden değişimi) yeniden ölç.
+    new MutationObserver(fit).observe(document.body, {
+      subtree: true, attributes: true, attributeFilter: ['hidden']
+    });
     window.addEventListener('load', fit);
   }
 
@@ -89,8 +123,8 @@
     b.addEventListener('click', () => PZA.set('theme', b.dataset.themeSet)));
 
   const toggles = {
-    'opt-weather': 'weather', 'opt-preview': 'preview',
-    'opt-seconds': 'seconds', 'opt-speech': 'speech', 'opt-autostart': 'autostart'
+    'opt-weather': 'weather', 'opt-preview': 'preview', 'opt-seconds': 'seconds',
+    'opt-speech': 'speech', 'opt-ontop': 'alwaysOnTop', 'opt-autostart': 'autostart'
   };
   Object.entries(toggles).forEach(([id, key]) => {
     $(id)?.addEventListener('change', async e => {
@@ -102,9 +136,19 @@
           PZA.set('autostart', e.target.checked);
         }
       }
+      if (key === 'alwaysOnTop') {
+        const ok = await invoke('set_always_on_top', { enabled: e.target.checked });
+        if (TAURI && ok === null) {           // komut başarısız → geri al
+          e.target.checked = !e.target.checked;
+          PZA.set('alwaysOnTop', e.target.checked);
+        }
+      }
       if (key === 'weather' && e.target.checked) PZA.loadWeather();
     });
   });
+
+  /* Kayıtlı "her zaman üstte" değerini pencereye uygula */
+  if (TAURI) invoke('set_always_on_top', { enabled: !!PZA.settings.alwaysOnTop });
 
   document.querySelectorAll('input[name="size"]').forEach(r =>
     r.addEventListener('change', () => { if (r.checked) PZA.set('size', r.value); }));
@@ -146,12 +190,69 @@
   });
 
   /* ── Notlar: ekle / yıldızla / sil ───────────────────── */
-  $('note-save')?.addEventListener('click', () => {
+  const noteText = $('note-text'), noteSave = $('note-save');
+  let saveTimer = null;
+
+  /* "Ekle" boşken soluk ve devre dışı — basıldı mı basılmadı mı
+     belirsizliği biter. Metin girilince kendiliğinden aktifleşir. */
+  const syncSave = () => {
+    if (!noteSave) return;
+    noteSave.disabled = !noteText || !noteText.value.trim();
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    noteSave.textContent = 'Ekle';
+    noteSave.classList.remove('ok');
+  };
+  noteText?.addEventListener('input', syncSave);
+  syncSave();
+
+  noteSave?.addEventListener('click', () => {
+    if (!noteText) return;
     const t = $('note-time').value || '12:00';
-    const x = $('note-text').value;
-    if (PZA.addNote(t, x)) $('note-text').value = '';
+    const x = noteText.value;
+    if (!PZA.addNote(t, x)) {                     // boş metin → görünür uyarı
+      noteText.classList.add('err');
+      setTimeout(() => noteText.classList.remove('err'), 700);
+      noteText.focus();
+      return;
+    }
+    noteText.value = '';
+    syncSave();
+    noteSave.textContent = 'Eklendi ✓';            // kısa onay
+    noteSave.classList.add('ok');
+    saveTimer = setTimeout(() => {
+      noteSave.textContent = 'Ekle';
+      noteSave.classList.remove('ok');
+      saveTimer = null;
+    }, 1400);
   });
-  $('note-text')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('note-save').click(); });
+  noteText?.addEventListener('keydown', e => { if (e.key === 'Enter') noteSave.click(); });
+
+  /* ── Takvim ─────────────────────────────────────────── */
+  $('notes-day-btn')?.addEventListener('click', () => PZA.openCal());
+  $('cal-close')?.addEventListener('click', () => PZA.closeCal());
+  $('cal-today')?.addEventListener('click', () => PZA.selectDay(PZA.todayKey()));
+  $('cal-prev')?.addEventListener('click', () => PZA.calShift(-1));
+  $('cal-next')?.addEventListener('click', () => PZA.calShift(1));
+  $('notes-today')?.addEventListener('click', () => PZA.selectDay(PZA.todayKey()));
+  $('cal-grid')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-day]');
+    if (b) PZA.selectDay(b.dataset.day);
+  });
+
+  /* ── Okuyucu sesi (kadın / erkek) ────────────────────── */
+  $('voice-seg')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-voice]');
+    if (!b) return;
+    PZA.set('voice', b.dataset.voice);
+    PZA.sayNow?.();                    // seçimi hemen duyur — karşılaştırmak için
+  });
+  $('btn-say-test')?.addEventListener('click', () => PZA.sayNow?.());
+
+  /* Sesler gecikmeli yüklenirse etiketi tazele */
+  PZA.on('speech:voices', () => {
+    const el = $('voice-name');
+    if (el) el.textContent = PZA.voiceLabel ? PZA.voiceLabel(PZA.settings.voice) : '—';
+  });
 
   $('notes-list')?.addEventListener('click', e => {
     const row = e.target.closest('.note-row');
@@ -197,6 +298,7 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (!$('settings').hidden) $('settings').hidden = true;
+      else if (PZA.calOpen?.()) PZA.closeCal();
       else { PZA.closeNotes(); PZA.closeWeather(); }
     }
     if (e.key === 'n' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); PZA.toggleNotes(); }

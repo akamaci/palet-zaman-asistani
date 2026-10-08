@@ -63,16 +63,49 @@
 
   <!-- ══ AŞAĞI AÇILAN NOT PANELİ ══ -->
   <section class="panel panel-notes" id="panel-notes" hidden>
+
+    <!-- Sol sütun: tarih düğmesi + kayıt sayısı -->
     <div class="notes-head">
-      <div class="notes-date" id="notes-date">—</div>
-      <div class="notes-day" id="notes-weekday">—</div>
+      <button type="button" class="notes-day-btn" id="notes-day-btn"
+              aria-haspopup="true" aria-expanded="false" title="Başka bir günün notlarına bak">
+        <span class="notes-date" id="notes-date">—</span>
+        <span class="notes-day" id="notes-weekday">—</span>
+        <span class="notes-month" id="notes-month">—</span>
+        <span class="notes-cal-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+      </button>
       <div class="notes-count"><b id="notes-count">0</b> kayıt</div>
+      <button type="button" class="notes-today" id="notes-today" hidden>↩ Bugüne dön</button>
     </div>
-    <div class="notes-list" id="notes-list"></div>
-    <div class="notes-add">
-      <input id="note-time" type="time" value="12:00" aria-label="Saat">
-      <input id="note-text" type="text" placeholder="Not ekle…" aria-label="Not">
-      <button id="note-save">Ekle</button>
+
+    <!-- Sağ taraf: not listesi + ekleme satırı (takvim açıkken gizlenir) -->
+    <div class="notes-main" id="notes-main">
+      <div class="notes-list" id="notes-list"></div>
+      <div class="notes-add">
+        <input id="note-time" type="time" value="12:00" aria-label="Saat">
+        <input id="note-text" type="text" placeholder="Not ekle…" aria-label="Not">
+        <button id="note-save" type="button" disabled>Ekle</button>
+      </div>
+    </div>
+
+    <!-- Takvim: tarih düğmesine basınca listenin yerini alır.
+         Widget `overflow: hidden` olduğu için açılır pencere (popover)
+         DEĞİL, akış içinde bir bölme olmak zorunda. -->
+    <div class="cal" id="cal" hidden>
+      <div class="cal-head">
+        <button type="button" class="cal-nav" id="cal-prev" aria-label="Önceki ay">‹</button>
+        <div class="cal-title" id="cal-title">—</div>
+        <button type="button" class="cal-nav" id="cal-next" aria-label="Sonraki ay">›</button>
+      </div>
+      <div class="cal-dow">
+        <span>Pt</span><span>Sa</span><span>Ça</span><span>Pe</span><span>Cu</span><span>Ct</span><span>Pa</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-foot">
+        <button type="button" class="cal-btn" id="cal-today">Bugün</button>
+        <button type="button" class="cal-btn" id="cal-close">Kapat</button>
+      </div>
     </div>
   </section>
 
@@ -143,6 +176,7 @@
     <label class="row"><span>Hava Durumu Göster</span><input type="checkbox" id="opt-weather" class="sw"></label>
     <label class="row"><span>Not Başlıklarını Göster</span><input type="checkbox" id="opt-preview" class="sw"></label>
     <label class="row"><span>Saniyeyi Göster</span><input type="checkbox" id="opt-seconds" class="sw"></label>
+    <label class="row"><span>Her Zaman Üstte <i>(kapatınca diğer pencereler önüne geçebilir)</i></span><input type="checkbox" id="opt-ontop" class="sw"></label>
 
     <h4>TEMA</h4>
     <div class="seg">
@@ -152,6 +186,17 @@
 
     <h4>SESLİ OKUMA</h4>
     <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-speech" class="sw"></label>
+    <div class="voice-row">
+      <span class="voice-lbl">Okuyucu sesi</span>
+      <div class="seg voice-seg" id="voice-seg">
+        <button type="button" data-voice="female">Kadın</button>
+        <button type="button" data-voice="male">Erkek</button>
+      </div>
+    </div>
+    <div class="voice-row">
+      <span class="voice-lbl voice-name" id="voice-name">—</span>
+      <button type="button" class="lnk" id="btn-say-test">▶ Şimdi oku</button>
+    </div>
 
     <h4>KONUM</h4>
     <input id="opt-city" class="inp" type="text" placeholder="Şehir ara… (örn. Ankara)">

@@ -32,18 +32,54 @@ PZA.trClock = function (h, m) {
   return s;
 };
 
-/* ── Sesli okuma ─────────────────────────────────────── */
-let voice = null;
+/* ── Sesli okuma ─────────────────────────────────────────
+   İki okuyucu: kadın / erkek. Windows'ta hazır gelen Türkçe
+   sesler Microsoft Filiz (kadın) ve Microsoft Tolga (erkek);
+   Edge'in doğal sesleri de (Emel / Ahmet) aynı desene uyar.
+   Sistemde tek Türkçe ses varsa ikisi de aynı sesi kullanır —
+   bu yüzden perde (pitch) farkı ZORUNLU: yoksa "Erkek" seçimi
+   hiçbir şey değiştirmez ve kullanıcı bozuk sanır. */
+/* Türkçe sesler önce; İngilizce adlar YEDEK içindir (Türkçe ses
+   kurulu değilse oraya düşülür — orada da cinsiyet ters atanmasın).
+   `\b` sınırı şart: "Tom" gibi kısa adlar "Tomas"ın içinde de geçer. */
+const SES_DISI  = /(emel|filiz|dilara|yelda|seda|aylin|female|kad[ıi]n|woman|\bzira\b|\bhazel\b|\bsusan\b|\bsamantha\b|\bvictoria\b|\bkaren\b|\bmoira\b|\btessa\b|\bfiona\b|\bserena\b|\ballison\b|\bava\b|\bjoanna\b|\bsalli\b|\bamy\b|\bemma\b|\baria\b|\bjenny\b|\bmichelle\b|\bclara\b|\bnatasha\b)/i;
+const SES_ERKEK = /(tolga|ahmet|burak|male|erkek|\bdavid\b|\bmark\b|\bgeorge\b|\bdaniel\b|\balex\b|\bfred\b|\bjames\b|\bguy\b|\bryan\b|\bwilliam\b|\boliver\b|\bthomas\b|\beric\b|\bchristopher\b|\bsteffan\b|\bjorge\b)/i;
+
+const SES_AYAR = {
+  female: { pitch: 1.06, rate: 0.95 },
+  male:   { pitch: 0.78, rate: 0.92 }
+};
+
+let voice = null;                 // geriye dönük: seçili ses
+PZA.voices = { female: null, male: null };
 
 function pickVoice() {
   if (!('speechSynthesis' in window)) return null;
-  const vs = speechSynthesis.getVoices();
-  // Önce Türkçe, yoksa ilk kullanılabilir ses
-  voice = vs.find(v => v.lang && v.lang.toLowerCase().startsWith('tr'))
-       || vs.find(v => v.lang && v.lang.toLowerCase().startsWith('tr-TR'))
-       || null;
+  const hepsi = speechSynthesis.getVoices() || [];
+  const tr = hepsi.filter(v => (v.lang || '').toLowerCase().startsWith('tr'));
+  const havuz = tr.length ? tr : hepsi;     // Türkçe yoksa eldekini kullan
+
+  PZA.voices = { female: null, male: null };
+  for (const v of havuz) {
+    const ad = v.name || '';
+    if (!PZA.voices.female && SES_DISI.test(ad))  PZA.voices.female = v;
+    if (!PZA.voices.male   && SES_ERKEK.test(ad)) PZA.voices.male = v;
+  }
+  // Ada göre ayrıştırılamadıysa: ilk ses kadın, farklı bir ses erkek
+  if (!PZA.voices.female) PZA.voices.female = havuz[0] || null;
+  if (!PZA.voices.male)   PZA.voices.male = havuz.find(v => v !== PZA.voices.female) || PZA.voices.female;
+
+  voice = PZA.voices.female;
+  PZA.emit('speech:voices', PZA.voices);
   return voice;
 }
+
+/** Seçili okuyucunun ses adı — ayarlar panelinde gösterilir */
+PZA.voiceLabel = function (g) {
+  const v = PZA.voices[(g === 'male') ? 'male' : 'female'];
+  if (!v) return 'Sistem sesi bulunamadı';
+  return v.name || v.lang || 'Sistem sesi';
+};
 
 if ('speechSynthesis' in window) {
   pickVoice();
@@ -56,17 +92,23 @@ PZA.say = function (h, m) {
     console.warn('Bu ortamda speechSynthesis yok.');
     return false;
   }
+  const secim = (PZA.settings && PZA.settings.voice === 'male') ? 'male' : 'female';
+  const ayar = SES_AYAR[secim];
+
+  if (!PZA.voices.female && !PZA.voices.male) pickVoice();
+  const v = PZA.voices[secim] || PZA.voices.female || null;
+
   const metin = PZA.trClock(h, m);
   const u = new SpeechSynthesisUtterance(metin);
   u.lang = 'tr-TR';
-  u.rate = 0.95;
-  u.pitch = 1;
-  if (!voice) pickVoice();
-  if (voice) u.voice = voice;
+  u.rate = ayar.rate;
+  u.pitch = ayar.pitch;
+  if (v) u.voice = v;
 
   speechSynthesis.cancel();     // üst üste binmesin
+  speechSynthesis.resume();     // kimi motorlarda cancel sonrası takılı kalır
   speechSynthesis.speak(u);
-  PZA.emit('speech:said', { metin, h, m });
+  PZA.emit('speech:said', { metin, h, m, reader: secim, voice: v ? v.name : null });
   return true;
 };
 

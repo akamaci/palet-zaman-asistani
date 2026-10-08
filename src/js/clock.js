@@ -26,6 +26,22 @@ function setDigit(unit, value) {
 
 const p2 = n => String(n).padStart(2, '0');
 
+/* ── Saat başı okuma ─────────────────────────────────────
+   Eskiden şart `seconds === 0` idi. setInterval(1000) kayar ve
+   pencere gizlenince saat durur; o TEK saniye kaçınca okuma
+   tamamen kayboluyordu. Artık "bu saatin anonsu yapıldı mı"
+   damgası tutulur → dakika 00 boyunca ilk tick yakalar. */
+let anonsSaat = null;
+
+function saatAnonsu(d) {
+  if (!PZA.settings || !PZA.settings.speech) return;
+  if (d.getMinutes() !== 0) return;
+  const damga = `${PZA.todayKey()} ${d.getHours()}`;
+  if (anonsSaat === damga) return;
+  anonsSaat = damga;
+  PZA.say?.(d.getHours(), 0);
+}
+
 PZA.tick = function () {
   const d = new Date();
 
@@ -41,16 +57,12 @@ PZA.tick = function () {
   if (dy && dy.textContent !== '• ' + PZA.GUNLER[d.getDay()])
     dy.textContent = '• ' + PZA.GUNLER[d.getDay()];
 
-  // Notlar panelinin başlığı da güncel kalsın
-  const nd = document.getElementById('notes-date');
-  if (nd) nd.textContent = String(d.getDate());
-  const nw = document.getElementById('notes-weekday');
-  if (nw) nw.textContent = PZA.GUNLER[d.getDay()];
+  // Notlar paneli: takvimden başka bir gün seçilmiş olabilir.
+  // Her saniye yazmak seçimi ezerdi; yalnızca gün dönüşünde tazelenir.
+  PZA.checkRollover?.();
 
   // Saat başı → sesli okuma
-  if (d.getMinutes() === 0 && d.getSeconds() === 0 && PZA.settings.speech) {
-    PZA.say?.(d.getHours(), 0);
-  }
+  saatAnonsu(d);
 };
 
 PZA.startClock = function () {
