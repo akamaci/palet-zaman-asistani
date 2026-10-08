@@ -10,6 +10,7 @@
     "url": "https://github.com/akamaci/palet-zaman-asistani.git"
   },
   "scripts": {
+    "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
     "icon": "tauri icon assets/logo.png",
