@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.3.0`, ön sürüm). Kurulum testi bekliyor.
+> GitHub Actions'ta derleniyor (`v1.4.0`, ön sürüm). Kurulum testi kullanıcıda.
 
 ---
 
@@ -63,7 +63,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.3.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.4.0_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
