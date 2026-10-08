@@ -37,7 +37,7 @@ PZA.trClock = function (h, m) {
    sesler Microsoft Filiz (kadın) ve Microsoft Tolga (erkek);
    Edge'in doğal sesleri de (Emel / Ahmet) aynı desene uyar.
    Sistemde tek Türkçe ses varsa ikisi de aynı sesi kullanır —
-   bu yüzden perde (pitch) farkı ZORUNLU: yoksa "Erkek" seçimi
+   bu yüzden perde (pitch) farkı ZORUNLU: yoksa "Emre" seçimi
    hiçbir şey değiştirmez ve kullanıcı bozuk sanır. */
 /* Türkçe sesler önce; İngilizce adlar YEDEK içindir (Türkçe ses
    kurulu değilse oraya düşülür — orada da cinsiyet ters atanmasın).
@@ -74,11 +74,19 @@ function pickVoice() {
   return voice;
 }
 
-/** Seçili okuyucunun ses adı — ayarlar panelinde gösterilir */
+/* Okuyucu adları. "Kadın / Erkek" bir ayar etiketi; "Ece / Emre" iki ayrı
+   okuyucu. Kullanıcı seçimi isimle hatırlıyor, cinsiyetle değil. Hangi
+   sistem sesine denk geldiği etikette yanında kalır — teknik ayrıntı
+   kaybolmasın, sesi değiştiren kullanıcı ne olduğunu görsün. */
+PZA.OKUYUCU = { female: 'Ece', male: 'Emre' };
+
+/** Seçili okuyucunun etiketi — "Ece — Microsoft Filiz" gibi */
 PZA.voiceLabel = function (g) {
-  const v = PZA.voices[(g === 'male') ? 'male' : 'female'];
-  if (!v) return 'Sistem sesi bulunamadı';
-  return v.name || v.lang || 'Sistem sesi';
+  const anahtar = (g === 'male') ? 'male' : 'female';
+  const ad = PZA.OKUYUCU[anahtar];
+  const v = PZA.voices[anahtar];
+  if (!v) return ad + ' — sistem sesi bulunamadı';
+  return ad + ' — ' + (v.name || v.lang || 'sistem sesi');
 };
 
 if ('speechSynthesis' in window) {

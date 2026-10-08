@@ -87,7 +87,7 @@ PZA.apply = function () {
   bind('opt-ontop', s.alwaysOnTop);
   bind('opt-autostart', s.autostart);
 
-  // Okuyucu sesi: Kadın / Erkek
+  // Okuyucu: Ece / Emre
   document.querySelectorAll('[data-voice]').forEach(b =>
     b.classList.toggle('on', b.dataset.voice === (s.voice === 'male' ? 'male' : 'female')));
   const vn = document.getElementById('voice-name');
