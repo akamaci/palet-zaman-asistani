@@ -62,6 +62,8 @@ let PZA = yukle();
 esit(PZA.voices.female?.name, 'Microsoft Filiz - Turkish (Turkey)', 'kadın sesi eşleşti');
 esit(PZA.voices.male?.name, 'Microsoft Tolga - Turkish (Turkey)', 'erkek sesi eşleşti');
 dogru(PZA.voices.female !== PZA.voices.male, 'iki okuyucu FARKLI ses');
+esit(PZA.tekSes, false, 'tek ses DEĞİL → ölçülü perde');
+esit(PZA.voiceHint(), null, 'uyarı yok');
 
 PZA.settings.voice = 'female';
 PZA.say(15, 0);
@@ -75,15 +77,31 @@ esit(konusulan[1].voice?.name, 'Microsoft Tolga - Turkish (Turkey)', 'erkek: ses
 esit([konusulan[1].pitch, konusulan[1].rate], [0.78, 0.92], 'erkek: perde/hız');
 dogru(konusulan[0].pitch !== konusulan[1].pitch, 'iki okuyucu farklı perdede');
 
-console.log('\n2 · Tek Türkçe ses — perde farkı olmadan seçim işe yaramazdı');
-seslerKur([V('Microsoft Filiz - Turkish (Turkey)', 'tr-TR')]);
+console.log('\n2 · Tek Türkçe ses — kullanıcının bildirdiği asıl durum');
+// Kullanıcının sisteminde yalnız Microsoft Tolga (erkek) kuruluydu.
+// Eski kod kadını da Tolga\'ya düşürüyor, perde farkı 1.06 ↔ 0.78 ise
+// duyulmuyordu: "Ece ve Emre ikisi de erkek" hatası tam buydu.
+seslerKur([V('Microsoft Tolga - Turkish (Turkey)', 'tr-TR')]);
 PZA = yukle();
-esit(PZA.voices.female?.name, 'Microsoft Filiz - Turkish (Turkey)', 'kadın: tek sesi aldı');
-esit(PZA.voices.male?.name, 'Microsoft Filiz - Turkish (Turkey)', 'erkek: aynı sesi aldı (yedek)');
+esit(PZA.voices.female?.name, 'Microsoft Tolga - Turkish (Turkey)', 'kadın: elde kalan sesi aldı');
+esit(PZA.voices.male?.name, 'Microsoft Tolga - Turkish (Turkey)', 'erkek: aynı ses');
+esit(PZA.tekSes, true, 'tek ses kurulu olarak işaretlendi');
+
 PZA.settings.voice = 'female'; PZA.say(9, 30);
 PZA.settings.voice = 'male';   PZA.say(9, 30);
-dogru(konusulan[0].pitch !== konusulan[1].pitch,
-  'tek seste bile duyulur fark: pitch ' + konusulan[0].pitch + ' vs ' + konusulan[1].pitch);
+esit([konusulan[0].pitch, konusulan[0].rate], [1.40, 0.98], 'kadın: GENİŞ perde');
+esit([konusulan[1].pitch, konusulan[1].rate], [0.60, 0.88], 'erkek: GENİŞ perde');
+dogru(konusulan[0].pitch / konusulan[1].pitch >= 2,
+  'perde oranı ≥ 2 (duyulur ayrım), oran = ' + (konusulan[0].pitch / konusulan[1].pitch).toFixed(2));
+dogru(konusulan[0].pitch !== konusulan[1].pitch, 'iki okuyucu farklı perdede');
+
+// Etiket ve uyarı bu durumu SAKLANMADAN söyler
+dogru(PZA.voiceLabel('female').includes('perde ile ayrıştırıldı'),
+  'Ece etiketi perde ayrımını bildiriyor → ' + PZA.voiceLabel('female'));
+dogru(PZA.voiceLabel('male').startsWith('Emre'), 'Emre etiketi adla başlıyor');
+dogru(typeof PZA.voiceHint() === 'string' && PZA.voiceHint().length > 0, 'uyarı metni var');
+dogru(PZA.voiceHint().includes('Microsoft Tolga'), 'uyarı hangi sesin paylaşıldığını yazıyor');
+dogru(PZA.voiceHint().includes('Filiz'), 'uyarı kadın sesi kurulumunu tarif ediyor');
 
 console.log('\n3 · Türkçe ses yok → eldeki seslere düşer');
 seslerKur([V('Microsoft David - English (US)', 'en-US'), V('Microsoft Zira - English (US)', 'en-US')]);
@@ -92,11 +110,13 @@ dogru(!!PZA.voices.female, 'kadın: yedek atandı → ' + PZA.voices.female?.nam
 dogru(!!PZA.voices.male, 'erkek: yedek atandı → ' + PZA.voices.male?.name);
 dogru(PZA.voices.female !== PZA.voices.male, 'yedekler farklı sesler');
 esit(PZA.voices.male?.name, 'Microsoft David - English (US)', 'erkek: David (erkek adı) seçildi');
+esit(PZA.tekSes, false, 'iki farklı yedek → tek ses değil');
 
 console.log('\n4 · Hiç ses yok — çökmemeli');
 seslerKur([]);
 PZA = yukle();
 esit([PZA.voices.female, PZA.voices.male], [null, null], 'boş liste → null');
+esit(PZA.tekSes, false, 'ses yokken tek-ses bayrağı kapalı');
 esit(PZA.voiceLabel('female'), 'Ece — sistem sesi bulunamadı', 'etiket: ses yok, ad yine görünür');
 dogru(PZA.say(12, 0) === true, 'konuşma yine de denenir (çökme yok)');
 esit(konusulan.at(-1).text, 'saat on iki', 'metin doğru üretildi');

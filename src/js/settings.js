@@ -96,6 +96,14 @@ PZA.apply = function () {
     b.classList.toggle('on', b.dataset.voice === (s.voice === 'male' ? 'male' : 'female')));
   const vn = document.getElementById('voice-name');
   if (vn) vn.textContent = PZA.voiceLabel ? PZA.voiceLabel(s.voice) : '—';
+  // Tek Türkçe ses kuruluysa perde ayrımını ve nasıl ikinci ses
+  // kurulacağını açıkça yaz; yoksa "ses değişmiyor" sanılıyor.
+  const vh = document.getElementById('voice-hint');
+  if (vh) {
+    const ipucu = PZA.voiceHint ? PZA.voiceHint() : null;
+    vh.textContent = ipucu || '';
+    vh.hidden = !ipucu;
+  }
 
   document.querySelectorAll('[data-theme-set]').forEach(b =>
     b.classList.toggle('on', b.dataset.themeSet === s.theme));

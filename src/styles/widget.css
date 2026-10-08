@@ -413,23 +413,18 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 }
 @keyframes drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
-/* Notlar
-   YERLEŞİM: [ başlık sütunu | notes-main ]
-   `notes-main` sarmalayıcısı ŞART: eskiden liste ve ekleme satırı
-   başlıkla birlikte üç ayrı flex öğesiydi, bu yüzden ekleme satırı
-   yan sütuna sıkışıyor ve liste metni karakter karakter sarıyordu. */
-.panel-notes { display: flex; }
-.notes-head {
-  flex: none; width: 34%; min-width: 150px;
-  padding: 14px var(--pad);
-  border-right: 1px solid var(--divider);
-  display: flex; flex-direction: column; gap: 9px;
-}
+/* Notlar — randevu listesi düzeni (kullanıcı taslağı)
+   YERLEŞİM: [ başlık + takvim ] → [ özet ] → [ 00:00-24:00 ızgarası ]
+   Eskiden [ başlık sütunu | liste ] iki sütunluydu; başlık geniş bir
+   blok kaplıyor, liste dar bir şeride sıkışıyordu. */
+.panel-notes { display: block; position: relative; }
 
-/* Tarih düğmesi — takvimi açar */
+.nt-head { display: flex; align-items: center; gap: 10px; padding: 10px var(--pad) 6px; }
+
+/* Tarih düğmesi — gün + saat seçme katmanını açar */
 .notes-day-btn {
-  position: relative; display: block; width: 100%;
-  padding: 9px 28px 9px 11px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 12px 6px 10px;
   font: inherit; text-align: left; cursor: pointer; color: inherit;
   background: var(--surface-1);
   border: 1px solid var(--border-ctl);
@@ -441,53 +436,81 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 /* Bugünden farklı bir güne bakılıyor → sol kenarda vurgu şeridi */
 .notes-day-btn.other { border-left: 3px solid var(--accent); }
 
-.notes-date { display: block; font-family: var(--font-num); font-size: 24px; font-weight: 800; line-height: 1.05; color: var(--fg); }
-.notes-day { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; color: var(--warn); }
-.notes-month { display: block; font-size: 9.5px; color: var(--fg-mute); margin-top: 1px; }
-.notes-cal-ico {
-  position: absolute; top: 50%; right: 9px; transform: translateY(-50%);
-  width: 14px; height: 14px; color: var(--accent-strong); opacity: .85;
-}
+.notes-date { font-family: var(--font-num); font-size: 26px; font-weight: 800; line-height: 1; color: var(--fg); }
+.nt-mw { display: flex; flex-direction: column; gap: 1px; }
+.notes-month { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg); }
+.notes-day { font-size: 9.5px; letter-spacing: .08em; color: var(--warn); }
+.notes-cal-ico { width: 15px; height: 15px; color: var(--accent-strong); opacity: .9; }
 .notes-cal-ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 
-.notes-count { font-size: 10px; color: var(--fg-mute); }
-.notes-count b { color: var(--fg-dim); font-family: var(--font-num); }
 .notes-today {
-  font: inherit; font-size: 10px; cursor: pointer; align-self: flex-start;
+  margin-left: auto;
+  font: inherit; font-size: 10px; cursor: pointer;
   padding: 4px 9px; border-radius: 7px;
   color: var(--accent-strong); background: var(--surface-chip);
   border: 1px solid var(--accent-soft);
 }
 .notes-today:hover { border-color: var(--accent); }
 
-.notes-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-/* `flex: 1 1 auto` — `flex: 1` (basis 0) DEĞİL: sütun flex'te
-   temel boyut 0 olunca liste, yüksekliği auto olan kapsayıcıda
-   içeriğe göre değil sıfıra göre hesaplanır. basis auto hem
-   içeriği taşır hem de kapsayıcı uzarsa boşluğu doldurur. */
-.notes-list { flex: 1 1 auto; min-width: 0; min-height: 0; padding: 8px 0; max-height: 250px; overflow-y: auto; }
-.notes-empty { padding: 18px var(--pad); color: var(--fg-mute); font-size: 12px; line-height: 1.5; }
-.note-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px var(--pad);
-  border-bottom: 1px solid var(--divider-soft);
-  font-size: 12px;
+.notes-main { display: block; }
+
+.nt-sum { margin: 2px var(--pad) 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--fg); }
+.nt-sum b { font-family: var(--font-num); color: var(--accent-strong); }
+.nt-sub { margin: 3px var(--pad) 8px; font-size: 11px; color: var(--fg-mute); }
+
+/* ── ZAMAN IZGARASI ───────────────────────────────────────
+   00:00 → 24:00 arası 30 dakikalık dilimler. Her SATIR iki dilim
+   taşır: solda 1. yarı, sağda 2. yarı (12 saat sonrası). Satırlar
+   eşleştirilmiş — bir taraftaki not çipi satırı büyütünce öbür
+   sütunun saatleri kaymasın diye. Tek kaydırma çubuğu ikisini
+   birlikte kaydırır. */
+.nt-grid {
+  display: flex; flex-direction: column;
+  padding: 0 var(--pad) 10px;
+  max-height: 250px; overflow-y: auto; overscroll-behavior: contain;
 }
-.note-row:last-child { border-bottom: 0; }
-.note-row .t { font-family: var(--font-num); color: var(--accent-strong); flex: none; }
-.note-row .x { flex: 1; color: var(--fg-dim); }
-.note-row.starred .x { color: var(--fg); }
+.nt-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px;
+  border-bottom: 1px solid var(--divider-soft);
+}
+.nt-slot {
+  display: grid; grid-template-columns: 44px 1fr; align-items: start;
+  gap: 8px; min-height: 25px; padding: 3px 0;
+}
+.nt-slot .nt-t { font-family: var(--font-num); font-size: 11px; line-height: 1.6; color: var(--fg-mute); }
+.nt-slot.has .nt-t { color: var(--accent-strong); }
+/* Şimdiki saat dilimi — hangi saatte olduğun ızgarada belli olsun */
+.nt-slot.now { background: var(--today-bg); }
+.nt-slot.now .nt-t { color: var(--accent-strong); font-weight: 700; }
+.nt-items { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+/* Not satırı — dilim içinde. `.note-row` sınıfı KORUNUYOR: app.js'teki
+   tıklama devri (sil / yıldızla) ve önizleme şeridinin `flash`
+   işareti bu sınıfa bağlı, değiştirmek ikisini de sessizce kırardı. */
+.nt-items .note-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 7px; font-size: 11.5px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-ctl);
+  border-radius: 7px;
+}
+.nt-items .note-row.starred { border-color: var(--accent-soft); }
+.nt-items .note-row .nt-x {
+  flex: 1; min-width: 0; color: var(--fg);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nt-items .note-row .t { flex: none; font-family: var(--font-num); font-size: 10px; color: var(--fg-mute); }
+.nt-items .note-row .del { flex: none; opacity: 0; cursor: pointer; color: var(--fg-mute); font-size: 11px; }
+.nt-items .note-row:hover .del { opacity: 1; }
+.nt-items .note-row .star { cursor: pointer; }
+/* Önemli rozeti — not çipinde de görünür */
 .note-row .tag {
   font-size: 9px; padding: 1px 5px; border-radius: 4px;
   background: var(--surface-chip); color: var(--accent-strong); flex: none;
 }
-.note-row .del { flex: none; opacity: 0; cursor: pointer; color: var(--fg-mute); font-size: 12px; }
-.note-row:hover .del { opacity: 1; }
-.note-row .star { cursor: pointer; }
 
-/* `margin-top: auto` — başlık sütunu listeden uzunsa ekleme satırı
-   boşlukta asılı kalmasın, panelin altına yapışsın. */
-.notes-add { display: flex; gap: 6px; padding: 8px var(--pad); margin-top: auto; border-top: 1px solid var(--divider); }
+/* Ekleme satırı — gün/saat seçme katmanının içinde (`.nt-sheet`) */
+.notes-add { display: flex; gap: 6px; padding: 8px var(--pad); border-top: 1px solid var(--divider); }
 .notes-add input {
   font: inherit; font-size: 11px; color: var(--fg);
   background: var(--surface-sunk);
@@ -516,13 +539,51 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 /* Onay her zaman net okunsun — soluklaştırma kuralını geçersiz kılar */
 .notes-add button.ok:disabled { opacity: 1; cursor: default; }
 
-/* ── TAKVİM ───────────────────────────────────────────────
-   Not listesinin YERİNİ alır (açılır pencere değil): `.widget`
-   `overflow: hidden` olduğundan dışarı taşan bir popover kırpılırdı. */
-/* Takvim ortalanmış dar bir sütun: hücreler kare (aspect-ratio),
-   panel genişliği 900px'i bulduğunda 7 kare sütun 500px yüksekliğe
-   çıkardı. Genişlik sınırlanınca ızgara 6 × ~36px kalır. */
-.cal { flex: 1; min-width: 0; padding: 10px var(--pad) 12px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+/* ── GÜN + SAAT SEÇME KATMANI ─────────────────────────────
+   Not listesinin ÜSTÜNE oturur (gerçek popover değil): `.widget`
+   `overflow: hidden` olduğundan pencere dışına taşan bir kutu
+   kırpılırdı. Katman panelin içinde kaldığı sürece sorun yok.
+   `backdrop-filter` YOK — dosyanın başındaki kaynak kuralı gereği
+   bulanıklık yerine düz zemin kullanılır. */
+.nt-sheet {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px;
+  background: var(--surface-panel);
+  animation: drop .18s ease-out;
+}
+.nt-sheet-in {
+  width: 100%; max-width: 300px; max-height: 100%;
+  /* SÜTUN flex + yalnız takvim ızgarası kaydırılır. Katmanın
+     tamamını kaydırmak "Kapat" düğmesini ekranın altına itiyordu —
+     kullanıcının ayarlar başlığı için bildirdiği hatanın aynısı. */
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+  border: 1px solid var(--edge); border-radius: 14px;
+  box-shadow: 0 18px 40px -12px var(--shadow);
+}
+.nt-sheet .cal-head,
+.nt-sheet .cal-dow,
+.nt-sheet .cal-foot,
+.nt-sheet .notes-add { flex: none; }
+.nt-sheet .cal-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Katman açıkken panel en az katmanı alacak yükseklikte kalsın;
+   yoksa katman kırpılır. Değer katmanın doğal yüksekliğine göre
+   seçildi: normalde iç kaydırma hiç devreye girmez. */
+.panel-notes.sheet { min-height: 428px; }
+.nt-sheet .notes-add {
+  width: 100%; max-width: 252px;
+  display: grid; grid-template-columns: 78px 1fr; gap: 6px;
+  padding: 0; margin: 4px 0 0; border-top: 0;
+}
+.nt-sheet .notes-add input[type="time"] { width: auto; }
+/* Ekle düğmesi tam satır: dar sütunda yan yana sığmıyor */
+.nt-sheet .notes-add button { grid-column: 1 / -1; min-width: 0; }
+
+/* ── TAKVİM IZGARASI ──────────────────────────────────────
+   Ortalanmış dar bir sütun: hücreler kare (aspect-ratio) ve
+   genişlik sınırlanmazsa 7 kare sütun 500px yüksekliğe çıkardı. */
 .cal-head, .cal-dow, .cal-grid, .cal-foot { width: 100%; max-width: 252px; }
 .cal-head { display: flex; align-items: center; gap: 8px; }
 .cal-title { flex: 1; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--fg); }
@@ -663,10 +724,17 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
   font-size: 12px;
   z-index: 50;
 }
+/* `position: sticky` — panel `overflow-y: auto` ile kaydığı için
+   başlık gövdeyle birlikte yukarı kayıp görünmez oluyordu; kullanıcı
+   kapatma düğmesine (✕) ulaşamadığını bildirdi. Zemin ŞART: saydam
+   kalırsa alttan geçen gövde yazısı başlığın üstünde okunur. */
 .set-head {
+  position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; gap: 9px;
   padding: 13px 16px;
+  background: var(--bg-1);
   border-bottom: 1px solid var(--edge-soft);
+  box-shadow: 0 8px 14px -10px var(--shadow);
   font-size: 12px; letter-spacing: .1em;
 }
 .set-head .ico { color: var(--accent-strong); }
@@ -741,6 +809,17 @@ label.radio input { accent-color: var(--accent); }
 .voice-name { color: var(--fg-mute); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .voice-seg { flex: none; width: 132px; }
 .voice-seg button { padding: 6px; font-size: 10.5px; }
+/* Tek Türkçe ses kuruluysa çıkan uyarı — satır değil blok, çünkü
+   cümle uzun ve sarması gerekir. */
+.voice-hint {
+  margin: 8px 0 0;
+  padding: 7px 9px;
+  font-size: 10px; line-height: 1.5;
+  color: var(--fg-dim);
+  background: var(--surface-chip);
+  border-left: 2px solid var(--warn);
+  border-radius: 0 7px 7px 0;
+}
 
 .inp {
   width: 100%; font: inherit; font-size: 11px;
@@ -773,7 +852,10 @@ label.radio input { accent-color: var(--accent); }
 .set-foot .lnk { background: none; border: 0; color: var(--accent-strong); font: inherit; cursor: pointer; text-decoration: underline; }
 
 /* Önizlemeden not satırına atlama vurgusu */
-@keyframes flash-bg { 0%, 100% { background: transparent; } 30% { background: var(--alert-bg); } }
+/* Önizleme şeridinden bir nota tıklanınca ilgili çip vurgulanır.
+   Zemin yerine KENAR rengi oynatılıyor: çip artık kendi zeminini
+   taşıyor, zemini animasyonla değiştirmek çipi kaybolur gösterirdi. */
+@keyframes flash-bg { 0%, 100% { border-color: var(--border-ctl); } 30% { border-color: var(--accent); } }
 .note-row.flash { animation: flash-bg .9s ease; }
 
 /* Metin seçimi yalnız girdi alanlarında */

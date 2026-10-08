@@ -15,17 +15,25 @@
     } catch (e) { console.warn('invoke ' + cmd, e); return null; }
   }
 
-  /* ── Tauri: pencere yüksekliğini içeriğe uydur ─────────
+  /* ── Tauri: pencereyi içeriğe uydur ────────────────────
      Notlar/hava paneli açılınca widget uzar. Sabit pencere
-     yüksekliği paneli kırpardı. Yalnızca YÜKSEKLİK değiştirilir;
-     genişliğe dokunmak pencere↔içerik geri besleme döngüsü kurar. */
+     yüksekliği paneli kırpardı.
+
+     GENİŞLİK DE uydurulur. Eskiden yalnız yükseklik değişirdi ve
+     pencere 960px'te kalırdı; widget 480px iken iki yanda ~240px
+     görünmez şerit kalıyor, masaüstü tıklamalarını yutuyordu.
+     Ölçülen şey widget'ın ÇİZGİLENMİŞ genişliği değil, CSS'teki
+     `max-width`'i: çizilmiş genişlik pencereye bağlı olduğu için
+     onu ölçmek pencere↔içerik geri besleme döngüsü kurar.
+     `max-width` ise `data-size`'a bağlı sabit bir sayıdır. */
   if (TAURI) {
-    let sonH = 0;
+    let sonH = 0, sonG = 0;
+    const EN_AZ_G = 320;      // alt sınır: bundan darı okunmaz
 
     /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
        (Ayarlar / Stüdyo). Bu ikisi #widget'ın KARDEŞİ ve
        `position: fixed`: widget'ı büyütmedikleri için tek başına
-       ResizeObserver yetmez — 430px'lik pencerede kırpılırlardı. */
+       ResizeObserver yetmez — kırpılırlardı. */
     const gerekliH = () => {
       let h = 0;
       const w = document.getElementById('widget');
@@ -37,10 +45,35 @@
       return Math.ceil(h);
     };
 
+    /* Gereken genişlik = widget'ın ölçek sınırı veya açık panelin
+       sabit genişliği (Ayarlar 412px, Stüdyo 470px). Paneller
+       `position: fixed` ve genişlikleri sabit olduğundan bu sayı
+       pencere boyutundan bağımsızdır — döngü kurmaz. */
+    const gerekliG = () => {
+      let g = 0;
+      const w = document.getElementById('widget');
+      if (w) {
+        const m = parseFloat(getComputedStyle(w).maxWidth);
+        if (isFinite(m) && m > 0) g = m;
+      }
+      for (const id of ['settings', 'studio']) {
+        const el = document.getElementById(id);
+        if (el && !el.hidden) {
+          const r = el.getBoundingClientRect().width;
+          if (r > 0) g = Math.max(g, r);
+        }
+      }
+      return Math.ceil(g);
+    };
+
     const fit = async () => {
       let h = gerekliH();
-      if (!h || Math.abs(h - sonH) < 3) return;   // titremeyi önle
-      sonH = h;
+      let g = Math.max(EN_AZ_G, gerekliG());
+      // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma. Ölçülen pencere
+      // boyutuyla karşılaştırılsaydı kullanıcının elle yeniden
+      // boyutlandırması her turda geri alınırdı.
+      if (!h || (Math.abs(h - sonH) < 3 && Math.abs(g - sonG) < 3)) return;
+      sonH = h; sonG = g;
       try {
         const win = window.__TAURI__.window;
         const w = win.getCurrentWindow();
@@ -53,7 +86,7 @@
             if (enFazla > 240) h = Math.min(h, enFazla);
           }
         } catch (e) { /* monitör bilgisi alınamadı */ }
-        await w.setSize(new win.LogicalSize(document.documentElement.clientWidth, h));
+        await w.setSize(new win.LogicalSize(g, h));
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
 
@@ -217,6 +250,10 @@
     }
     noteText.value = '';
     syncSave();
+    /* Katman kapanır: onay "Eklendi ✓" yazısı değil, notun az önce
+       seçilen dilimde görünmesi. Katman açık kalsaydı kullanıcı
+       sonucu göremezdi. */
+    PZA.closeCal();
     noteSave.textContent = 'Eklendi ✓';            // kısa onay
     noteSave.classList.add('ok');
     saveTimer = setTimeout(() => {
@@ -227,16 +264,18 @@
   });
   noteText?.addEventListener('keydown', e => { if (e.key === 'Enter') noteSave.click(); });
 
-  /* ── Takvim ─────────────────────────────────────────── */
+  /* ── Takvim / gün+saat seçme katmanı ────────────────── */
   $('notes-day-btn')?.addEventListener('click', () => PZA.openCal());
   $('cal-close')?.addEventListener('click', () => PZA.closeCal());
-  $('cal-today')?.addEventListener('click', () => PZA.selectDay(PZA.todayKey()));
+  // Katman içindeki "Bugün" ve gün hücreleri SEÇİMİ değiştirir, katmanı
+  // kapatmaz: kullanıcı tarih ile saati aynı yerde belirliyor.
+  $('cal-today')?.addEventListener('click', () => PZA.secimGun(PZA.todayKey()));
   $('cal-prev')?.addEventListener('click', () => PZA.calShift(-1));
   $('cal-next')?.addEventListener('click', () => PZA.calShift(1));
   $('notes-today')?.addEventListener('click', () => PZA.selectDay(PZA.todayKey()));
   $('cal-grid')?.addEventListener('click', e => {
     const b = e.target.closest('[data-day]');
-    if (b) PZA.selectDay(b.dataset.day);
+    if (b) PZA.secimGun(b.dataset.day);
   });
 
   /* ── Okuyucu sesi (kadın / erkek) ────────────────────── */

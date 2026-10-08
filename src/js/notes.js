@@ -48,11 +48,21 @@ PZA.isoOf = function (y, m, d) {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
 };
 
-/** Başka bir güne geç */
+/** Başka bir güne geç — katmanı KAPATIR (başlıktaki ↩ ve dış çağrılar) */
 PZA.selectDay = function (key) {
   PZA.activeDay = key || PZA.todayKey();
   PZA.closeCal();
   PZA.renderNotes();
+  PZA.emit('day:changed', PZA.activeDay);
+};
+
+/** Gün + saat seçme katmanı AÇIKKEN gün değiştir — katman açık kalır.
+    Kullanıcı taslağı "saat ve tarih tek seferde seçilir" diyor;
+    `selectDay` katmanı kapatıp saati seçtirmezdi. */
+PZA.secimGun = function (key) {
+  PZA.activeDay = key || PZA.todayKey();
+  PZA.renderNotes();
+  PZA.renderCal();          // seçili hücre işaretlensin
   PZA.emit('day:changed', PZA.activeDay);
 };
 
@@ -99,7 +109,7 @@ PZA.renderPreview = function () {
     const bugun = (PZA.activeDay || PZA.todayKey()) === PZA.todayKey();
     const m = PZA.dayMeta(PZA.activeDay || PZA.todayKey());
     const kim = bugun ? 'Bugün' : `${m.d} ${m.ay}`;
-    bar.innerHTML = `<span style="color:var(--fg-mute);font-size:11px">${kim} için not yok — sağdaki oktan ekleyin.</span>`;
+    bar.innerHTML = `<span style="color:var(--fg-mute);font-size:11px">${kim} için not yok — notlar düğmesinden ekleyin.</span>`;
     return;
   }
 
@@ -146,34 +156,141 @@ PZA.checkRollover = function () {
   return true;
 };
 
-/** Açılır panel: sol tarih sütunu + sağ zaman çizelgesi */
+/* ── Zaman ızgarası ───────────────────────────────────────
+   00:00 → 24:00 arası 30 dakikalık dilimler. Tek sıra hâlinde
+   soldan sağa akar: ilk yarı sol sütun, ikinci yarı sağ sütun.
+   Kaydırma çubuğu ikisini birlikte kaydırır (kullanıcı isteği). */
+const DILIM_DK  = 30;
+const DILIM_SAY = (24 * 60) / DILIM_DK;          // 48
+
+/** "09:50" → 570. Notun düştüğü dilimin BAŞLANGICI (aşağı yuvarlar):
+    yukarı yuvarlamak notu gerçek saatinden sonraki dilimde
+    gösterirdi. Gerçek saat çipin üstünde yazılı kalır.
+    PZA'ya bağlı: testler dilim matematiğini doğrudan sınar. */
+function dilimle(t) {
+  const [h, m] = String(t || '00:00').split(':').map(Number);
+  return Math.floor(((h || 0) * 60 + (m || 0)) / DILIM_DK) * DILIM_DK;
+}
+PZA.dilimle = dilimle;
+
+/** 570 → "09:30" */
+function dkSaat(dk) {
+  return String(Math.floor(dk / 60)).padStart(2, '0') + ':' + String(dk % 60).padStart(2, '0');
+}
+PZA.dkSaat = dkSaat;
+
+/** Tek bir dilimin HTML'i. `kayitlar` o dilime düşen notlar.
+    Not tam dilim sınırındaysa çipin saatini YAZMAYIZ — dilim başlığı
+    zaten aynı saati gösteriyor, tekrar görsel gürültüdür. Sınırda
+    değilse (12:35 → 12:30 dilimi) gerçek saat tek yerde buradan
+    okunur, o yüzden şart. */
+function slotHtml(dk, kayitlar, simdi) {
+  const etiket = dkSaat(dk);
+
+  const satirlar = kayitlar.map(n => `
+    <div class="note-row ${n.star ? 'starred' : ''}" data-t="${esc(n.t)}" data-x="${esc(n.x)}">
+      ${STAR.replace('class="star"', 'class="star' + (n.star ? ' on' : '') + '"')}
+      <span class="nt-x">${esc(n.x)}</span>
+      ${n.t === etiket ? '' : `<span class="t">${esc(n.t)}</span>`}
+      ${n.star ? '<span class="tag">Önemli</span>' : ''}
+      <span class="del" title="Sil">✕</span>
+    </div>`).join('');
+
+  return `<div class="nt-slot ${kayitlar.length ? 'has' : ''} ${simdi ? 'now' : ''}"
+      data-dk="${dk}" role="listitem">
+      <span class="nt-t">${etiket}</span>
+      <div class="nt-items">${satirlar}</div>
+    </div>`;
+}
+
+/** Özet alt satırı. Taslaktaki "10 dk. önce bildirim alacaksınız"
+    cümlesi BİLEREK yok: uygulamada bildirim özelliği yok, olmayan
+    bir davranışı vaat eden yazı yazılmaz. */
+function renderSub(list) {
+  const el = document.getElementById('notes-sub');
+  if (!el) return;
+  if (!list.length) {
+    el.textContent = 'Eklemek için soldaki tarih düğmesine dokunun.';
+    return;
+  }
+  const onemli = list.filter(n => n.star).length;
+  const parca = [];
+  parca.push(onemli
+    ? onemli + ' tanesi önemli işareti taşıyor'
+    : 'Önemli işaretli kayıt yok');
+  parca.push('30 dakikalık dilimler');
+  el.textContent = parca.join(' · ');
+}
+
+/* Açılışta ızgaranın kaydırıldığı gün. Her not işleminde yeniden
+   kaydırmak kullanıcının baktığı yeri elinden alırdı; yalnızca gün
+   değişince bir kez kaydırılır. */
+let kaydirilanGun = null;
+
+/** Açılır panel: başlık → özet → 00:00-24:00 zaman ızgarası */
 PZA.renderNotes = function () {
   PZA.renderPreview();
   PZA.renderDayHead();
 
-  const listEl = document.getElementById('notes-list');
-  const cntEl = document.getElementById('notes-count');
-  if (!listEl) return;
+  const gridEl = document.getElementById('notes-list');
+  if (!gridEl) return;
 
+  const key  = PZA.activeDay || PZA.todayKey();
   const list = PZA.dayNotes();
-  if (cntEl) cntEl.textContent = list.length;
 
-  if (!list.length) {
-    const bugun = (PZA.activeDay || PZA.todayKey()) === PZA.todayKey();
-    listEl.innerHTML = '<div class="notes-empty">'
-      + (bugun ? 'Bugün için not yok.' : 'Bu güne ait not yok.')
-      + ' Aşağıdaki alandan ekleyebilirsiniz.</div>';
-    return;
+  // `textContent` doğrudan atanır: sayı `#notes-count` içinde durur,
+  // özet cümlesi HTML'de sabittir (dış veri içermez).
+  const cntEl = document.getElementById('notes-count');
+  if (cntEl) cntEl.textContent = list.length;
+  renderSub(list);
+
+  // Dilim → o dilime düşen notlar
+  const kova = new Map();
+  for (const n of list) {
+    const d = dilimle(n.t);
+    if (!kova.has(d)) kova.set(d, []);
+    kova.get(d).push(n);
   }
 
-  listEl.innerHTML = list.map(n => `
-    <div class="note-row ${n.star ? 'starred' : ''}" data-t="${esc(n.t)}" data-x="${esc(n.x)}">
-      ${STAR.replace('class="star"', 'class="star' + (n.star ? ' on' : '') + '"')}
-      <span class="t">${esc(n.t)}</span>
-      <span class="x">${esc(n.x)}</span>
-      ${n.star ? '<span class="tag">Önemli</span>' : ''}
-      <span class="del" title="Sil">✕</span>
-    </div>`).join('');
+  // "Şimdi" yalnızca bugün görüntülenirken işaretlenir
+  let simdiDilim = -1;
+  if (key === PZA.todayKey()) {
+    const d = new Date();
+    simdiDilim = Math.floor((d.getHours() * 60 + d.getMinutes()) / DILIM_DK) * DILIM_DK;
+  }
+
+  /* Satırlar EŞLEŞTİRİLEREK çizilir: her satırda solda 1. yarı, sağda
+     2. yarı (12 saat sonrası). İki bağımsız sütun olsaydı bir taraftaki
+     not çipi satırı büyütür, öbür sütun kayar ve saatler hizasız
+     görünürdü. */
+  const yariDk = (DILIM_SAY / 2) * DILIM_DK;
+  const satirlar = [];
+  for (let d = 0; d < yariDk; d += DILIM_DK) {
+    const sag = d + yariDk;
+    satirlar.push('<div class="nt-row">'
+      + slotHtml(d, kova.get(d) || [], d === simdiDilim)
+      + slotHtml(sag, kova.get(sag) || [], sag === simdiDilim)
+      + '</div>');
+  }
+  gridEl.innerHTML = satirlar.join('');
+
+  /* Gün değiştiyse anlamlı yere kaydır: en erken not, yoksa şimdiki
+     saat. DİKKAT: DOM'daki ilk `.has` yanlış hedeftir — satırlar
+     eşleştirilmiş olduğundan DOM sırası 00:00, 12:00, 00:30, 12:30…
+     diye gider; saat sırasına göre en erken not aranır.
+     `clientHeight > 0` ŞART: panel kapalıyken ölçüler sıfır çıkar,
+     kaydırma boşa gider ve gün "işlenmiş" sayılıp bir daha denenmez. */
+  if (kaydirilanGun !== key && gridEl.clientHeight > 0
+      && typeof gridEl.scrollTop === 'number'
+      && typeof gridEl.querySelector === 'function') {
+    kaydirilanGun = key;
+    const notlar = [...kova.keys()].sort((a, b) => a - b);
+    const hedefDk = notlar.length ? notlar[0] : simdiDilim;
+    const hedef = hedefDk >= 0 ? gridEl.querySelector(`.nt-slot[data-dk="${hedefDk}"]`) : null;
+    if (hedef) {
+      gridEl.scrollTop = Math.max(0, hedef.offsetTop - gridEl.clientHeight / 2 + hedef.offsetHeight / 2);
+    }
+  }
 };
 
 /* ── Panel aç/kapa ───────────────────────────────────── */
@@ -184,7 +301,14 @@ PZA.toggleNotes = function (force) {
 
   panel.hidden = !open;
   btn.setAttribute('aria-expanded', String(open));
-  if (open) { PZA.closeWeather?.(); PZA.closeCal(); }   // her açılışta liste görünsün
+  if (open) {
+    PZA.closeWeather?.(); PZA.closeCal();   // her açılışta liste görünsün
+    /* Açılışta tazele: ızgara kapalıyken çizilmişse kaydırma
+       yapılamamıştır (yükseklik 0) ve bu arada gün değişmiş olabilir.
+       `kaydirilanGun` sıfırlanınca ızgara ilk dolu dilime kayar. */
+    kaydirilanGun = null;
+    PZA.renderNotes();
+  }
   PZA.emit('panel:notes', open);
 };
 
@@ -205,16 +329,30 @@ PZA.openCal = function (on) {
   const ac = on !== undefined ? on : cal.hidden;
 
   cal.hidden = !ac;
-  const main = document.getElementById('notes-main');
-  if (main) main.hidden = ac;
+  /* Not listesi GİZLENMEZ: katman onun üstüne oturuyor ve panelin
+     yüksekliğini listeden alıyor. Gizlenirse panel sıfıra iner,
+     `inset: 0` katmanı da kırpılırdı. */
+  document.getElementById('panel-notes')?.classList.toggle('sheet', ac);
   document.getElementById('notes-day-btn')?.setAttribute('aria-expanded', String(ac));
 
   if (ac) {
-    const [y, m] = String(PZA.activeDay || PZA.todayKey()).split('-').map(Number);
+    const key = PZA.activeDay || PZA.todayKey();
+    const [y, m] = String(key).split('-').map(Number);
     PZA.calY = y; PZA.calM = m - 1;      // her açılışta seçili ayda başla
     PZA.renderCal();
+    // Saat alanını hazırla: bugüne bakılıyorsa şimdiki saat, başka
+    // güne bakılıyorsa 09:00. Kullanıcı çoğu kez bunu değiştirmez.
+    const saat = document.getElementById('note-time');
+    if (saat) saat.value = key === PZA.todayKey() ? PZA.simdiSaat() : '09:00';
   }
   PZA.emit('calendar:toggle', ac);
+};
+
+/** Şimdiki saat, sonraki yarım saate yuvarlı — "09:41" → "10:00" */
+PZA.simdiSaat = function () {
+  const d = new Date();
+  const dk = Math.ceil((d.getHours() * 60 + d.getMinutes()) / DILIM_DK) * DILIM_DK;
+  return dk >= 24 * 60 ? '23:30' : dkSaat(dk);
 };
 
 PZA.closeCal = function () { PZA.openCal(false); };

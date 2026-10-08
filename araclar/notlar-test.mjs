@@ -24,6 +24,7 @@ let bad = 0, iyi = 0;
 const ok  = m => { iyi++; console.log('  OK   ' + m); };
 const bad_ = m => { bad++; console.log('  X    ' + m); };
 const esit = (a, b, m) => (JSON.stringify(a) === JSON.stringify(b)) ? ok(m + ' = ' + JSON.stringify(a)) : bad_(m + ' → beklenen ' + JSON.stringify(b) + ', gelen ' + JSON.stringify(a));
+const dogru = (c, m) => c ? ok(m) : bad_(m + ' (şart sağlanmadı)');
 
 /* ── Sahte ortam ─────────────────────────────────────── */
 const store = new Map();
@@ -168,6 +169,60 @@ PZA.tick();
 esit(adet(), 2, 'ayar kapalıyken okuma yok');
 
 g.Date = GercekDate;
+
+console.log('\n7 · Zaman ızgarası (00:00-24:00, 30 dk dilim, iki sütun)');
+esit([PZA.dkSaat(0), PZA.dkSaat(570), PZA.dkSaat(1410)], ['00:00', '09:30', '23:30'], 'dkSaat');
+// Aşağı yuvarlama: not gerçek saatinden SONRAKİ dilimde görünmemeli
+esit(PZA.dilimle('09:50'), 570, 'dilimle 09:50 → 09:30 (aşağı)');
+esit(PZA.dilimle('00:00'), 0, 'dilimle 00:00 → 0');
+esit(PZA.dilimle('23:59'), 1410, 'dilimle 23:59 → 23:30 (gün taşmaz)');
+esit(PZA.dilimle(undefined), 0, 'dilimle boş değer → 0');
+
+PZA.selectDay('2026-10-09');
+PZA.notes['2026-10-09'] = [
+  { t: '10:00', x: 'Sunum yapılacak', star: true },
+  { t: '12:35', x: 'Japon iş adamlarıyla yemek', star: false }
+];
+PZA.renderNotes();
+const izgaraHtml = el('notes-list').innerHTML;
+esit((izgaraHtml.match(/class="nt-slot/g) || []).length, 48, '48 dilim (24 saat / 30 dk)');
+esit((izgaraHtml.match(/class="nt-row"/g) || []).length, 24, '24 eşleştirilmiş satır (sütunlar hizalı)');
+esit((izgaraHtml.match(/class="nt-slot has/g) || []).length, 2, 'yalnız dolu dilimler işaretli');
+// Dolu dilim, notun düştüğü saat başlığını taşımalı
+dogru(/<span class="nt-t">10:00<\/span>[\s\S]*?Sunum yapılacak/.test(izgaraHtml),
+  '10:00 notu 10:00 diliminde');
+dogru(/<span class="nt-t">12:30<\/span>[\s\S]*?Japon/.test(izgaraHtml),
+  '12:35 notu 12:30 diliminde (dilim sınırı)');
+esit((izgaraHtml.match(/class="note-row starred"/g) || []).length, 1, 'yıldızlı çip');
+esit((izgaraHtml.match(/class="note-row/g) || []).length, 2,
+  'iki not çipi çizildi (tıklama devri .note-row sınıfına bağlı)');
+esit(el('notes-count').textContent, 2, 'özet sayacı');
+dogru(el('notes-sub').textContent.includes('1 tanesi önemli'), 'özet: önemli sayısı');
+// Olmayan bir özelliği vaat eden yazı yazılmaz (bildirim özelliği YOK)
+dogru(!/bildirim/i.test(el('notes-sub').textContent), 'özet bildirim vaat etmiyor');
+
+PZA.notes['2026-10-09'] = [];
+PZA.renderNotes();
+dogru(el('notes-sub').textContent.includes('dokunun'), 'boş günde ekleme yolu tarif edilir');
+PZA.selectDay(PZA.todayKey());
+
+console.log('\n8 · Gün+saat katmanı (tarih ile saat tek seferde)');
+el('cal').hidden = true;
+PZA.openCal(true);
+esit(el('cal').hidden, false, 'katman açıldı');
+esit(el('panel-notes').classList.contains('sheet'), true,
+  'panel `sheet` sınıfı aldı (katmanın yüksekliği buna bağlı)');
+// Not listesi gizlenmemeli: katman onun üstüne oturuyor, panel
+// yüksekliğini listeden alıyor.
+esit(el('notes-main').hidden, false, 'not listesi açık kaldı');
+// Katman açıkken gün değiştirmek katmanı KAPATMAMALI
+PZA.secimGun('2026-10-12');
+esit(el('cal').hidden, false, 'gün seçildi, katman açık kaldı');
+esit(PZA.activeDay, '2026-10-12', 'gün seçildi');
+esit(el('notes-date').textContent, '12', 'başlık yeni güne geçti');
+PZA.closeCal();
+esit(el('panel-notes').classList.contains('sheet'), false, 'kapanınca sınıf gitti');
+esit(el('cal').hidden, true, 'katman kapandı');
 
 console.log('\n' + (bad ? bad + ' SORUN · ' + iyi + ' geçti' : 'TÜMÜ GEÇTİ · ' + iyi + ' kontrol'));
 process.exit(bad ? 1 : 0);
