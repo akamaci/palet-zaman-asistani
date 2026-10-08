@@ -90,7 +90,7 @@ npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
 npm run dogrula        # kod bekçisi: 9 statik kontrol (aşağıya bakın)
-npm run test           # davranış testleri: notlar + ses + kilit + panel yönü + takvim (294 kontrol)
+npm run test           # davranış testleri: notlar + ses + kilit + panel yönü + takvim (318 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -138,22 +138,24 @@ taşınamaz.
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM, sahte bir `speechSynthesis`, sahte bir Tauri
 penceresi ve sahte bir `fetch` üzerinde çalıştırılır; ne tarayıcı ne de Rust gerekir.
-Toplam **294 kontrol**:
+Toplam **318 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
-| `araclar/notlar-test.mjs` | **64 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı** |
+| `araclar/notlar-test.mjs` | **65 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı**. "Başka gün" gerçek bugünden türetilir — sabit tarih yazılırsa test takvim o güne gelince kendi kendine bozuluyordu |
 | `araclar/ses-test.mjs` | **70 kontrol** — liste sistemde kurulu seslerden gelir (uydurma ad yok), kadın sesi otomatik seçilir ve **adıyla** saklanır, seçili ses silinirse otomatiğe düşer, tek Türkçe seste yönlendirme notu çıkar, Türkçe ses yokken yedeğe düşer, hiç ses yokken çökmeme, Türkçe sayı→kelime |
 | `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
 | `araclar/yukari-test.mjs` | **33 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
-| `araclar/gcal-test.mjs` | **100 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi** |
+| `araclar/gcal-test.mjs` | **123 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi**. Son iki bölüm tur 5'nın iki arızasını kilitler: **tarayıcı açılamazsa akış çıkmaza girmez** (adres, tarayıcı denenmeden *önce* gösterilir ve elle açılan adres üzerinden bağlanma tamamlanır) ve **hata mesajı panel tazelemesi tarafından ezilmez** (kullanıcı "hiçbir şey olmuyor" yerine gerçek hatayı görür) |
 
-Dördü de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
+Beşi de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
 bakın **bugüne** yazılıyordu; tek Türkçe sesli bir makinede "Ece" ile "Emre"
-**aynı** sesi veriyordu; ve kilidin geri konmadığı bir tasarım widget'ı kalıcı
-olarak taşınamaz hâle getirirdi. Yayın iş akışı, paket derlenmeden **önce** bu
-testleri çalıştırır.
+**aynı** sesi veriyordu; kilidin geri konmadığı bir tasarım widget'ı kalıcı
+olarak taşınamaz hâle getirirdi; ve **"Hesap Bağla" düğmesi hiçbir şey
+yapmıyordu — arkasında işlev yoktu**, üstelik çıkan hata panel tazelemesi
+tarafından anında eziliyordu, yani kullanıcı hatayı da göremiyordu.
+Yayın iş akışı, paket derlenmeden **önce** bu testleri çalıştırır.
 
 ---
 
@@ -270,6 +272,19 @@ app* istemcileri zaten sır istemez — akış **PKCE** ile korunur.
 Tarayıcıda Google onay sayfası açılır. İzin verince sekme kendini kapatır ve
 widget takvimle eşitlenir; bundan sonra her not değişikliği takvime yansır.
 Bağlantı **Bağlantıyı kes** ile koparılır.
+
+> **Tarayıcı açılmazsa ne olur?** Onay adresi, tarayıcı denenmeden **önce**
+> panelde görünür. Windows bir sebeple varsayılan tarayıcıyı açamazsa akış
+> durmaz: yanındaki **Adresi kopyala** düğmesiyle adresi kopyalayıp kendi
+> tarayıcınıza yapıştırın — dönüş yine `127.0.0.1` dinleyicisine düşer ve
+> bağlantı normal şekilde tamamlanır. Adres tek kullanımlıktır ve yalnızca
+> PKCE `code_challenge` taşır (istemci sırrı yok), yani kopyalanması güvenlidir.
+
+> **Bağlantı yine kurulmuyorsa** paneldeki mesajı okuyun — hata metni artık
+> gizlenmez. En sık iki sebep: (1) Client ID `…apps.googleusercontent.com`
+> ile bitmiyor, (2) OAuth *consent screen* → *Test users* listesine kendi
+> Gmail adresiniz eklenmemiş (test modunda listede olmayan hesap reddedilir:
+> `access_denied`).
 
 > **İstemci sırrı yok.** Client ID gizli bilgi değildir. Erişim jetonu cihazda
 > (`localStorage`) tutulur ve yalnızca `calendar.events` kapsamına sahiptir —

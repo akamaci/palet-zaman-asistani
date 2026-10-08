@@ -306,6 +306,46 @@ PZA.gcalEsitle = async function (gun) {
   return { eklenen, guncellenen, silinen, toplam: notlar.length };
 };
 
+/* ── Panel mesajı ──────────────────────────────────────── */
+
+/* TUR 5 HATASI: bağlanma akışı bir hata yazıyordu, ama düğmenin
+   `finally` bloğundaki panel tazelemesi o mesajı HEMEN eziyordu.
+   Kullanıcı "Client ID kaydedildi" görüyor, düğmenin hiçbir şey
+   yapmadığını sanıyordu — hatanın kendisi görünmez oluyordu.
+   Bu yüzden mesaj burada tutulur ve tazeleme onu ezmez. */
+let gcalSon = null;                       // { metin, hata } | null
+
+PZA.gcalYaz = function (m, sinif) {
+  const st = document.getElementById('gcal-state');
+  gcalSon = { metin: m, hata: sinif === 'err' };
+  if (!st) return;
+  st.textContent = m;
+  st.classList.toggle('err', sinif === 'err');
+};
+
+/** Akışın yazdığı mesaj duruyorsa `null` döner: tazeleme yazmasın. */
+PZA.gcalVarsayilan = function (ozet, cid) {
+  if (gcalSon) return null;
+  return ozet || (cid
+    ? 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.'
+    : 'Notlarınız telefonunuzda da görünsün.');
+};
+
+/** Yeni bir akış başlarken çağrılır: eski mesaj yeni denemeyi engellemesin. */
+PZA.gcalMesajTemizle = function () { gcalSon = null; };
+
+/** Elle açma kutusu. Tarayıcı açılamazsa akış DURMAZ: adres burada
+    gösterilir, kullanıcı kopyalayıp kendi tarayıcısına yapıştırır ve
+    dönüş yine `127.0.0.1` dinleyicisine düşer. */
+PZA.gcalElle = function (url) {
+  const k = document.getElementById('gcal-elle');
+  const i = document.getElementById('gcal-url');
+  if (!k || !i) return;
+  if (!url) { k.hidden = true; return; }
+  i.value = url;
+  k.hidden = false;
+};
+
 /* ── Bağlan / kes ──────────────────────────────────────── */
 
 const GCAL_TAURI = !!(window.__TAURI__ || window.__TAURI_INTERNALS__);
@@ -315,9 +355,15 @@ async function gcalCagir(cmd, args) {
   return await core.invoke(cmd, args);
 }
 
-/** Tam bağlanma akışı. `bildir(metin, 'err')` ile ilerleme duyurulur. */
+/** Tam bağlanma akışı. `bildir(metin, 'err')` verilirse ilerleme
+    oraya da duyurulur (testler bunu kullanır).
+    Mesaj her hâlükârda PANELE yazılır (`PZA.gcalYaz`): panel
+    tazelemesinin hata metnini ezmemesi bu kayda bağlıdır. */
 PZA.gcalBaglan = async function (bildir) {
-  const yaz = bildir || (() => {});
+  const yaz = (m, sinif) => {
+    PZA.gcalYaz(m, sinif);
+    if (bildir) bildir(m, sinif);
+  };
   const clientId = PZA.gcalClientId();
 
   if (!clientId) { yaz('Önce aşağıdaki Client ID alanını doldurun.', 'err'); return false; }
@@ -339,14 +385,26 @@ PZA.gcalBaglan = async function (bildir) {
   const { dogrulayici, ozet } = await gcalPkce();
   const durum = gcalRastgele(16);
 
-  yaz('Tarayıcıda Google onay sayfası açıldı — izin verin…');
+  /* Onay adresi, tarayıcı açılsa da açılmasa da GÖSTERİLİR. Böylece
+     tarayıcıyı açamayan bir sistemde akış çıkmaza girmez: kullanıcı
+     adresi kopyalayıp kendisi açar, dönüş yine dinleyiciye düşer. */
+  const yetkiUrl = PZA.gcalYetkiUrl(clientId, yonlendirme, ozet, durum);
+  PZA.gcalElle(yetkiUrl);
+
   try {
-    await gcalCagir('gcal_ac', { url: PZA.gcalYetkiUrl(clientId, yonlendirme, ozet, durum) });
-  } catch (e) { yaz('Tarayıcı açılamadı: ' + e, 'err'); return false; }
+    await gcalCagir('gcal_ac', { url: yetkiUrl });
+    yaz('Tarayıcıda Google onay sayfası açıldı — izin verin…');
+  } catch (e) {
+    /* Burada DÖNMÜYORUZ: tarayıcı açılamaması, kullanıcının adresi
+       elle açmasına engel değil. */
+    yaz('Tarayıcı açılamadı (' + e + '). Aşağıdaki adresi kopyalayıp ' +
+        'tarayıcınıza yapıştırın — dönüş yine yakalanır.', 'err');
+  }
 
   let hedef;
   try { hedef = await gcalCagir('gcal_bekle'); }
-  catch (e) { yaz('Google yanıtı alınamadı: ' + e, 'err'); return false; }
+  catch (e) { PZA.gcalElle(null); yaz('Google yanıtı alınamadı: ' + e, 'err'); return false; }
+  PZA.gcalElle(null);
 
   const c = PZA.gcalKodCoz(hedef);
   if (c.hata) {

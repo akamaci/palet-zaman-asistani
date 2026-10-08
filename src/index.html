@@ -243,6 +243,20 @@
     <button id="btn-gcal-sync" class="btn-gcal ikincil" hidden>↻ Notları takvime gönder</button>
     <p class="hint" id="gcal-state">Notlarınız telefonunuzda da görünsün.</p>
 
+    <!-- TUR 5: kullanıcı "bağlan düğmesi URL'i açmadı" dedi. Tarayıcıyı
+         açmak uygulamanın elinde olan ama GARANTİ EDEMEDİĞİ bir adım
+         (işletim sistemi çağrısı, varsayılan tarayıcı ilişkisi).
+         Bu yüzden adres her hâlükârda burada gösterilir: kullanıcı
+         kopyalayıp kendi tarayıcısına yapıştırır, Google izni verir ve
+         dönüş yine uygulamanın 127.0.0.1 dinleyicisine düşer.
+         Yani tarayıcı açılmasa bile bağlanma TAMAMLANABİLİR. -->
+    <div id="gcal-elle" hidden>
+      <p class="hint">Tarayıcı kendiliğinden açılmadıysa adresi kopyalayıp
+        tarayıcınıza yapıştırın — dönüş yine yakalanır.</p>
+      <input id="gcal-url" class="inp" type="text" readonly spellcheck="false">
+      <button id="gcal-kopyala" class="btn-gcal ikincil">Adresi kopyala</button>
+    </div>
+
     <!-- Tek seferlik kurulum. Client ID girilene kadar açık kalır;
          girildikten sonra kendiliğinden kapanır. İstemci SIRRI
          İSTENMEZ: masaüstü akışı PKCE kullanır, böylece GPL

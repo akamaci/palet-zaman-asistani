@@ -935,6 +935,17 @@ select.voice-sel { flex: none; width: 236px; font-size: 10.5px; padding: 6px 8px
 #gcal-kur .inp { margin-top: 6px; font-size: 10.5px; }
 #gcal-kes { margin-top: 7px; display: inline-block; }
 #gcal-kes[hidden] { display: none; }
+/* Elle açma kutusu: tarayıcı açılamazsa adres burada görünür ve
+   kullanıcı kopyalayıp kendisi açabilir. Adres satırı TEK SATIRDA
+   kırpılır ama tamamı kopyalanabilir — kutu genişliği pencereyle
+   oynamasın diye `overflow` verilir, `text-overflow` ile üç nokta. */
+#gcal-elle { margin-top: 8px; }
+#gcal-elle[hidden] { display: none; }
+#gcal-url {
+  margin-top: 6px; font-size: 9.5px;
+  text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+}
+#gcal-kopyala { margin-top: 6px; }
 .hint { font-size: 10px; color: var(--fg-mute); margin-top: 5px; }
 
 .set-foot {

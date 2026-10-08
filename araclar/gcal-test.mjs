@@ -36,7 +36,7 @@ const dogru = (c, m) => c ? ok(m) : bad_(m);
 
 /* ── Sahte ortam ──────────────────────────────────────── */
 const g = globalThis;
-let store, istekler, cevap, komutlar, yuklemeHatasi;
+let store, istekler, cevap, komutlar, yuklemeHatasi, els;
 
 function sahteFetch(url, opt = {}) {
   const u = String(url);
@@ -67,8 +67,26 @@ function kur(secenek = {}) {
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: k => store.delete(k)
   };
+  /* Panel mesajı ve elle açma kutusu DOM'a yazıyor; ölçebilmek için
+     yalnız bu üç öğe sahtelenir. Ötekiler `null` kalır — gcal.js
+     olmayan öğeye yazmaya çalışırsa sessizce geçer. */
+  els = new Map();
+  const mkEl = id => {
+    const cls = new Set();
+    return {
+      id, textContent: '', value: '', hidden: true, _cls: cls,
+      classList: {
+        add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c),
+        toggle: (c, on) => { (on === undefined ? !cls.has(c) : on) ? cls.add(c) : cls.delete(c); }
+      }
+    };
+  };
   g.document = {
-    getElementById: () => null,
+    getElementById: id => {
+      if (id !== 'gcal-state' && id !== 'gcal-elle' && id !== 'gcal-url') return null;
+      if (!els.has(id)) els.set(id, mkEl(id));
+      return els.get(id);
+    },
     querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener() {}
@@ -390,6 +408,106 @@ console.log('\n11 · Kalıcılık — yeniden açılış');
   esit(PZA.gcalClientId(), 'CID', 'Client ID depodan geldi');
   PZA = kur({ depo: [['pza.gcal.v1', '{bozuk json']] });
   esit(PZA.gcalBagliMi(), false, 'bozuk kayıt çökertmiyor');
+}
+
+console.log('\n12 · Tarayıcı açılamazsa akış ÇIKMAZA GİRMEZ (tur 5)');
+await (async () => {
+  /* Kullanıcı bildirimi: "Api key girdim kabul etti ama bağlan
+     butonuna basınca açması gereken URL açılmadı."
+     Tarayıcıyı açmak işletim sistemine bağlı bir adım; başarısız
+     olabileceği kabul edilir. Kritik olan, bu başarısızlığın
+     akışı DURDURMAMASI: adres kullanıcıya gösterilir, kullanıcı
+     kendi tarayıcısında açar, dönüş yine dinleyiciye düşer. */
+  const cid = 'a.apps.googleusercontent.com';
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+
+  /* `gcal_ac` çağrıldığı ANDA kutunun durumu kaydedilir: akış
+     bittiğinde kutu kapanacağı için sonradan bakılamaz, oysa
+     güvence verilmesi gereken şey tam da "adres, tarayıcı
+     denenmeden önce görünür" olmasıdır. */
+  let elleAcikKen = null, denenenAdres = null;
+  let PZA = kur({
+    depo,
+    komutlar: {
+      gcal_port: () => 51234,
+      /* Tarayıcı hiç açılamıyor — kullanıcının bildirdiği durum. */
+      gcal_ac: a => {
+        elleAcikKen = els.get('gcal-elle') ? !els.get('gcal-elle').hidden : null;
+        denenenAdres = els.get('gcal-url') ? els.get('gcal-url').value : null;
+        throw 'Tarayıcı açılamadı (explorer.exe: yok)';
+      },
+      /* Google'ın dönüşü, açılmaya ÇALIŞILAN adresteki `state` ile
+         gelir: kullanıcı adresi kopyalayıp kendi tarayıcısında açmış
+         gibi. `komutlar` kaydından okunur, zamanlamaya bağlı değildir. */
+      gcal_bekle: () => {
+        const ac = komutlar.find(k => k.cmd === 'gcal_ac');
+        const st = (ac.args.url.match(/state=([^&]+)/) || [])[1];
+        return '/?code=ELLE&state=' + st;
+      }
+    },
+    cevap: url => url.includes('/token')
+      ? { json: { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 } }
+      : { json: { items: [] } }
+  });
+
+  let mesaj = [];
+  const elle = () => els.get('gcal-elle');
+  const urlKutusu = () => els.get('gcal-url');
+
+  const sonuc = await PZA.gcalBaglan((m, s) => mesaj.push([m, s]));
+  const acilan = komutlar.find(k => k.cmd === 'gcal_ac');
+  dogru(!!acilan, 'tarayıcı açma denendi (başarısız oldu)');
+  esit(elleAcikKen, true, 'adres, tarayıcı denenmeden ÖNCE gösterilmiş');
+  esit(denenenAdres, acilan.args.url, 'gösterilen adres, açılmaya çalışılan adresin AYNISI');
+  dogru(denenenAdres.startsWith('https://accounts.google.com/'), 'adres Google onay sayfası');
+  dogru(denenenAdres.includes('code_challenge='), 'adres PKCE challenge taşıyor (elle açmak da güvenli)');
+  esit(sonuc, true, 'tarayıcı açılamasa bile bağlanma TAMAMLANDI (elle açılan adres üzerinden)');
+  esit(PZA.gcalBagliMi(), true, 'bağlantı kuruldu');
+  dogru(mesaj.some(m => m[1] === 'err' && m[0].includes('kopyalayıp')),
+    'kullanıcıya "adresi kopyalayıp tarayıcınıza yapıştırın" deniyor');
+  esit(elle().hidden, true, 'akış bitince elle açma kutusu kapanıyor');
+
+  /* ── Mesajın ezilmemesi: tur 5'nın asıl hatası ──
+     Düğmenin `finally` bloğu paneli tazeliyordu ve akışın yazdığı
+     HATA mesajını anında siliyordu. Kullanıcı "Client ID kaydedildi"
+     görüp düğmenin hiçbir şey yapmadığını sanıyordu. */
+  esit(PZA.gcalVarsayilan('Bağlı ✓ · özet', cid), null,
+    'akış mesaj yazdıysa tazeleme YAZMAZ (hata görünür kalır)');
+  PZA.gcalMesajTemizle();
+  dogru(typeof PZA.gcalVarsayilan(null, cid) === 'string',
+    'mesaj temizlenince türetilen ipucu geri geliyor');
+
+  // Hata mesajı DOM'a gerçekten yazıldı mı ve işaretlendi mi?
+  PZA.gcalYaz('Yerel dinleyici açılamadı: test', 'err');
+  esit(els.get('gcal-state').textContent, 'Yerel dinleyici açılamadı: test', 'hata metni panele yazıldı');
+  esit(els.get('gcal-state')._cls.has('err'), true, 'hata olarak işaretlendi (kırmızı)');
+  PZA.gcalYaz('Bağlandı ✓', null);
+  esit(els.get('gcal-state')._cls.has('err'), false, 'başarı mesajında hata işareti kalkıyor');
+
+  /* ── Elle açma kutusu kapanabilmeli ── */
+  PZA.gcalElle('https://accounts.google.com/x');
+  esit(elle().hidden, false, 'adres verilince kutu açılıyor');
+  PZA.gcalElle(null);
+  esit(elle().hidden, true, 'null verilince kutu kapanıyor');
+})();
+
+console.log('\n13 · Rust tarayıcı açma: tek yönteme güvenilmez (tur 5)');
+{
+  /* `gcal_ac` üç yöntemi sırayla dener. Bu statik bir kontrol:
+     yöntemlerden birinin sessizce çalışmaması durumunda ötekine
+     geçildiğini kodda görmek istiyoruz. Rust derleyicisi olmadan
+     davranışı ölçemiyoruz, ama yöntem listesi ve sırası sabitlenir. */
+  const rs = fs.readFileSync(
+    path.join(import.meta.dirname, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const fn = rs.slice(rs.indexOf('fn gcal_ac'), rs.indexOf('async fn gcal_bekle'));
+  dogru(fn.includes('explorer.exe'), 'explorer.exe yöntemi var');
+  dogru(fn.includes('rundll32.exe'), 'rundll32 yöntemi var');
+  dogru(fn.includes('"start"'), 'cmd start yedek yöntemi var');
+  dogru(/for \(program, onler\) in denemeler/.test(fn), 'yöntemler SIRAYLA deneniyor');
+  dogru(/Err\(e\) => son = format!/.test(fn), 'başarısız yöntem hatayı kaydedip devam ediyor');
+  dogru(fn.includes('accounts.google.com') && fn.includes('console.cloud.google.com'),
+    'beyaz liste korunuyor (arayüzden gelen adres doğrudan açılmaz)');
+  dogru(/IZINLI\.iter\(\)\.any/.test(fn), 'beyaz liste dışı adres reddediliyor');
 }
 
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));

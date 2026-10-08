@@ -57,8 +57,18 @@ fn gcal_port(kapi: tauri::State<'_, OauthKapi>) -> Result<u16, String> {
 }
 
 /// Sistemin varsayılan tarayıcısında aç.
+///
 /// Kabuk (cmd/sh) KULLANILMAZ: URL tek bir argv öğesi olarak geçtiği için
 /// içindeki `&` ve `?` karakterleri komut ayırıcı olarak yorumlanamaz.
+///
+/// TUR 6: kullanıcı "bağlan düğmesi URL'i açmadı" dedi. Tek yönteme
+/// güvenmek yanlıştı — bu adım işletim sistemine bağlı ve yöntemler
+/// makineden makineye sessizce başarısız olabiliyor (özellikle
+/// `rundll32 url.dll,FileProtocolHandler` bazı sistemlerde hiçbir şey
+/// açmaz). Bu yüzden üç yöntem sırayla denenir. Biri işe yaramazsa
+/// ötekine geçilir; hiçbiri açamazsa hata döner ve ARAYÜZ ÇIKMAZA
+/// GİRMEZ: onay adresi kullanıcıya gösterilir, kendi tarayıcısında
+/// açıp izin verir (bkz. gcal.js · `PZA.gcalElle`).
 #[tauri::command]
 fn gcal_ac(url: String) -> Result<bool, String> {
     // Yalnızca listedeki adresler açılır: arayüzden gelen bir dize
@@ -70,13 +80,30 @@ fn gcal_ac(url: String) -> Result<bool, String> {
     if !IZINLI.iter().any(|p| url.starts_with(p)) {
         return Err("Beklenmeyen adres reddedildi.".into());
     }
-    std::process::Command::new("rundll32.exe")
-        .arg("url.dll,FileProtocolHandler")
-        .arg(&url)
-        .spawn()
-        .or_else(|_| std::process::Command::new("explorer.exe").arg(&url).spawn())
-        .map(|_| true)
-        .map_err(|e| format!("Tarayıcı açılamadı: {e}"))
+    let denemeler: [(&str, &[&str]); 3] = [
+        ("explorer.exe", &[]),
+        ("rundll32.exe", &["url.dll,FileProtocolHandler"]),
+        ("cmd.exe", &["/C", "start", ""]),
+    ];
+    let mut son = String::from("bilinmeyen hata");
+    for (program, onler) in denemeler {
+        let mut c = std::process::Command::new(program);
+        for o in onler {
+            c.arg(o);
+        }
+        /* CREATE_NO_WINDOW (0x0800_0000): pencere yok, konsol da
+           parlamasın. Yalnız Windows'ta anlamlı. */
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            c.creation_flags(0x0800_0000);
+        }
+        match c.arg(&url).spawn() {
+            Ok(_) => return Ok(true),
+            Err(e) => son = format!("{program}: {e}"),
+        }
+    }
+    Err(format!("Tarayıcı açılamadı ({son})"))
 }
 
 /// Yönlendirmeyi bekle ve istek satırını (`/?code=…`) döndür.

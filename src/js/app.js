@@ -426,12 +426,9 @@
   /* ── Google Takvim (Yol B) ──────────────────────────────
      Akışın tamamı js/gcal.js içinde; burada yalnızca düğmeler
      bağlanır ve panel duruma göre tazelenir. */
-  const gcalYaz = (m, sinif) => {
-    const st = $('gcal-state');
-    if (!st) return;
-    st.textContent = m;
-    st.classList.toggle('err', sinif === 'err');
-  };
+  /* Mesaj yazma/tutma gcal.js'te: panel tazelemesi akışın yazdığı
+     mesajı EZMEMELİ (bkz. gcal.js · TUR 5 HATASI). */
+  const gcalYaz = (m, sinif) => PZA.gcalYaz(m, sinif);
 
   const gcalPanel = () => {
     const cid = PZA.gcalClientId();
@@ -444,10 +441,8 @@
     if (sync) sync.hidden = !bagli;
     const kes = $('gcal-kes');
     if (kes) kes.hidden = !bagli;
-    const ozet = PZA.gcalOzet();
-    gcalYaz(ozet || (cid
-      ? 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.'
-      : 'Notlarınız telefonunuzda da görünsün.'));
+    const m = PZA.gcalVarsayilan(PZA.gcalOzet(), cid);
+    if (m !== null) gcalYaz(m);              // akış yazdıysa DOKUNMA
   };
   gcalPanel();
 
@@ -456,6 +451,7 @@
   $('gcal-id')?.addEventListener('change', e => {
     PZA.gcal.clientId = e.target.value.trim();
     PZA.gcalKaydet();
+    PZA.gcalMesajTemizle();          // yeni Client ID → türetilen ipucu geri gelsin
     gcalPanel();
   });
 
@@ -464,8 +460,31 @@
     if (cid) { PZA.gcal.clientId = cid; PZA.gcalKaydet(); }
     const b = $('btn-gcal');
     b.disabled = true;
-    try { await PZA.gcalBaglan(gcalYaz); }
+    PZA.gcalMesajTemizle();
+    /* Gözlemci verilmez: akış mesajı doğrudan panele yazar ve
+       `finally` içindeki tazeleme onu EZMEZ. */
+    try { await PZA.gcalBaglan(); }
+    catch (e) { gcalYaz('Bağlanma akışı çöktü: ' + (e && e.message || e), 'err'); }
     finally { b.disabled = false; gcalPanel(); }
+  });
+
+  /* Tarayıcı açılamadıysa adresi kopyala: kullanıcı kendi tarayıcısına
+     yapıştırıp izin verir, dönüş yine uygulamaya düşer. */
+  $('gcal-kopyala')?.addEventListener('click', async e => {
+    const i = $('gcal-url');
+    if (!i) return;
+    const b = e.currentTarget;
+    let tamam = false;
+    try { await navigator.clipboard.writeText(i.value); tamam = true; }
+    catch (_) {
+      /* Pano izni yoksa eski yol: seç + kopyala. */
+      i.removeAttribute('readonly');
+      i.select();
+      try { tamam = document.execCommand('copy'); } catch (_) {}
+      i.setAttribute('readonly', '');
+    }
+    b.textContent = tamam ? 'Adres kopyalandı ✓' : 'Adresi elle seçin';
+    setTimeout(() => { b.textContent = 'Adresi kopyala'; }, 2200);
   });
 
   $('btn-gcal-sync')?.addEventListener('click', async () => {
@@ -489,6 +508,8 @@
   $('gcal-kes')?.addEventListener('click', async () => {
     if (!confirm('Google Takvim bağlantısı kesilsin mi? Takvimdeki notlar silinmez.')) return;
     await PZA.gcalKes();
+    PZA.gcalElle(null);
+    PZA.gcalMesajTemizle();
     gcalPanel();
   });
 

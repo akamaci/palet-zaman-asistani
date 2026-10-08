@@ -95,24 +95,34 @@ esit(el('cal-title').textContent, 'Ağustos 2026', 'başlık metni');
 
 console.log('\n4 · Notlar seçili güne yazılır (eskiden hep bugüne yazıyordu)');
 const bugun = PZA.todayKey();
-PZA.selectDay('2026-10-09');
-esit(PZA.activeDay, '2026-10-09', 'seçili gün');
+/* Sabit bir tarih YAZILMAZ: testin "başka gün"ü gerçek bugünden türetilir.
+   Sabit yazıldığında takvim o güne gelince test kendi kendine bozuluyordu
+   (yaşandı: 2026-10-09 sabiti, duvar saati o güne gelince 3 kontrol düştü). */
+const gunKaydir = (iso, n) => {
+  const [y, a, g] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, a - 1, g + n)).toISOString().slice(0, 10);
+};
+const diger = gunKaydir(bugun, -3);
+const dm = PZA.dayMeta(diger);
+dogru(diger !== bugun, 'seçilecek gün bugünden farklı: ' + diger + ' ≠ ' + bugun);
+PZA.selectDay(diger);
+esit(PZA.activeDay, diger, 'seçili gün');
 PZA.addNote('09:30', 'Diş kontrolü');
 PZA.addNote('14:00', 'Toplantı');
-esit((PZA.notes['2026-10-09'] || []).length, 2, 'notlar seçili güne eklendi');
+esit((PZA.notes[diger] || []).length, 2, 'notlar seçili güne eklendi');
 esit(PZA.notes[bugun] || [], [], 'bugüne sızma yok');
 esit(PZA.dayNotes().map(n => n.t), ['09:30', '14:00'], 'saate göre sıralı');
 esit(el('notes-count').textContent, 2, 'kayıt sayacı');
-esit(el('notes-date').textContent, '9', 'başlık: gün');
-esit(el('notes-weekday').textContent, 'Cuma', 'başlık: hafta günü');
-esit(el('notes-month').textContent, 'Ekim 2026', 'başlık: ay');
+esit(el('notes-date').textContent, String(dm.d), 'başlık: gün');
+esit(el('notes-weekday').textContent, dm.gun, 'başlık: hafta günü');
+esit(el('notes-month').textContent, dm.ay + ' ' + dm.y, 'başlık: ay');
 esit(el('notes-today').hidden, false, '"Bugüne dön" görünür');
 esit(JSON.stringify(PZA.notes[bugun] || []), '[]', 'depo hâlâ temiz');
 
 PZA.toggleStar('09:30', 'Diş kontrolü');
-esit(PZA.notes['2026-10-09'][0].star, true, 'yıldız seçili güne işlendi');
+esit(PZA.notes[diger][0].star, true, 'yıldız seçili güne işlendi');
 PZA.removeNote('14:00', 'Toplantı');
-esit(PZA.notes['2026-10-09'].length, 1, 'silme seçili güne işlendi');
+esit(PZA.notes[diger].length, 1, 'silme seçili güne işlendi');
 
 PZA.selectDay(bugun);
 esit(el('notes-today').hidden, true, 'bugüne dönünce "Bugüne dön" gizlenir');
