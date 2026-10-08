@@ -85,7 +85,7 @@ npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
 npm run dogrula        # kod bekçisi: 7 statik kontrol (aşağıya bakın)
-npm run test           # davranış testleri: notlar/takvim + ses (70 kontrol)
+npm run test           # davranış testleri: notlar/takvim + ses (107 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -126,17 +126,18 @@ geri gelemeyecek.
 
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM ve sahte bir `speechSynthesis` üzerinde
-çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **70 kontrol**:
+çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **107 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
-| `araclar/notlar-test.mjs` | Takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı |
-| `araclar/ses-test.mjs` | Ece/Emre eşleşmesi, tek Türkçe seste perde farkı, Türkçe ses yokken yedeğe düşme, hiç ses yokken çökmeme, Türkçe sayı→kelime |
+| `araclar/notlar-test.mjs` | **64 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı** |
+| `araclar/ses-test.mjs` | **43 kontrol** — Ece/Emre eşleşmesi, **tek Türkçe sesli sistemde perde ayrımı**, Türkçe ses yokken yedeğe düşme, hiç ses yokken çökmeme, Türkçe sayı→kelime |
 
 İkisi de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
-pencere gizlendiğinde o tek saniyeyi kaçırıyordu ve notlar hangi güne bakarsanız
-bakın **bugüne** yazılıyordu. Yayın iş akışı, paket derlenmeden **önce** bu
-testleri çalıştırır.
+pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
+bakın **bugüne** yazılıyordu; ve tek Türkçe sesli bir makinede Ece ile Emre
+**aynı** sesi veriyordu. Yayın iş akışı, paket derlenmeden **önce** bu testleri
+çalıştırır.
 
 ---
 
