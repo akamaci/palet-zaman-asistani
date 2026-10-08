@@ -1,0 +1,34 @@
+PALET ZAMAN ASİSTANI
+Copyright (C) 2026 Paletweb Bilişim
+
+Bu program ÖZGÜR YAZILIMDIR: GNU Genel Kamu Lisansı (GNU GPL) sürüm 3
+koşulları altında yeniden dağıtabilir ve/veya değiştirebilirsiniz.
+
+Özgür yazılım, fiyatı sıfır olan yazılım demek değildir; kullanma,
+inceleme, değiştirme ve paylaşma özgürlüğü demektir. Bu programın
+ücretsiz dağıtılması bu özgürlüklerin bir sonucudur, şartı değildir.
+GPLv3, programı bir ücret karşılığında satmanıza da izin verir.
+
+Bu program, yararlı olacağı umuduyla dağıtılmaktadır; ancak HİÇBİR
+GARANTİ VERİLMEZ; hatta TİCARİ ELVERİŞLİLİK veya BELİRLİ BİR AMACA
+UYGUNLUK garantisi bile verilmez. Ayrıntı için GNU Genel Kamu
+Lisansı'na bakınız.
+
+Bu programla birlikte GNU Genel Kamu Lisansı'nın bir kopyasını
+(LICENSE dosyası) almış olmalısınız. Almadıysanız:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+KAYNAK KOD
+GPL-3.0 gereği bu programın kaynak kodu açıktır ve size dağıtılan
+sürümün tam kaynak kodunu edinme hakkınız vardır:
+https://github.com/paletweb/palet-zaman-asistani
+
+Bu program, GNU Genel Kamu Lisansı ile uyumlu olan Tauri çatısını
+(MIT / Apache-2.0) ve açık kaynak bileşenleri kullanır.
+
+KURULUM NOTU
+Kurulum yalnızca bu kullanıcı hesabı için yapılır (yönetici izni
+gerekmez). Kaldırmak için: Ayarlar > Uygulamalar > Palet Zaman
+Asistanı > Kaldır.
+
+Devam etmek için "Kabul ediyorum"u seçin.

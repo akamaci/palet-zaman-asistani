@@ -1,0 +1,34 @@
+# ── Rust / Tauri ──
+/src-tauri/target/
+/src-tauri/gen/schemas/
+# NOT: Cargo.lock BİLEREK saklanır. Bu bir kütüphane değil uygulama;
+# kilit dosyası olmadan her derleme farklı paket sürümleri çekebilir ve
+# "bende çalışıyordu" hataları doğar.
+
+# ── Node ──
+node_modules/
+npm-debug.log*
+
+# ── Derleme çıktıları ──
+/dist/
+*.msi
+*.exe
+*.nsis.zip
+
+# ── Yerel / gizli ──
+.env
+.env.*
+*.local
+gcal-credentials.json
+tokens.json
+
+# ── Obsidian kasası ile karışmasın ──
+.obsidian/
+
+# ── Editör / OS ──
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

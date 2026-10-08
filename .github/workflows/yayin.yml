@@ -1,0 +1,83 @@
+# yayin.yml — Windows kurulum paketini BULUTTA derler
+# Palet Zaman Asistanı · GPL-3.0
+# ══════════════════════════════════════════════════════════════
+# Neden bulut: Windows kurulum paketi için Rust + MSVC gerekir
+# (~4-7 GB). GitHub'ın windows-latest makinesinde ikisi de HAZIR
+# gelir. Böylece geliştirici makinesine hiçbir araç kurulmaz;
+# son kullanıcı yalnızca çıkan kurulum dosyasını indirir.
+#
+# İki tetik:
+#   • Elle  → Actions sekmesi → "Yayın" → Run workflow
+#             Derler, dosyaları workflow çıktısına koyar (sürüm açmaz).
+#   • Etiket → `git tag v1.0.0 && git push origin v1.0.0`
+#             Derler + taslak (draft) GitHub sürümü açar.
+# ══════════════════════════════════════════════════════════════
+name: Yayın
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  derle:
+    runs-on: windows-latest
+    permissions:
+      contents: write          # sürüm oluşturmak için
+
+    steps:
+      - name: Kaynağı al
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rust kur (runner'da hazır gelir)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust derleme önbelleği
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: npm bağımlılıkları
+        run: npm install
+
+      - name: Kod bekçisi (7 kontrol)
+        run: npm run dogrula
+
+      - name: İkonları üret (assets/logo.png → src-tauri/icons)
+        run: npm run icon
+
+      - name: Derle ve yayınla
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Etiketle tetiklendiyse sürüm aç; elle tetiklendiyse yalnız derle
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: 'Palet Zaman Asistanı ${{ github.ref_name }}'
+          releaseBody: |
+            Windows 10/11 için kurulum paketi.
+
+            **Kurulum:** aşağıdaki `...-setup.exe` dosyasını indirip çalıştırın.
+            Yönetici izni gerekmez (kullanıcı bazlı kurulum). Ek bağımlılık yok —
+            WebView2 Windows 10/11'de hazır gelir.
+
+            İmzasız derleme olduğu için Windows ilk açılışta "Windows korumalı
+            bilgisayarınızı korudu" uyarısı gösterebilir:
+            **Ek bilgi → Yine de çalıştır**.
+          releaseDraft: true          # yayımlamadan önce gözden geçir
+          prerelease: false
+
+      - name: Kurulum dosyalarını sakla (elle tetiklemede indirilebilsin)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-kurulum
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palet Zaman Asistanı</title>
+<link rel="stylesheet" href="styles/widget.css">
+</head>
+<body>
+
+<!-- Kaydırma alanı: Tauri'de pencereyi taşımak için -->
+<div id="widget" class="widget" data-skin="halo" data-theme="dark" data-size="2">
+
+  <!-- Kullanıcı skini arka plan görseli — z-index:-1 ile içeriğin ALTINDA -->
+  <div class="skin-bg" id="skin-bg" hidden></div>
+
+  <!-- ══ ÜST BAR ══ -->
+  <div class="bar bar-top" data-tauri-drag-region>
+
+    <!-- Sol: hava durumu (ayarlar alt bara taşındı — yer saat için) -->
+    <div class="group-left">
+      <button id="weather-tile" class="tile" data-tauri-drag-region>
+        <span class="tile-glyph" id="weather-glyph">☀</span>
+        <span class="tile-body">
+          <span class="tile-line">
+            <b id="weather-temp">--°</b>
+            <i id="weather-city">İl seç</i>
+          </span>
+          <span class="tile-sub" id="weather-desc">yükleniyor…</span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Orta: tarih + flip saat -->
+    <div class="group-center" data-tauri-drag-region>
+      <div class="dateline">
+        <span class="beacon"></span>
+        <span id="date-main">—</span>
+        <span class="dateline-day" id="date-day"></span>
+      </div>
+
+      <div class="flip-row" id="flip-row">
+        <div class="flip" data-unit="h"><span class="flip-num">00</span><span class="pin-l"></span><span class="pin-r"></span></div>
+        <div class="colon"><i></i><i></i></div>
+        <div class="flip" data-unit="m"><span class="flip-num">00</span><span class="pin-l"></span><span class="pin-r"></span></div>
+        <div class="colon colon-live"><i></i><i></i></div>
+        <div class="flip flip-live" data-unit="s"><span class="flip-num">00</span><span class="pin-l"></span><span class="pin-r"></span></div>
+      </div>
+    </div>
+
+    <!-- Sağ: notlar -->
+    <div class="group-right">
+      <button id="btn-notes" class="btn-notes" aria-expanded="false">
+        <span>GÜNÜN NOTLARI</span>
+        <span class="chev"><svg viewBox="0 0 24 24" class="ico"><path d="M19 9l-7 7-7-7"/></svg></span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ══ NOT ÖNİZLEME ŞERİDİ (ilk 5) ══ -->
+  <div class="bar bar-preview" id="notes-preview"></div>
+
+  <!-- ══ AŞAĞI AÇILAN NOT PANELİ ══ -->
+  <section class="panel panel-notes" id="panel-notes" hidden>
+    <div class="notes-head">
+      <div class="notes-date" id="notes-date">—</div>
+      <div class="notes-day" id="notes-weekday">—</div>
+      <div class="notes-count"><b id="notes-count">0</b> kayıt</div>
+    </div>
+    <div class="notes-list" id="notes-list"></div>
+    <div class="notes-add">
+      <input id="note-time" type="time" value="12:00" aria-label="Saat">
+      <input id="note-text" type="text" placeholder="Not ekle…" aria-label="Not">
+      <button id="note-save">Ekle</button>
+    </div>
+  </section>
+
+  <!-- ══ AŞAĞI AÇILAN HAVA PANELİ ══ -->
+  <section class="panel panel-weather" id="panel-weather" hidden>
+    <div class="alert-strip" id="weather-alert" hidden></div>
+
+    <div class="wx-now">
+      <div class="wx-main">
+        <div class="wx-city-row">
+          <b id="wx-city">—</b>
+          <div class="chips" id="wx-chips"></div>
+        </div>
+        <div class="wx-temp"><b id="wx-temp">--°</b><span id="wx-desc"></span></div>
+        <div class="wx-feels">Hissedilen <b id="wx-feels">--°</b></div>
+      </div>
+
+      <div class="wx-telemetry" id="wx-telemetry"></div>
+
+      <div class="wx-sun">
+        <div class="wx-sun-times"><span id="wx-sunrise">--:--</span><span id="wx-sunset">--:--</span></div>
+        <div class="wx-arc"><span class="wx-dot" id="wx-dot"></span></div>
+      </div>
+    </div>
+
+    <div class="wx-week" id="wx-week"></div>
+  </section>
+
+  <!-- ══ ALT BAR ══ -->
+  <div class="bar bar-bottom">
+    <div class="group-bottom-left">
+      <button id="btn-settings" class="btn-ghost" title="Ayarlar">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.3 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.6c1.8.4 1.8 2.9 0 3.3a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.3 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.3a1.7 1.7 0 0 0 1-2.6c-.9-1.5.8-3.3 2.4-2.4.9.5 2.2.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Ayarlar</span>
+      </button>
+
+      <div class="theme-switch">
+        <button id="btn-light" title="Aydınlık"><svg viewBox="0 0 24 24" class="ico"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg></button>
+        <button id="btn-dark" title="Karanlık"><svg viewBox="0 0 24 24" class="ico"><path d="M20.4 15.4A9 9 0 0 1 8.6 3.6 9 9 0 1 0 20.4 15.4z"/></svg></button>
+      </div>
+    </div>
+
+    <div class="status"><span class="dot"></span>Tema: <b id="theme-label">Karanlık</b></div>
+    <div class="brand" title="Palet Zaman Asistanı"><span>PA</span></div>
+  </div>
+
+</div>
+
+<!-- ══ AYARLAR ══ -->
+<div id="settings" class="settings" hidden>
+  <div class="set-head">
+    <svg viewBox="0 0 24 24" class="ico"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.3 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.6c1.8.4 1.8 2.9 0 3.3a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.3 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.3a1.7 1.7 0 0 0 1-2.6c-.9-1.5.8-3.3 2.4-2.4.9.5 2.2.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
+    <b>AYARLAR</b>
+    <button id="set-close" class="x">✕</button>
+  </div>
+
+  <div class="set-body">
+
+    <h4>GÖRÜNÜM / SKİN</h4>
+    <div class="skins" id="skin-list"></div>
+    <div class="skin-bar" id="skin-bar" hidden>
+      <span id="skin-bar-name">—</span>
+      <button id="skin-edit" class="lnk">Düzenle</button>
+      <button id="skin-del" class="lnk danger">Sil</button>
+    </div>
+
+    <h4>GÖRÜNÜRLÜK</h4>
+    <label class="row"><span>Hava Durumu Göster</span><input type="checkbox" id="opt-weather" class="sw"></label>
+    <label class="row"><span>Not Başlıklarını Göster</span><input type="checkbox" id="opt-preview" class="sw"></label>
+    <label class="row"><span>Saniyeyi Göster</span><input type="checkbox" id="opt-seconds" class="sw"></label>
+
+    <h4>TEMA</h4>
+    <div class="seg">
+      <button data-theme-set="light">Aydınlık</button>
+      <button data-theme-set="dark">Karanlık</button>
+    </div>
+
+    <h4>SESLİ OKUMA</h4>
+    <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-speech" class="sw"></label>
+
+    <h4>KONUM</h4>
+    <input id="opt-city" class="inp" type="text" placeholder="Şehir ara… (örn. Ankara)">
+    <div class="chips" id="city-chips"></div>
+
+    <h4>GOOGLE TAKVİM</h4>
+    <button id="btn-gcal" class="btn-gcal"><b>G</b> Hesap Bağla</button>
+    <p class="hint" id="gcal-state">Notlarınız telefonunuzda da görünsün.</p>
+
+    <h4>WİDGET BOYUTU</h4>
+    <label class="row radio"><input type="radio" name="size" value="2"><span>1/2 Genişlik <i>(en geniş)</i></span></label>
+    <label class="row radio"><input type="radio" name="size" value="3"><span>1/3 Genişlik <i>(orta)</i></span></label>
+    <label class="row radio"><input type="radio" name="size" value="4"><span>1/4 Genişlik <i>(kompakt)</i></span></label>
+
+    <h4>BAŞLANGIÇ</h4>
+    <label class="row"><span>Windows ile Başlat <i class="hint-i">(8 sn gecikmeli)</i></span><input type="checkbox" id="opt-autostart" class="sw"></label>
+
+  </div>
+
+  <div class="set-foot">
+    <span>Palet Zaman Asistanı v1.0</span>
+    <button id="btn-license" class="lnk">GPL-3.0</button>
+  </div>
+</div>
+
+<!-- ══ SKİN STÜDYOSU ══ -->
+<div id="studio" class="settings studio" hidden>
+  <div class="set-head">
+    <svg viewBox="0 0 24 24" class="ico"><path d="M12 3a9 9 0 0 0 0 18c1 0 1.7-.7 1.7-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6h1.6A5.9 5.9 0 0 0 22 9.8C22 6 17.5 3 12 3z"/><circle cx="7.5" cy="11.5" r="1.2"/><circle cx="10.5" cy="7.5" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>
+    <b>SKİN STÜDYOSU</b>
+    <button id="studio-close" class="x">✕</button>
+  </div>
+
+  <div class="set-body">
+
+    <div class="st-two">
+      <label class="st-field"><span>Skin adı</span>
+        <input id="st-name" class="inp" type="text" maxlength="24" placeholder="Aurora"></label>
+      <label class="st-field"><span>Yapan</span>
+        <input id="st-author" class="inp" type="text" maxlength="24" placeholder="Adınız"></label>
+    </div>
+
+    <h4>PALET</h4>
+    <div class="seg" id="st-target">
+      <button data-st-target="dark" class="on">Karanlık palet</button>
+      <button data-st-target="light">Aydınlık palet</button>
+    </div>
+    <p class="hint" id="st-target-hint">Karanlık tema seçiliyken kullanılacak renkler.</p>
+    <div class="st-tokens" id="st-tokens"></div>
+
+    <h4>ARKA PLAN GÖRSELİ</h4>
+    <div class="st-bg">
+      <label class="st-file">
+        <input type="file" id="st-img" accept="image/*" hidden>
+        <span>Görsel Seç…</span>
+      </label>
+      <span class="st-bg-name" id="st-file-name">Görsel seçilmedi</span>
+      <button id="st-bg-clear" class="lnk danger">Kaldır</button>
+    </div>
+    <label class="st-slider"><span>Opaklık</span>
+      <input type="range" id="st-bg-op" min="0" max="100" step="1" value="35">
+      <b id="st-bg-op-v">35%</b></label>
+    <div class="seg" id="st-bg-fit">
+      <button data-fit="cover">Kapla</button>
+      <button data-fit="contain">Sığdır</button>
+      <button data-fit="tile">Döşe</button>
+    </div>
+
+    <h4>BİÇİM</h4>
+    <label class="st-slider"><span>Köşe yuvarlaklığı</span>
+      <input type="range" id="st-radius" min="0" max="28" step="1" value="16">
+      <b id="st-radius-v">16px</b></label>
+    <div class="st-two">
+      <label class="st-field"><span>Rakam fontu</span>
+        <select id="st-font-num" class="inp"></select></label>
+      <label class="st-field"><span>Arayüz fontu</span>
+        <select id="st-font-ui" class="inp"></select></label>
+    </div>
+
+    <h4>CANLI ÖNİZLEME</h4>
+    <div class="studio-prev">
+      <div class="widget sp-widget" id="sp-widget" data-skin="ozel" data-theme="dark">
+        <div class="skin-bg" id="sp-bg" hidden></div>
+        <div class="sp-body">
+          <div class="dateline">
+            <span class="beacon"></span>
+            <span>18 Mayıs 2026</span>
+            <span class="dateline-day">Pazartesi</span>
+          </div>
+          <div class="flip-row">
+            <div class="flip"><span class="flip-num">17</span><span class="pin-l"></span><span class="pin-r"></span></div>
+            <div class="colon"><i></i><i></i></div>
+            <div class="flip"><span class="flip-num">42</span><span class="pin-l"></span><span class="pin-r"></span></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-tile">☀ <b>21°</b> İstanbul</span>
+            <span class="sp-chip">3 kayıt</span>
+            <span class="sp-btn">Ekle</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h4>PAYLAŞ</h4>
+    <div class="st-actions">
+      <button id="st-save" class="st-primary">Kaydet ve Uygula</button>
+      <button id="st-del" class="lnk danger">Vazgeç</button>
+    </div>
+    <div class="st-actions">
+      <button id="st-copy" class="lnk">Kodu kopyala</button>
+      <button id="st-paste" class="lnk">Kod yapıştır</button>
+      <button id="st-down" class="lnk">Dosya indir</button>
+      <button id="st-open-btn" class="lnk">Dosya aç</button>
+      <input type="file" id="st-open" accept=".json,application/json" hidden>
+    </div>
+    <div class="st-paste-box" id="st-paste-box" hidden>
+      <textarea id="st-paste-text" class="inp" rows="4" placeholder="Arkadaşınızın gönderdiği skin kodunu buraya yapıştırın…"></textarea>
+      <button id="st-paste-go" class="st-primary">İçe Aktar</button>
+    </div>
+    <p class="hint" id="st-msg"></p>
+
+  </div>
+
+  <div class="set-foot">
+    <span id="st-foot">Yeni skin</span>
+  </div>
+</div>
+
+<script src="js/settings.js"></script>
+<script src="js/skins.js"></script>
+<script src="js/clock.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/studio.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

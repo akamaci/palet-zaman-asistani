@@ -1,0 +1,20 @@
+# Satır sonlarını sabitle — Windows'ta geliştirilip başka platformda
+# klonlanınca "her satır değişmiş" gibi görünen sahte farklar doğmasın.
+* text=auto eol=lf
+
+# İkili dosyalar: dönüşüm yok
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.icns binary
+*.exe  binary
+*.msi  binary
+
+# Windows'a özgü dosyalar CRLF kalsın
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# GitHub Actions tanımı dil algılamasında görünsün
+.github/workflows/*.yml text

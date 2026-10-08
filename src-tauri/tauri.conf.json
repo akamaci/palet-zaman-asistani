@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Palet Zaman Asistanı",
+  "version": "1.0.0",
+  "identifier": "com.paletweb.zamanasistani",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Palet Zaman Asistanı",
+        "width": 960,
+        "height": 430,
+        "minWidth": 560,
+        "minHeight": 200,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": false,
+        "center": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://api.open-meteo.com https://geocoding-api.open-meteo.com; object-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "licenseFile": "../LICENSE",
+    "publisher": "Paletweb Bilişim",
+    "copyright": "Copyright © 2026 Paletweb Bilişim — GPL-3.0-or-later",
+    "category": "Utility",
+    "shortDescription": "Masaüstü flip clock, günün notları ve hava durumu",
+    "longDescription": "Windows masaüstünde her zaman görünen flip clock; günün notları, hava durumu ve sesli saat okuma.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "license": "../kurulum-lisans.txt",
+        "languages": ["Turkish"],
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}
