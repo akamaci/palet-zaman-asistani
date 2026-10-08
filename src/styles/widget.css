@@ -457,6 +457,38 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 }
 @keyframes drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
+/* ── PANEL YUKARI AÇILIŞI ─────────────────────────────────
+   KULLANICI BİLDİRİMİ: "saat windows'un en altına alınırsa
+   pencere yönünün yukarı açılması lazım ki okuna bilsin yada
+   seçile bilsin."
+
+   Panel normalde saatin ALTINA açılır ve pencereyi aşağı büyütür.
+   Saat masaüstünün dibindeyse bu yön imkânsızdır: pencere görev
+   çubuğunun altına taşar. `app.js → fit()` aşağıda yer olup
+   olmadığını ölçer (`screen.availTop + availHeight`) ve yer yoksa
+   widget'a `.yukari` sınıfını koyar.
+
+   Sınıf tek başına yeterli değil: pencere de panelin eklediği
+   yükseklik kadar YUKARI kaydırılır, böylece saat ekranda olduğu
+   yerde kalır — kullanıcı panelin nereden çıktığını kaybetmez.
+   Bu yüzden `align-items: flex-start` (body.tauri) korunur;
+   widget pencerenin tepesinde kalır, panel de onun üstünde. */
+/* Widget pencerenin ALTINA yaslanır. Normalde `flex-start`'tır ve
+   widget pencerenin tepesindedir; ama panel iş alanından uzun çıkıp
+   pencere kırpılırsa tepeden hizalanınca SAAT ekranın dışına taşardı.
+   Alttan hizalanınca taşan kısım panelin üst tarafı olur, saat
+   yerinde kalır — asıl okunması gereken saat. */
+body.tauri.yukari { align-items: flex-end; }
+
+.widget.yukari { display: flex; flex-direction: column; }
+.widget.yukari > .panel:not([hidden]) {
+  order: -1;                                  /* paneli saatin ÜSTÜNE al */
+  border-top: 0;
+  border-bottom: 1px solid var(--edge-soft);  /* dikiş çizgisi ters döner */
+  animation-name: dropUp;                     /* ok yönü de ters döner */
+}
+@keyframes dropUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 /* Notlar — randevu listesi düzeni (kullanıcı taslağı)
    YERLEŞİM: [ başlık + takvim ] → [ özet ] → [ 00:00-24:00 ızgarası ]
    Eskiden [ başlık sütunu | liste ] iki sütunluydu; başlık geniş bir
@@ -892,6 +924,17 @@ select.voice-sel { flex: none; width: 236px; font-size: 10.5px; padding: 6px 8px
 }
 .btn-gcal:hover { background: var(--surface-2); }
 .btn-gcal b { color: #ea4335; font-size: 13px; }
+/* İkinci düğme (Konsolu aç / Notları gönder) ana düğmeden ayrışsın */
+.btn-gcal.ikincil {
+  margin-top: 6px; padding: 7px;
+  font-weight: 500; font-size: 10.5px;
+  color: var(--fg-dim);
+}
+.btn-gcal[hidden] { display: none; }
+#gcal-kur { margin-top: 8px; }
+#gcal-kur .inp { margin-top: 6px; font-size: 10.5px; }
+#gcal-kes { margin-top: 7px; display: inline-block; }
+#gcal-kes[hidden] { display: none; }
 .hint { font-size: 10px; color: var(--fg-mute); margin-top: 5px; }
 
 .set-foot {

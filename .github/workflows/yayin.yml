@@ -45,11 +45,11 @@ jobs:
       - name: npm bağımlılıkları
         run: npm install
 
-      - name: Kod bekçisi (7 kontrol)
+      - name: Kod bekçisi (9 statik kontrol)
         run: npm run dogrula
 
       # Derlemeden ÖNCE: kırık bir arayüzün kurulum paketi üretilmesin.
-      - name: Davranış testleri (notlar/takvim + ses)
+      - name: Davranış testleri (notlar + ses + kilit + panel yönü + takvim)
         run: npm run test
 
       - name: İkonları üret (assets/logo.png → src-tauri/icons)

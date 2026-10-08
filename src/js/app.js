@@ -28,10 +28,18 @@
      `max-width` ise `data-size`'a bağlı sabit bir sayıdır. */
   if (TAURI) {
     let sonH = 0, sonG = 0;
-    /* Panel açılmadan ÖNCEKİ pencere yeri. Panel kapanınca buraya
-       dönülür — yoksa widget kendiliğinden yukarı kaymış görünürdü. */
-    let kayitliKonum = null;
+    /* Son uyguladığımız pencere konumu ve o andaki panel düzeni.
+       Panel açılıp kapansa da SAATİN EKRANDAKİ YERİ değişmemeli;
+       bu üç değer o çıpayı hesaplamak için tutulur. */
+    let sonY = null;          // pencere üst kenarı (ekran px)
+    let sonYukari = false;    // o anda panel saatin üstünde miydi
+    let sonPay = 0;           // o anda saatin üstünde duran panelin yüksekliği
+    let temelY = null;        // kaplama panel (Ayarlar/Stüdyo) öncesi konum
     const EN_AZ_G = 320;      // alt sınır: bundan darı okunmaz
+    const acikMi = id => {
+      const el = document.getElementById(id);
+      return !!(el && !el.hidden);
+    };
 
     /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
        (Ayarlar / Stüdyo). Bu ikisi #widget'ın KARDEŞİ ve
@@ -97,30 +105,23 @@
       return { ust, boy };
     };
 
-    /* Pencere iş alanının altına taşarsa yukarı çek, panel kapanınca
-       eski yerine döndür. */
-    const konumSabitle = async (win, w, alan, panelVar, h) => {
-      if (!alan.boy) return;
-      try {
-        const sf = (await w.scaleFactor()) || 1;
-        const p = await w.outerPosition();
-        if (!p) return;
-        const y = p.y / sf;
-        const alt = alan.ust + alan.boy;
-        if (panelVar && y + h > alt) {
-          if (!kayitliKonum) kayitliKonum = { x: p.x / sf, y };
-          await w.setPosition(new win.LogicalPosition(kayitliKonum.x, Math.max(alan.ust, alt - h - 8)));
-        } else if (!panelVar && kayitliKonum) {
-          const k = kayitliKonum;
-          kayitliKonum = null;
-          await w.setPosition(new win.LogicalPosition(k.x, k.y));
-        }
-      } catch (e) { /* konum API'si yoksa sessizce geç */ }
+    /* Saat bloğunun yüksekliği — widget'tan AÇIK PANELLER düşülerek
+       bulunur. Panelin saatin üstüne eklediği pay bu sayının
+       farkından çıkar; pencereyi o kadar yukarı kaydırınca saat
+       ekranda olduğu yerde kalır. */
+    const temelYukseklik = () => {
+      const el = document.getElementById('widget');
+      if (!el) return 0;
+      let t = el.getBoundingClientRect().height;
+      for (const id of ['panel-notes', 'panel-weather']) {
+        if (acikMi(id)) t -= document.getElementById(id).getBoundingClientRect().height;
+      }
+      return Math.max(0, Math.round(t));
     };
 
     const fit = async () => {
-      let h = gerekliH();
-      let g = Math.max(EN_AZ_G, gerekliG());
+      const h = gerekliH();
+      const g = Math.max(EN_AZ_G, gerekliG());
       // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma. Ölçülen pencere
       // boyutuyla karşılaştırılsaydı kullanıcının elle yeniden
       // boyutlandırması her turda geri alınırdı.
@@ -130,15 +131,62 @@
         const win = window.__TAURI__.window;
         const w = win.getCurrentWindow();
         const alan = await isAlani(win);
+        const sf = (await w.scaleFactor()) || 1;
+        const p = await w.outerPosition();
+        if (!p) return;
+        const y = p.y / sf;
+        const alt = alan.ust + alan.boy;
+
+        const icVar = acikMi('panel-notes') || acikMi('panel-weather');
+        const kapVar = acikMi('settings') || acikMi('studio');
+
         // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
         // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
-        if (alan.boy) h = Math.min(h, Math.max(240, alan.boy - 24));
-        await w.setSize(new win.LogicalSize(g, h));
-        const panelVar = ['settings', 'studio'].some(id => {
-          const el = document.getElementById(id);
-          return el && !el.hidden;
-        });
-        await konumSabitle(win, w, alan, panelVar, h);
+        const hh = alan.boy ? Math.min(h, Math.max(240, alan.boy - 8)) : h;
+
+        /* Saatin ekrandaki üst kenarı. Panel saatin üstünde duruyorsa
+           saat, pencere tepesinden panelin yüksekliği kadar aşağıdadır.
+           Bu değer fit() turları boyunca SABİT kalmalı. */
+        const saatTepesi = sonY === null ? y : sonY + (sonYukari ? sonPay : 0);
+
+        let yukari = false;
+        let pay = 0;              // panelin saatin üstüne eklediği yükseklik
+        let hedefY = y;
+
+        if (kapVar) {
+          /* Kaplama panel (Ayarlar/Stüdyo, `position: fixed`): pencere
+             iş alanına sığsın diye gerekiyorsa yukarı çekilir; panel
+             kapanınca temelY'ye dönülür. */
+          if (temelY === null && !icVar) temelY = y;
+          hedefY = Math.max(alan.ust, alt - hh - 8);
+        } else if (!icVar && temelY !== null) {
+          /* Her şey kapandı → panel açılmadan önceki yere dön. */
+          hedefY = temelY;
+          temelY = null;
+        } else {
+          /* Widget içi panel (Notlar/Hava).
+             KULLANICI BİLDİRİMİ: "saat windows'un en altına alınırsa
+             pencere yönünün yukarı açılması lazım ki okuna bilsin."
+             Aşağıda yer yoksa panel saatin ÜSTÜNE alınır (`.yukari`)
+             ve pencere, saatin yeri değişmeyecek şekilde panelin
+             eklediği pay kadar yukarı kaydırılır. */
+          pay = Math.max(0, h - temelYukseklik());
+          yukari = icVar && (saatTepesi + hh > alt);
+          hedefY = yukari ? Math.max(alan.ust, saatTepesi - pay) : saatTepesi;
+        }
+
+        /* `yukari` hem widget'a hem gövdeye: gövdedeki sınıf widget'ı
+           pencerenin ALTINA yaslar (bkz. widget.css), böylece pencere
+           kırpıldığında taşan kısım panelin üstü olur, saat görünür kalır. */
+        document.getElementById('widget')?.classList.toggle('yukari', yukari);
+        document.body.classList.toggle('yukari', yukari);
+        await w.setSize(new win.LogicalSize(g, hh));
+        if (Math.abs(hedefY - y) > 0.5) {
+          await w.setPosition(new win.LogicalPosition(p.x / sf, hedefY));
+        }
+        sonY = hedefY;
+        sonYukari = yukari;
+        sonPay = yukari ? pay : 0;
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
 
@@ -375,13 +423,73 @@
     setTimeout(() => row?.classList.remove('flash'), 900);
   });
 
-  /* ── Google Takvim (Yol B) ──────────────────────────── */
-  $('btn-gcal')?.addEventListener('click', async () => {
+  /* ── Google Takvim (Yol B) ──────────────────────────────
+     Akışın tamamı js/gcal.js içinde; burada yalnızca düğmeler
+     bağlanır ve panel duruma göre tazelenir. */
+  const gcalYaz = (m, sinif) => {
     const st = $('gcal-state');
-    st.textContent = 'Google Cloud Console OAuth istemcisi bekleniyor…';
-    const r = await invoke('gcal_connect');
-    if (!TAURI) st.textContent = 'Tarayıcı önizlemesinde takvim bağlanamaz — uygulamada çalışır.';
-    else if (r) st.textContent = 'Bağlandı ✓';
+    if (!st) return;
+    st.textContent = m;
+    st.classList.toggle('err', sinif === 'err');
+  };
+
+  const gcalPanel = () => {
+    const cid = PZA.gcalClientId();
+    const bagli = PZA.gcalBagliMi();
+    const kur = $('gcal-kur');
+    if (kur) kur.hidden = !!cid;                    // Client ID varsa kurulum kapanır
+    const idAlani = $('gcal-id');
+    if (idAlani && document.activeElement !== idAlani) idAlani.value = cid;
+    const sync = $('btn-gcal-sync');
+    if (sync) sync.hidden = !bagli;
+    const kes = $('gcal-kes');
+    if (kes) kes.hidden = !bagli;
+    const ozet = PZA.gcalOzet();
+    gcalYaz(ozet || (cid
+      ? 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.'
+      : 'Notlarınız telefonunuzda da görünsün.'));
+  };
+  gcalPanel();
+
+  /* Client ID yazıldıkça sakla: kullanıcı bağlanmadan önce panel
+     kapanırsa yeniden yazmak zorunda kalmasın. */
+  $('gcal-id')?.addEventListener('change', e => {
+    PZA.gcal.clientId = e.target.value.trim();
+    PZA.gcalKaydet();
+    gcalPanel();
+  });
+
+  $('btn-gcal')?.addEventListener('click', async () => {
+    const cid = ($('gcal-id')?.value || '').trim();
+    if (cid) { PZA.gcal.clientId = cid; PZA.gcalKaydet(); }
+    const b = $('btn-gcal');
+    b.disabled = true;
+    try { await PZA.gcalBaglan(gcalYaz); }
+    finally { b.disabled = false; gcalPanel(); }
+  });
+
+  $('btn-gcal-sync')?.addEventListener('click', async () => {
+    const b = $('btn-gcal-sync');
+    b.disabled = true;
+    gcalYaz('Notlar takvime gönderiliyor…');
+    try {
+      const s = await PZA.gcalEsitle(PZA.activeDay);
+      gcalYaz('Gönderildi ✓ · ' + s.eklenen + ' yeni, ' + s.guncellenen +
+              ' güncel, ' + s.silinen + ' silindi');
+    } catch (e) {
+      gcalYaz('Eşitleme başarısız: ' + e.message, 'err');
+    } finally { b.disabled = false; }
+  });
+
+  $('gcal-console')?.addEventListener('click', () => {
+    // Konsol adresi sabittir; kullanıcı adres çubuğuna yazmak zorunda kalmasın.
+    PZA.gcalKonsolAc?.();
+  });
+
+  $('gcal-kes')?.addEventListener('click', async () => {
+    if (!confirm('Google Takvim bağlantısı kesilsin mi? Takvimdeki notlar silinmez.')) return;
+    await PZA.gcalKes();
+    gcalPanel();
   });
 
   /* ── Lisans ─────────────────────────────────────────── */

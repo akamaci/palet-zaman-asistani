@@ -2,6 +2,10 @@
 // Copyright © 2026 Paletweb Bilişim · GPL-3.0-or-later
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -23,10 +27,136 @@ fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|e| e.to_string())
 }
 
-/// Google Takvim OAuth — Yol B. Cloud Console istemcisi girilene kadar kapalı.
+/* ── Google Takvim OAuth (Yol B) ──────────────────────────────────
+   Akışın tamamı arayüzde (src/js/gcal.js): yetki URL'i, PKCE, kod↔token
+   değişimi ve takvim çağrıları orada. Google'ın token uç noktası CORS
+   başlığı verdiği için (curl ile doğrulandı) arayüz bunları doğrudan
+   `fetch` ile yapabiliyor. Rust'a yalnızca iki iş kalıyor:
+
+     1. Tarayıcıyı açmak            → gcal_ac
+     2. Yönlendirmeyi yakalamak     → gcal_port + gcal_bekle
+
+   İSTEMCİ SIRRI YOK: masaüstü istemcileri için PKCE yeterlidir, bu
+   yüzden GPL kaynağında hiçbir sır yayımlanmaz. Kullanıcı yalnızca
+   herkese açık olan Client ID'yi girer.
+
+   Loopback dinleyicisi komutlar arasında paylaşıldığı için State'te
+   tutulur; `gcal_port` açar, `gcal_bekle` alıp tüketir. */
+#[derive(Default)]
+struct OauthKapi(Mutex<Option<TcpListener>>);
+
+/// Boş bir yerel port aç ve numarasını döndür. Google, masaüstü
+/// istemcilerinde `http://127.0.0.1:<herhangi bir port>` yönlendirmesine
+/// izin verir — bu yüzden port sabitlenmez, çakışma riski kalmaz.
 #[tauri::command]
-fn gcal_connect() -> Result<bool, String> {
-    Err("Google OAuth istemcisi henüz yapılandırılmadı.".into())
+fn gcal_port(kapi: tauri::State<'_, OauthKapi>) -> Result<u16, String> {
+    let l = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    let port = l.local_addr().map_err(|e| e.to_string())?.port();
+    *kapi.0.lock().map_err(|e| e.to_string())? = Some(l);
+    Ok(port)
+}
+
+/// Sistemin varsayılan tarayıcısında aç.
+/// Kabuk (cmd/sh) KULLANILMAZ: URL tek bir argv öğesi olarak geçtiği için
+/// içindeki `&` ve `?` karakterleri komut ayırıcı olarak yorumlanamaz.
+#[tauri::command]
+fn gcal_ac(url: String) -> Result<bool, String> {
+    // Yalnızca listedeki adresler açılır: arayüzden gelen bir dize
+    // doğrudan kabuğa/tarayıcıya verildiği için beyaz liste şart.
+    const IZINLI: [&str; 2] = [
+        "https://accounts.google.com/",
+        "https://console.cloud.google.com/",
+    ];
+    if !IZINLI.iter().any(|p| url.starts_with(p)) {
+        return Err("Beklenmeyen adres reddedildi.".into());
+    }
+    std::process::Command::new("rundll32.exe")
+        .arg("url.dll,FileProtocolHandler")
+        .arg(&url)
+        .spawn()
+        .or_else(|_| std::process::Command::new("explorer.exe").arg(&url).spawn())
+        .map(|_| true)
+        .map_err(|e| format!("Tarayıcı açılamadı: {e}"))
+}
+
+/// Yönlendirmeyi bekle ve istek satırını (`/?code=…`) döndür.
+/// Engellememesi için ayrı bir iş parçacığında çalışır.
+#[tauri::command]
+async fn gcal_bekle(kapi: tauri::State<'_, OauthKapi>) -> Result<String, String> {
+    let l = kapi
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .take()
+        .ok_or_else(|| "Dinleyici başlatılmadı.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || dinle(l))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Kullanıcı vazgeçebilsin diye dinleyiciyi kapat.
+#[tauri::command]
+fn gcal_kapat(kapi: tauri::State<'_, OauthKapi>) {
+    if let Ok(mut k) = kapi.0.lock() {
+        *k = None;
+    }
+}
+
+/// Yönlendirme isteğini bekle. Tarayıcı sayfa için ek istekler
+/// (favicon, ön bağlantı) gönderebilir; yalnızca `code=`/`error=`
+/// taşıyan istek gerçek yönlendirmedir, ötekiler yok sayılır.
+fn dinle(l: TcpListener) -> Result<String, String> {
+    let bitis = Instant::now() + Duration::from_secs(180);
+    l.set_nonblocking(true).map_err(|e| e.to_string())?;
+    loop {
+        match l.accept() {
+            Ok((s, _)) => {
+                let hedef = hedefOku(&s).unwrap_or_default();
+                if hedef.contains("code=") || hedef.contains("error=") {
+                    cevapla(&s, true);
+                    return Ok(hedef);
+                }
+                cevapla(&s, false); // favicon / boş bağlantı → yok say
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() > bitis {
+                    return Err("Google yanıtı beklenirken süre doldu.".into());
+                }
+                std::thread::sleep(Duration::from_millis(120));
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+}
+
+/// İstek satırından hedefi çıkar: `GET /?code=… HTTP/1.1` → `/?code=…`
+fn hedefOku(s: &TcpStream) -> Option<String> {
+    s.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
+    let mut satir = String::new();
+    BufReader::new(s).read_line(&mut satir).ok()?;
+    satir.split_whitespace().nth(1).map(|h| h.to_string())
+}
+
+/// Tarayıcıya küçük bir kapanış sayfası gönder.
+fn cevapla(mut s: &TcpStream, tamam: bool) {
+    let govde = if tamam {
+        "<!doctype html><meta charset=\"utf-8\"><title>Palet Zaman Asistanı</title>\
+         <body style=\"font:16px/1.6 'Segoe UI',sans-serif;background:#0b1017;color:#e8f6ff;\
+         display:flex;align-items:center;justify-content:center;height:100vh;margin:0\">\
+         <div style=\"text-align:center\"><h2 style=\"margin:0 0 8px\">Bağlantı alındı &#10003;</h2>\
+         <p style=\"margin:0;color:#8fa3b8\">Bu sekmeyi kapatıp uygulamaya dönebilirsiniz.</p></div>"
+    } else {
+        "<!doctype html><meta charset=\"utf-8\"><title>Palet Zaman Asistanı</title>\
+         <body style=\"background:#0b1017\"></body>"
+    };
+    let yanit = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
+         Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+        govde.len(),
+        govde
+    );
+    let _ = s.write_all(yanit.as_bytes());
+    let _ = s.flush();
 }
 
 /// Pencereyi gizle (tepside kalsın)
@@ -53,10 +183,14 @@ fn set_always_on_top(app: tauri::AppHandle, enabled: bool) -> Result<bool, Strin
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .manage(OauthKapi::default())
         .invoke_handler(tauri::generate_handler![
             set_autostart,
             get_autostart,
-            gcal_connect,
+            gcal_port,
+            gcal_ac,
+            gcal_bekle,
+            gcal_kapat,
             hide_window,
             set_always_on_top
         ])

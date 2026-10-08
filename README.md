@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.2.0`, ön sürüm). Kurulum testi bekliyor.
+> GitHub Actions'ta derleniyor (`v1.3.0`, ön sürüm). Kurulum testi bekliyor.
 
 ---
 
@@ -27,6 +27,8 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Skin Stüdyosu** | Kendi temanızı tasarlayın: 27 renk, arka plan görseli, köşe, font — canlı önizlemeli |
 | **Boyut** | 1/2 · 1/3 · 1/4 ölçek. Genişlik kutuya değil **içeriğe** göre daraltılır — saat kenarlarda boşlukta kalmaz. 1/4'te mini hava göstergesi korunur |
 | **Ekran sığdırma** | Ayarlar paneli açılınca pencere büyür ve **görev çubuğunu aşmaz**: çalışma alanına (`screen.availHeight`) sığdırılır, gerekirse yukarı kaydırılır, panel kapanınca eski yerine döner |
+| **Panel yönü** | Saat masaüstünün **dibine** yerleştirilmişse notlar/hava paneli **yukarı doğru** açılır — aşağı açılsa görev çubuğunun altında kalır ve okunamaz. Pencere panelin eklediği yükseklik kadar yukarı kayar, böylece **saat ekranda olduğu yerde kalır** |
+| **Google Takvim** | "Hesap Bağla" tarayıcıda Google onay sayfasını açar; izin verilince notlar takvime gönderilir. İstemci **sırrı istemez** (PKCE), erişim yalnızca `calendar.events` kapsamındadır ve bağlantı konsoldan kesilebilir |
 | **Görünürlük** | Hava durumu ve not başlıkları ayrı ayrı kapatılabilir (sade mod) |
 | **Her Zaman Üstte** | Açılıp kapatılır (**varsayılan kapalı**). Kapalıyken widget normal bir penceredir — tarayıcının ya da videonun önüne geçmez, masaüstünde görünür |
 | **Başlangıç** | Windows ile otomatik başlar (8 sn gecikmeli), ayarlardan kapatılır |
@@ -61,7 +63,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.2.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.3.0_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
@@ -88,7 +90,7 @@ npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
 npm run dogrula        # kod bekçisi: 9 statik kontrol (aşağıya bakın)
-npm run test           # davranış testleri: notlar/takvim + ses + kilit (161 kontrol)
+npm run test           # davranış testleri: notlar + ses + kilit + panel yönü + takvim (294 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -134,16 +136,19 @@ taşınamaz.
 ### `npm run test` — davranış testleri
 
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
-Gerçek kaynak dosyalar sahte bir DOM ve sahte bir `speechSynthesis` üzerinde
-çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **161 kontrol**:
+Gerçek kaynak dosyalar sahte bir DOM, sahte bir `speechSynthesis`, sahte bir Tauri
+penceresi ve sahte bir `fetch` üzerinde çalıştırılır; ne tarayıcı ne de Rust gerekir.
+Toplam **294 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
 | `araclar/notlar-test.mjs` | **64 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı** |
 | `araclar/ses-test.mjs` | **70 kontrol** — liste sistemde kurulu seslerden gelir (uydurma ad yok), kadın sesi otomatik seçilir ve **adıyla** saklanır, seçili ses silinirse otomatiğe düşer, tek Türkçe seste yönlendirme notu çıkar, Türkçe ses yokken yedeğe düşer, hiç ses yokken çökmeme, Türkçe sayı→kelime |
 | `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
+| `araclar/yukari-test.mjs` | **33 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
+| `araclar/gcal-test.mjs` | **100 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi** |
 
-Üçü de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
+Dördü de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
 bakın **bugüne** yazılıyordu; tek Türkçe sesli bir makinede "Ece" ile "Emre"
 **aynı** sesi veriyordu; ve kilidin geri konmadığı bir tasarım widget'ı kalıcı
@@ -164,6 +169,8 @@ PaletZamanAsistani/
 │  ├─ notlar-test.mjs       ← davranış testi: notlar/takvim
 │  ├─ ses-test.mjs          ← davranış testi: sesli okuma + okuyucu sesi
 │  ├─ kilit-test.mjs        ← davranış testi: yeri kilitle + sürüm kaynağı
+│  ├─ yukari-test.mjs       ← davranış testi: panel yönü + pencere yerleşimi
+│  ├─ gcal-test.mjs         ← davranış testi: Google Takvim yetkilendirme + eşitleme
 │  └─ sunucu.mjs            ← `npm run web` önizleme sunucusu
 ├─ src/                     ← arayüz (frontendDist)
 │  ├─ index.html
@@ -176,6 +183,7 @@ PaletZamanAsistani/
 │     ├─ notes.js           ← notlar: depo, önizleme, panel
 │     ├─ weather.js         ← Open-Meteo geocoding + tahmin
 │     ├─ speech.js          ← Türkçe sayı→kelime + TTS
+│     ├─ gcal.js            ← Google Takvim: OAuth (PKCE) + eşitleme
 │     └─ app.js             ← başlatma ve olay bağlama
 └─ src-tauri/
    ├─ Cargo.toml
@@ -240,6 +248,38 @@ Paylaşılabilir kullanıcı skinleri ise tam olmak zorundadır.
 - Hava durumu için yalnızca seçtiğiniz şehrin koordinatı Open-Meteo'ya gönderilir.
   Hesap, çerez veya kişisel veri gönderilmez.
 - Google Takvim bağlanırsa yetki yalnızca `calendar.events` kapsamındadır.
+
+---
+
+## Google Takvim kurulumu (tek seferlik ≈5 dk)
+
+Takvim entegrasyonu **kendi** Google projeniz üzerinden çalışır. Nedeni teknik
+değil ilkesel: program GPL-3.0 ve kaynak kodu herkese açık, dolayısıyla içine
+gömülü bir **istemci sırrı** koymak onu yayınlamak olurdu. Google'ın *Desktop
+app* istemcileri zaten sır istemez — akış **PKCE** ile korunur.
+
+1. <https://console.cloud.google.com/> → yeni proje (ör. `Palet Zaman`)
+2. **APIs & Services → Library** → *Google Calendar API* → **Enable**
+3. **OAuth consent screen** → *External* → uygulama adı + e-posta → kaydet.
+   *Test users* listesine **kendi Gmail adresinizi** ekleyin (uygulamayı yayına
+   almanız gerekmez; test modu bunun için yeterlidir)
+4. **Credentials → Create credentials → OAuth client ID → Desktop app**
+5. Çıkan **Client ID**'yi kopyalayın (`…apps.googleusercontent.com` ile biter)
+6. Widget → **Ayarlar → GOOGLE TAKVİM** → alana yapıştırın → **Hesap Bağla**
+
+Tarayıcıda Google onay sayfası açılır. İzin verince sekme kendini kapatır ve
+widget takvimle eşitlenir; bundan sonra her not değişikliği takvime yansır.
+Bağlantı **Bağlantıyı kes** ile koparılır.
+
+> **İstemci sırrı yok.** Client ID gizli bilgi değildir. Erişim jetonu cihazda
+> (`localStorage`) tutulur ve yalnızca `calendar.events` kapsamına sahiptir —
+> program takviminize yazabilir, ama başka hiçbir Google verinize erişemez.
+
+> **Notlar takvimde nasıl görünür?** Her not, yazdığınız saatte başlayan
+> **30 dakikalık** bir olay olur. Olaylar `pza` özel alanıyla işaretlenir, bu
+> yüzden widget yalnızca **kendi** oluşturduğu olayları günceller ve siler —
+> takviminizdeki diğer etkinliklere dokunmaz. Bağlantıyı kesmek takvimdeki
+> notları **silmez**.
 
 ---
 

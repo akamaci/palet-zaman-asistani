@@ -141,8 +141,13 @@ dogru(fs.readFileSync(path.join(import.meta.dirname, '..', 'src', 'index.html'),
 console.log('\n6 · Kilit Rust tarafı istemez (kapsam denetimi)');
 {
   const mainRs = fs.readFileSync(path.join(import.meta.dirname, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
-  dogru(!/kilit|lock/i.test(mainRs.replace(/\/\/.*$/gm, '')),
-    'main.rs\'te kilit komutu yok — DOM yeterli, yeni yetki gerekmez');
+  /* Ölçüt "main.rs'te `lock` kelimesi geçmesin" DEĞİL: `Mutex::lock()`
+     gibi ilgisiz kullanımları da yakalar ve testi yanlış yere kilitler.
+     Aranan şey kilit ADINDA bir Rust komutu — yani kilidin pencere
+     izni istemediğinin kanıtı. */
+  const duz = mainRs.replace(/\/\/.*$/gm, '');
+  dogru(!/fn\s+\w*(kilit|lock)\w*/i.test(duz),
+    'main.rs kilit adlı bir komut tanımlamıyor — DOM yeterli, yeni yetki gerekmez');
   dogru(/data-tauri-drag-region/.test(src('settings.js')) || /data-drag/.test(src('settings.js')),
     'taşıma bölgeleri DOM\'dan yönetiliyor');
 }

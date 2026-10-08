@@ -233,8 +233,31 @@
     <div class="chips" id="city-chips"></div>
 
     <h4>GOOGLE TAKVİM</h4>
+    <!-- KULLANICI BİLDİRİMİ (tur 4): "hesap bağla düğmesine tıklanmasına
+         rağmen açılmıyor; browserdan Google bağlantı isteği gönderip
+         kullanıcı onaylarsa takvimle senkronize olmalı."
+         Eski düğme, her çağrıda hata dönen bir Rust komutuna bağlıydı.
+         Artık tarayıcıda Google onay sayfası açılır, dönüş adresi
+         uygulama tarafından yakalanır ve notlar takvime gönderilir. -->
     <button id="btn-gcal" class="btn-gcal"><b>G</b> Hesap Bağla</button>
+    <button id="btn-gcal-sync" class="btn-gcal ikincil" hidden>↻ Notları takvime gönder</button>
     <p class="hint" id="gcal-state">Notlarınız telefonunuzda da görünsün.</p>
+
+    <!-- Tek seferlik kurulum. Client ID girilene kadar açık kalır;
+         girildikten sonra kendiliğinden kapanır. İstemci SIRRI
+         İSTENMEZ: masaüstü akışı PKCE kullanır, böylece GPL
+         kaynağında hiçbir sır yayımlanmaz. -->
+    <div id="gcal-kur" hidden>
+      <p class="hint">
+        Bağlantı için Google Cloud Console'da <b>tek seferlik</b> (≈5 dk,
+        ücretsiz) bir <b>OAuth masaüstü istemcisi</b> açmanız gerekir.
+        İstemci sırrı gerekmez; yalnızca aşağıdaki <b>Client ID</b> yeterlidir.
+      </p>
+      <button id="gcal-console" class="btn-gcal ikincil">Konsolu aç</button>
+      <input id="gcal-id" class="inp" type="text" spellcheck="false"
+             autocomplete="off" placeholder="…apps.googleusercontent.com">
+    </div>
+    <button id="gcal-kes" class="lnk danger" hidden>Bağlantıyı kes</button>
 
     <h4>WİDGET BOYUTU</h4>
     <label class="row radio"><input type="radio" name="size" value="2"><span>1/2 Genişlik <i>(en geniş)</i></span></label>
@@ -365,6 +388,7 @@
 <script src="js/notes.js"></script>
 <script src="js/weather.js"></script>
 <script src="js/speech.js"></script>
+<script src="js/gcal.js"></script>
 <script src="js/studio.js"></script>
 <script src="js/app.js"></script>
 </body>
