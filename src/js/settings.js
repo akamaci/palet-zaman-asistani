@@ -21,7 +21,11 @@ PZA.DEFAULTS = {
   seconds: true,
   speech: false,      // her saat başı sesli okuma
   voice: 'female',    // okuyucu sesi: female | male
-  alwaysOnTop: true,  // kapatılınca widget diğer pencerelerin arkasına geçebilir
+  /* Varsayılan KAPALI: kullanıcı "browser açılınca arkaplana gitmiyor,
+     sürekli en ön planda kullanımı engelliyor" diye bildirdi. Açık
+     bırakılsaydı hata varsayılan davranış olarak kalırdı. Widget masaüstünde
+     görünür, ama normal pencerelerin önüne geçmez; isteyen ayardan açar. */
+  alwaysOnTop: false,
   autostart: false,
   city: null,         // { name, lat, lon }
   gcal: false
