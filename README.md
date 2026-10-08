@@ -34,7 +34,7 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 | | Tauri 2.x | Electron |
 |---|---|---|
-| Kurulum boyutu | ~10 MB | ~150–200 MB |
+| Kurulum boyutu | **1,1 MB** (ölçüldü) | ~150–200 MB |
 | Boşta RAM | ~40–80 MB | ~120–200 MB |
 | Motor | Sistemdeki WebView2 | Paketlenmiş Chromium |
 
@@ -55,8 +55,11 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet Zaman Asistanı_1.0.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.0.0_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
+
+> Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
+> `Palet Zaman Asistanı` → `Palet.Zaman.Asistani`. Dosya adı bu yüzden böyle.
 
 ---
 
