@@ -3,7 +3,8 @@
 Windows masaüstünde **her zaman görünen** flip clock + günün notları + hava durumu widget'ı.
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
-> Durum: **§4 Yazılım** — iskelet kurulu, arayüz çalışıyor. Derleme için araç zinciri bekleniyor.
+> Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
+> GitHub Actions'ta derleniyor (`v1.0.0`, taslak sürüm). Kurulum testi bekliyor.
 
 ---
 
@@ -14,15 +15,17 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Flip saat** | 24 saat mantığı, saniyeli, rakam değişiminde flip animasyonu |
 | **Tarih** | Üstte küçük: `18 Mayıs 2026 • Pazartesi` |
 | **Günün notları** | Sağdaki oktan aşağı açılır; saat-saat notlar, yıldızla önemli işaretleme |
+| **Takvim** | Tarih düğmesine basınca açılır; başka bir güne not girebilir, geçmişe bakabilirsiniz — "Bugüne dön" ile çıkılır |
 | **Not önizleme** | Ana ekranda ilk 5 not başlığı şerit halinde |
 | **Hava durumu** | `<` / sol kutucuk → 7 günlük tahmin, gün doğumu yayı, telemetri |
 | **Konum** | Manuel il seçimi (geocoding ile arama) + önbellek |
-| **Sesli okuma** | `15:00` → *"saat on beş"* · `17:30` → *"saat on yedi, otuz"* |
+| **Sesli okuma** | `15:00` → *"saat on beş"* · `17:30` → *"saat on yedi, otuz"* — iki okuyucu: **Ece** ve **Emre** |
 | **Tema** | Aydınlık / karanlık — "Günün notları"nın altındaki anahtardan |
 | **Skin** | Halo · Klasik · Neon · Minimal — Winamp mantığı, genişletilebilir |
 | **Skin Stüdyosu** | Kendi temanızı tasarlayın: 27 renk, arka plan görseli, köşe, font — canlı önizlemeli |
 | **Boyut** | 1/2 · 1/3 · 1/4 ölçek. 1/4'te mini hava göstergesi korunur |
 | **Görünürlük** | Hava durumu ve not başlıkları ayrı ayrı kapatılabilir (sade mod) |
+| **Her Zaman Üstte** | Açılıp kapatılır (**varsayılan kapalı**). Kapalıyken widget normal bir penceredir — tarayıcının ya da videonun önüne geçmez, masaüstünde görünür |
 | **Başlangıç** | Windows ile otomatik başlar (8 sn gecikmeli), ayarlardan kapatılır |
 | **Tepsi** | Kapatınca tepsiye küçülür; tepsiden geri açılır |
 
@@ -88,7 +91,8 @@ npm run dogrula        # kod bekçisi: 7 kontrol (aşağıya bakın)
 > (`http://127.0.0.1:5173`) açar — **`file://` ile değil**, çünkü tarayıcılar
 > `file://` sayfalarında `localStorage`'ı engelleyebiliyor ve o zaman ayarlarınız
 > ve skinleriniz kaydedilmez. Arayüz Tauri API'sini bulamazsa otomatik olarak
-> tarayıcı moduna düşer (takvim/otomatik başlatma hariç her şey çalışır).
+> tarayıcı moduna düşer — **takvim dâhil** her şey çalışır; yalnızca Windows ile
+> otomatik başlatma ve "her zaman üstte" çalışmaz (ikisi de işletim sistemi ister).
 
 > **MSI hedefi neden kapalı?** `bundle.targets` yalnızca `["nsis"]` içerir.
 > MSI (WiX) derlemesi `light.exe` adımında sıfırdan farklı çıkışla düşüyor;
