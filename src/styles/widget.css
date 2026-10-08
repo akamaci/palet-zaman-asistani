@@ -179,11 +179,16 @@
 }
 
 /* ── BOYUT ÖLÇEKLERİ ──────────────────────────────────────
-   Genişlikler gerçek ekran oranına göre: 1920px ekranda
-   1/2 = 960 · 1/3 = 640 · 1/4 = 480. Kutu gereğinden geniş
-   kalırsa içerik ortada toplanır ve yanlarda ölü boşluk kalır. */
+   Genişlik kutuya değil İÇERİĞE göre seçilir. Kullanıcı bildirimi
+   (hata 3): "1/4'e alınca bu kısım çok boş kalıyor, 1/2'de de çok
+   aralık var; yalnız 1/3 iyi". Ölçüm bunu doğruladı — 1/3'te içerik
+   kutunun ~%90'ını doldururken 1/2 ve 1/4'te yanlarda 130-160px
+   ölü boşluk kalıyordu: `.group-left/right` `flex: 1 1 0` olduğu için
+   taşan pay saatin İKİ YANINDA birikiyor, uzak köşelerde değil.
+   Bu yüzden ölçekler içeriğe göre DARALTILDI; 1/3 referans alındı. */
+.widget[data-size="2"] { max-width: 800px; }
 .widget[data-size="3"] { --pad: 14px; --radius: 13px; max-width: 700px; }
-.widget[data-size="4"] { --pad: 8px;  --radius: 10px; max-width: 480px; }
+.widget[data-size="4"] { --pad: 8px;  --radius: 10px; max-width: 430px; }
 
 /* 1/4'te gizlenenler — yer açmak için */
 [data-size="4"] .bar-preview,
@@ -348,14 +353,53 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 [data-size="3"] .flip-num { font-size: 33px; }
 [data-size="3"] .colon i { width: 6px; height: 6px; }
 
-/* 1/4 — kutu 480px, ayarlar butonu da üstten çıktı; kazanılan
-   yer saate gitti. */
+/* 1/4 — kutu 430px'e indi; kartlar bir tık büyütüldü ki saat
+   kutunun kalanını doldursun (eskiden 480px kutuda 56px kart
+   vardı ve kenarlarda ~43px ölü boşluk kalıyordu). */
 [data-size="4"] .flip-row { gap: 6px; }
-[data-size="4"] .flip { width: 56px; height: 64px; border-radius: 10px; }
-[data-size="4"] .flip-num { font-size: 26px; }
+[data-size="4"] .flip { width: 58px; height: 66px; border-radius: 10px; }
+[data-size="4"] .flip-num { font-size: 27px; }
 [data-size="4"] .colon { gap: 5px; padding: 0 1px; }
 [data-size="4"] .colon i { width: 5px; height: 5px; }
 [data-size="4"] .dateline { font-size: 10px; margin-bottom: 5px; }
+
+/* ── YERİNE KİLİT ─────────────────────────────────────────
+   Sağ üst köşe. Tauri'de pencereyi taşıyan TEK mekanizma
+   `data-tauri-drag-region` özniteliğidir; kilitleyince öznitelik
+   kaldırılır (settings.js → PZA.applyLock). Rust tarafında
+   değişiklik gerekmez, pencere yeri değişmez. */
+.btn-lock {
+  flex: none;
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  color: var(--fg-mute);
+  background: var(--surface-3);
+  border: 1px solid var(--border-ctl-soft);
+  border-radius: 12px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.btn-lock:hover { color: var(--fg); background: var(--surface-1); border-color: var(--edge-soft); }
+.btn-lock.on {
+  color: var(--accent-strong);
+  background: var(--surface-chip);
+  border-color: var(--accent-soft);
+}
+.btn-lock .ico { width: 15px; height: 15px; }
+/* İki simge tek düğmede: kilit kapalıyken açık asma kilidi,
+   kilitliyken kapalı olanı gösterilir. */
+.btn-lock .ico-kilit { display: none; }
+.btn-lock.on .ico-acik { display: none; }
+.btn-lock.on .ico-kilit { display: block; }
+[data-size="4"] .btn-lock { width: 28px; height: 28px; border-radius: 10px; }
+[data-size="4"] .btn-lock .ico { width: 13px; height: 13px; }
+[data-size="3"] .btn-lock { width: 30px; height: 30px; border-radius: 11px; }
+
+/* Kilitliyken taşıma bölgeleri imleci değiştirmez — "tutulabilir"
+   görünüp tutmamak kafa karıştırırdı. */
+.widget.locked .bar-top,
+.widget.locked .tile,
+.widget.locked .group-center { cursor: default; }
 
 /* ── NOTLAR BUTONU ──────────────────────────────────────── */
 .btn-notes {
@@ -807,19 +851,26 @@ label.radio input { accent-color: var(--accent); }
 }
 .voice-lbl { color: var(--fg-dim); font-size: 11px; }
 .voice-name { color: var(--fg-mute); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.voice-seg { flex: none; width: 132px; }
-.voice-seg button { padding: 6px; font-size: 10.5px; }
-/* Tek Türkçe ses kuruluysa çıkan uyarı — satır değil blok, çünkü
-   cümle uzun ve sarması gerekir. */
+/* Okuyucu sesi = sistemde KURULU olan seslerin listesi. Ece/Emre
+   gibi uydurma adlar kaldırıldı: tek Türkçe sesli sistemde ikisi de
+   aynı sesi veriyordu ve seçim hiçbir şey değiştirmiyordu.
+   `select.` öneki ŞART: `.inp { width: 100% }` kuralı bu dosyada
+   DAHA SONRA geldiği için düz `.voice-sel` seçicisini eziyor, kutu
+   satırın tamamını kaplayıp etiketi alt satıra düşürüyordu. */
+select.voice-sel { flex: none; width: 236px; font-size: 10.5px; padding: 6px 8px; }
+/* Kurulu ses uyarısı — satır değil blok, çünkü cümle uzun ve
+   sarması gerekir. */
 .voice-hint {
   margin: 8px 0 0;
-  padding: 7px 9px;
-  font-size: 10px; line-height: 1.5;
+  padding: 7px 9px 8px;
+  font-size: 10px; line-height: 1.55;
   color: var(--fg-dim);
   background: var(--surface-chip);
   border-left: 2px solid var(--warn);
   border-radius: 0 7px 7px 0;
 }
+.voice-hint b { color: var(--fg); font-weight: 600; }
+.voice-hint .lnk { margin-top: 5px; display: inline-block; }
 
 .inp {
   width: 100%; font: inherit; font-size: 11px;

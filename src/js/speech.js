@@ -33,106 +33,157 @@ PZA.trClock = function (h, m) {
 };
 
 /* ── Sesli okuma ─────────────────────────────────────────
-   İki okuyucu: kadın / erkek. Windows'ta hazır gelen Türkçe
-   sesler Microsoft Filiz (kadın) ve Microsoft Tolga (erkek);
-   Edge'in doğal sesleri de (Emel / Ahmet) aynı desene uyar.
-   Sistemde tek Türkçe ses varsa ikisi de aynı sesi kullanır —
-   bu yüzden perde (pitch) farkı ZORUNLU: yoksa "Emre" seçimi
-   hiçbir şey değiştirmez ve kullanıcı bozuk sanır. */
+   Okuyucu seçimi SİSTEMDE KURULU gerçek seslerden yapılır.
+   Eskiden "Ece" / "Emre" adlı iki uydurma okuyucu vardı; sistemde
+   tek Türkçe ses (Microsoft Tolga) olunca ikisi de AYNI sesi alıyor,
+   ayrım yalnız perdede kalıyordu. Kullanıcı bunu üst üste iki kez
+   bildirdi ve son sözü net oldu: "ece ve emre ilavesi gereksiz
+   olmuş; çalışır hâle geliyorsa getir, Windows'tan yapılacaksa iki
+   ismi de kaldır, ayar sayfasına yönlendir, 'bayan sesi buradan
+   ayarlanır' diye not koy."
+   Artık liste neyse o: kurulu sesler ADLARIYLA listelenir (Filiz
+   kuruluysa listede görünür), ses kurulu değilse kullanıcı sesi
+   ekleyeceği yere yönlendirilir (PZA.voiceHint). */
 /* Türkçe sesler önce; İngilizce adlar YEDEK içindir (Türkçe ses
    kurulu değilse oraya düşülür — orada da cinsiyet ters atanmasın).
    `\b` sınırı şart: "Tom" gibi kısa adlar "Tomas"ın içinde de geçer. */
 const SES_DISI  = /(emel|filiz|dilara|yelda|seda|aylin|female|kad[ıi]n|woman|\bzira\b|\bhazel\b|\bsusan\b|\bsamantha\b|\bvictoria\b|\bkaren\b|\bmoira\b|\btessa\b|\bfiona\b|\bserena\b|\ballison\b|\bava\b|\bjoanna\b|\bsalli\b|\bamy\b|\bemma\b|\baria\b|\bjenny\b|\bmichelle\b|\bclara\b|\bnatasha\b)/i;
 const SES_ERKEK = /(tolga|ahmet|burak|male|erkek|\bdavid\b|\bmark\b|\bgeorge\b|\bdaniel\b|\balex\b|\bfred\b|\bjames\b|\bguy\b|\bryan\b|\bwilliam\b|\boliver\b|\bthomas\b|\beric\b|\bchristopher\b|\bsteffan\b|\bjorge\b)/i;
 
-/* İki ayrı Türkçe ses (Filiz + Tolga) kuruluyken perde farkı ÖLÇÜLÜ
-   kalır: sesler zaten ayrı kişiler, perdeyi abartmak yapaylaştırır. */
-const SES_AYAR = {
-  female: { pitch: 1.06, rate: 0.95 },
-  male:   { pitch: 0.78, rate: 0.92 }
-};
+/* Okuma ayarı — TEK ve doğal. Perde artık okuyucu ayrımı için
+   KULLANILMAZ; ayrımı sesin kendisi yapar (perdeyi oynatıp "iki
+   kişi" taklidi yapmak kullanıcıyı ikna etmedi, haklı olarak).
+   Hafif yavaş tempo yalnız saatin net anlaşılması için. */
+const OKUMA_AYAR = { pitch: 1.0, rate: 0.95 };
 
-/* Tek Türkçe ses kuruluyken iki okuyucu AYNI sesi paylaşır ve ayrım
-   yalnız perdede kalır. Kullanıcı bu durumda "her ikisi de erkek"
-   bildirdi: 1.06 ↔ 0.78 aralığı kulakla iki ayrı kişi gibi
-   duyulmuyor. Aynı-ses hâlinde aralık bilinçli olarak geniş tutulur. */
-const SES_AYAR_TEK = {
-  female: { pitch: 1.40, rate: 0.98 },
-  male:   { pitch: 0.60, rate: 0.88 }
-};
+/* Windows'ta ses ekleme yolu. Uygulama bu ayar sayfasını AÇAMAZ:
+   Tauri'de opener eklentisi ve `ms-settings:` şema izni yok, zorlamak
+   özel şema navigasyonuyla webview'ı bozabilirdi. Bu yüzden metin
+   yazılır + URI kopyalanabilir verilir (kullanıcı Win+R'ye yapıştırır). */
+PZA.SES_YOLU = 'Ayarlar › Saat ve Dil › Konuşma › Ses ekle';
+PZA.SES_URI  = 'ms-settings:speech';
 
-let voice = null;                 // geriye dönük: seçili ses
-PZA.voices = { female: null, male: null };
-/* Tek ses kurulu mu? true ise etiketler bunu söyler ve perde
-   geniş aralığa geçer (bkz. PZA.ayar). */
-PZA.tekSes = false;
+PZA.sesListesi = [];     // { voice, name, lang, tr, kadin }
+PZA.trSesSayisi = 0;     // yalnız Türkçe seslerin sayısı
+PZA.tekSes = false;      // Türkçe ses ≤ 1 → listede seçenek yok, uyarı çıkar
 
-function pickVoice() {
-  if (!('speechSynthesis' in window)) return null;
+/** Kurulu sesleri topla. Türkçe varsa YALNIZ Türkçeler listelenir:
+    saat Türkçe okunurken İngilizce ses seçmek anlamsız olurdu. */
+function sesleriTopla() {
+  if (!('speechSynthesis' in window)) { PZA.sesListesi = []; PZA.trSesSayisi = 0; PZA.tekSes = true; return []; }
   const hepsi = speechSynthesis.getVoices() || [];
   const tr = hepsi.filter(v => (v.lang || '').toLowerCase().startsWith('tr'));
   const havuz = tr.length ? tr : hepsi;     // Türkçe yoksa eldekini kullan
-
-  // Önce adından tanınanlar
-  const kadin = havuz.filter(v => SES_DISI.test(v.name || ''));
-  const erkek = havuz.filter(v => SES_ERKEK.test(v.name || ''));
-
-  let f = kadin[0] || null;
-  let m = erkek[0] || null;
-
-  /* Ada göre ayrıştırılamayan sesler: kadın için elde kalan ilk ses,
-     erkek için kadına düşmeyen başka bir ses. Sıra ÖNEMLİ — önce
-     kadın seçilir ki `m` ona eşit olmayanı bulabilsin. */
-  if (!f) f = havuz.find(v => v !== m) || havuz[0] || null;
-  if (!m) m = havuz.find(v => v !== f) || f;
-
-  PZA.voices = { female: f, male: m };
-  /* İki okuyucu aynı sese düştüyse tek ses kurulu demektir.
-     Kullanıcı sistemine ikinci bir Türkçe ses (kadın) kurabilir;
-     etiket ve ayar bunu açıkça söyler. */
-  PZA.tekSes = !!(f && m && f === m);
-
-  voice = PZA.voices.female;
-  PZA.emit('speech:voices', PZA.voices);
-  return voice;
+  const gorulen = new Set();
+  PZA.sesListesi = havuz
+    .filter(v => {
+      const a = (v.name || '') + '|' + (v.lang || '');
+      if (gorulen.has(a)) return false;     // aynı ses iki kez listelenmesin
+      gorulen.add(a);
+      return true;
+    })
+    .map(v => ({
+      voice: v,
+      name: v.name || v.lang || 'İsimsiz ses',
+      lang: v.lang || '',
+      tr: (v.lang || '').toLowerCase().startsWith('tr'),
+      kadin: SES_DISI.test(v.name || ''),
+      erkek: SES_ERKEK.test(v.name || '')
+    }));
+  PZA.trSesSayisi = tr.length;
+  PZA.tekSes = tr.length <= 1;
+  return PZA.sesListesi;
 }
 
-/** Okuyucunun perde/hız ayarı — tek ses kuruluysa geniş aralık. */
-PZA.ayar = function (secim) {
-  const anahtar = (secim === 'male') ? 'male' : 'female';
-  return (PZA.tekSes ? SES_AYAR_TEK : SES_AYAR)[anahtar];
+/** Seçili ses: kayıtlı ad → yoksa OTOMATİK seçim.
+    Otomatik seçim önce kadın sesini arar (kullanıcı isteği: "eğer
+    olmuyorsa otomatik kadın sesi ekle"), yoksa listenin ilkini alır. */
+PZA.seciliSes = function () {
+  const liste = PZA.sesListesi;
+  if (!liste.length) return null;
+  const ad = PZA.settings && PZA.settings.voiceName;
+  if (ad) {
+    const bulunan = liste.find(v => v.name === ad);
+    if (bulunan) return bulunan.voice;
+  }
+  const kadin = liste.find(v => v.kadin);
+  return (kadin || liste[0]).voice;
 };
 
-/* Okuyucu adları. "Kadın / Erkek" bir ayar etiketi; "Ece / Emre" iki ayrı
-   okuyucu. Kullanıcı seçimi isimle hatırlıyor, cinsiyetle değil. Hangi
-   sistem sesine denk geldiği etikette yanında kalır — teknik ayrıntı
-   kaybolmasın, sesi değiştiren kullanıcı ne olduğunu görsün. */
-PZA.OKUYUCU = { female: 'Ece', male: 'Emre' };
-
-/** Seçili okuyucunun etiketi — "Ece — Microsoft Filiz" gibi.
-    Tek ses kuruluysa perdeyle ayrıştırıldığı AÇIKÇA yazılır: aksi
-    hâlde kullanıcı iki okuyucunun aynı sesi paylaştığını görmez ve
-    "ses değişmiyor" diye hata bildirir. */
-PZA.voiceLabel = function (g) {
-  const anahtar = (g === 'male') ? 'male' : 'female';
-  const ad = PZA.OKUYUCU[anahtar];
-  const v = PZA.voices[anahtar];
-  if (!v) return ad + ' — sistem sesi bulunamadı';
-  const ses = v.name || v.lang || 'sistem sesi';
-  return PZA.tekSes ? ad + ' — ' + ses + ' · perde ile ayrıştırıldı' : ad + ' — ' + ses;
+/** Kayıtlı seçim yoksa otomatik seçimi KALICI hâle getir — kullanıcı
+    listede ne seçili olduğunu görsün, her açılışta yeniden seçmesin. */
+PZA.otomatikSesSec = function () {
+  const v = PZA.seciliSes();
+  if (v && !PZA.settings.voiceName) { PZA.settings.voiceName = v.name; PZA.save(); }
+  return v;
 };
 
-/** Tek ses uyarısı — arayüz bunu gösterir; normal durumda null. */
+/** Seçili sesin okunur etiketi. */
+PZA.voiceLabel = function () {
+  const v = PZA.seciliSes();
+  if (!v) return 'Sistemde konuşma sesi bulunamadı';
+  return v.name || v.lang || 'Sistem sesi';
+};
+
+/* Ses ekleme yolu — kullanıcının Win+R'ye yapıştırabilmesi için
+   URI'yi panoya kopyalayan düğme (tıklaması app.js'te, delege). */
+function kopyaDugmesi() {
+  return '<br><button type="button" class="lnk vh-kopya" data-kopya="' + PZA.SES_URI + '">'
+    + PZA.SES_URI + ' yolunu kopyala</button>';
+}
+
+/** Kurulu ses uyarısı — yeterli Türkçe ses varsa null.
+    Kullanıcı isteği: "not olarak bayan sesi buradan ayarlanır gibi
+    ibare koy." */
 PZA.voiceHint = function () {
-  if (!PZA.tekSes) return null;
-  return 'Sistemde tek Türkçe ses var (' + ((PZA.voices.female || {}).name || 'bilinmiyor')
-    + '). Ece ve Emre bu sesi perdeyle ayrıştırır. Ayrı bir kadın sesi için: '
-    + 'Ayarlar → Saat ve Dil → Konuşma → Ses ekle → Türkçe (Filiz).';
+  if (PZA.trSesSayisi >= 2) return null;
+  const E = PZA.escHtml || (s => String(s));
+  const bas = PZA.trSesSayisi === 1
+    ? 'Sistemde tek Türkçe ses var (<b>' + E(PZA.sesListesi[0].name) + '</b>).'
+    : 'Sistemde Türkçe konuşma sesi yok.';
+  return bas + '<br>Bayan sesi buradan ayarlanır: <b>' + PZA.SES_YOLU + '</b>.' + kopyaDugmesi();
+};
+
+/** Arayüz: seçim listesi + etiket + kurulu ses uyarısı.
+    `voiceschanged` de bunu çağırır — sesler gecikmeli yüklenebiliyor. */
+PZA.renderVoiceUi = function () {
+  const secili = PZA.otomatikSesSec();
+  const sel = document.getElementById('voice-select');
+  if (sel) {
+    const E = PZA.escHtml || (s => String(s));
+    if (!PZA.sesListesi.length) {
+      sel.innerHTML = '<option value="">Ses bulunamadı</option>';
+      sel.disabled = true;
+    } else {
+      sel.disabled = false;
+      // "(kadın)" / "(erkek)" etiketi ses adından TAHMİN edilir —
+      // kullanıcı hangi sesin hangi cinsiyette olduğunu listede görsün.
+      sel.innerHTML = PZA.sesListesi.map(v =>
+        '<option value="' + E(v.name) + '">' + E(v.name)
+        + (v.kadin ? ' (kadın)' : v.erkek ? ' (erkek)' : '') + '</option>'
+      ).join('');
+      sel.value = secili ? secili.name : '';
+    }
+  }
+  const vn = document.getElementById('voice-name');
+  if (vn) vn.textContent = PZA.voiceLabel();
+  const vh = document.getElementById('voice-hint');
+  if (vh) {
+    const ipucu = PZA.voiceHint();
+    vh.innerHTML = ipucu || '';
+    vh.hidden = !ipucu;
+  }
 };
 
 if ('speechSynthesis' in window) {
-  pickVoice();
-  speechSynthesis.onvoiceschanged = pickVoice;   // sesler gecikmeli yüklenebilir
+  sesleriTopla();
+  /* Sesler gecikmeli yüklenebilir: liste gelince hem seçimi hem
+     etiketi hem uyarıyı tazele. */
+  speechSynthesis.onvoiceschanged = () => {
+    sesleriTopla();
+    if (PZA.renderVoiceUi) PZA.renderVoiceUi();
+    PZA.emit('speech:voices', PZA.sesListesi);
+  };
 }
 
 /** Verilen saat için konuş */
@@ -141,23 +192,20 @@ PZA.say = function (h, m) {
     console.warn('Bu ortamda speechSynthesis yok.');
     return false;
   }
-  const secim = (PZA.settings && PZA.settings.voice === 'male') ? 'male' : 'female';
-  const ayar = PZA.ayar(secim);   // tek ses kuruluysa geniş perde aralığı
-
-  if (!PZA.voices.female && !PZA.voices.male) pickVoice();
-  const v = PZA.voices[secim] || PZA.voices.female || null;
+  if (!PZA.sesListesi.length) sesleriTopla();
+  const v = PZA.seciliSes();
 
   const metin = PZA.trClock(h, m);
   const u = new SpeechSynthesisUtterance(metin);
   u.lang = 'tr-TR';
-  u.rate = ayar.rate;
-  u.pitch = ayar.pitch;
+  u.rate = OKUMA_AYAR.rate;
+  u.pitch = OKUMA_AYAR.pitch;
   if (v) u.voice = v;
 
   speechSynthesis.cancel();     // üst üste binmesin
   speechSynthesis.resume();     // kimi motorlarda cancel sonrası takılı kalır
   speechSynthesis.speak(u);
-  PZA.emit('speech:said', { metin, h, m, reader: secim, voice: v ? v.name : null });
+  PZA.emit('speech:said', { metin, h, m, voice: v ? v.name : null });
   return true;
 };
 

@@ -28,6 +28,9 @@
      `max-width` ise `data-size`'a bağlı sabit bir sayıdır. */
   if (TAURI) {
     let sonH = 0, sonG = 0;
+    /* Panel açılmadan ÖNCEKİ pencere yeri. Panel kapanınca buraya
+       dönülür — yoksa widget kendiliğinden yukarı kaymış görünürdü. */
+    let kayitliKonum = null;
     const EN_AZ_G = 320;      // alt sınır: bundan darı okunmaz
 
     /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
@@ -66,6 +69,55 @@
       return Math.ceil(g);
     };
 
+    /* ── İş alanı (görev çubuğu HARİÇ) ────────────────────
+       Kullanıcı bildirimi (hata 1): "ayarlar menüsü aşağı çok uzuyor,
+       windows barını bile geçiyor; ekran dışına taşınınca seçmek
+       mümkün değil."
+       Ölçüm: ayarlar panelinin içeriği 1125px, panel kendi içinde
+       sorunsuz kaydırılıyordu — kırpılan şey PANEL DEĞİL PENCEREYDİ.
+       Eski kod pencereyi monitörün TAM yüksekliğine kadar büyütüyordu
+       (1080 − 60 = 1020px) ve Windows'ta SetWindowPos SOL ÜST köşeyi
+       koruduğu için masaüstünün alt yarısına konmuş bir widget'ta
+       pencerenin alt kısmı görev çubuğunun altında kalıyordu.
+       Çözüm: yüksekliği İŞ ALANINA sığdır (availHeight zaten görev
+       çubuğunu dışarıda bırakır) ve gerekiyorsa pencereyi yukarı çek. */
+    const isAlani = async win => {
+      const ek = window.screen || {};
+      let ust = ek.availTop || 0;
+      let boy = ek.availHeight || 0;
+      if (!boy) {                       // WebView iş alanı vermediyse monitöre düş
+        try {
+          const mon = await win.currentMonitor();
+          if (mon && mon.size && mon.size.height) {
+            ust = 0;
+            boy = Math.round(mon.size.height / (mon.scaleFactor || 1));
+          }
+        } catch (e) { /* monitör bilgisi alınamadı */ }
+      }
+      return { ust, boy };
+    };
+
+    /* Pencere iş alanının altına taşarsa yukarı çek, panel kapanınca
+       eski yerine döndür. */
+    const konumSabitle = async (win, w, alan, panelVar, h) => {
+      if (!alan.boy) return;
+      try {
+        const sf = (await w.scaleFactor()) || 1;
+        const p = await w.outerPosition();
+        if (!p) return;
+        const y = p.y / sf;
+        const alt = alan.ust + alan.boy;
+        if (panelVar && y + h > alt) {
+          if (!kayitliKonum) kayitliKonum = { x: p.x / sf, y };
+          await w.setPosition(new win.LogicalPosition(kayitliKonum.x, Math.max(alan.ust, alt - h - 8)));
+        } else if (!panelVar && kayitliKonum) {
+          const k = kayitliKonum;
+          kayitliKonum = null;
+          await w.setPosition(new win.LogicalPosition(k.x, k.y));
+        }
+      } catch (e) { /* konum API'si yoksa sessizce geç */ }
+    };
+
     const fit = async () => {
       let h = gerekliH();
       let g = Math.max(EN_AZ_G, gerekliG());
@@ -77,16 +129,16 @@
       try {
         const win = window.__TAURI__.window;
         const w = win.getCurrentWindow();
-        // Ayarlar paneli ekrandan uzun olabilir (Stüdyo özellikle).
-        // Monitöre sığdır; panel kendi içinde kaydırılır.
-        try {
-          const mon = await win.currentMonitor();
-          if (mon && mon.size && mon.size.height) {
-            const enFazla = Math.round(mon.size.height / (mon.scaleFactor || 1)) - 60;
-            if (enFazla > 240) h = Math.min(h, enFazla);
-          }
-        } catch (e) { /* monitör bilgisi alınamadı */ }
+        const alan = await isAlani(win);
+        // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
+        // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
+        if (alan.boy) h = Math.min(h, Math.max(240, alan.boy - 24));
         await w.setSize(new win.LogicalSize(g, h));
+        const panelVar = ['settings', 'studio'].some(id => {
+          const el = document.getElementById(id);
+          return el && !el.hidden;
+        });
+        await konumSabitle(win, w, alan, panelVar, h);
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
 
@@ -278,20 +330,33 @@
     if (b) PZA.secimGun(b.dataset.day);
   });
 
-  /* ── Okuyucu sesi (kadın / erkek) ────────────────────── */
-  $('voice-seg')?.addEventListener('click', e => {
-    const b = e.target.closest('[data-voice]');
-    if (!b) return;
-    PZA.set('voice', b.dataset.voice);
+  /* ── Okuyucu sesi (sistemde KURULU sesler) ───────────────
+     Seçim sesin adıyla saklanır. Eskiden 'female'/'male' tutuluyordu
+     ve iki uydurma "okuyucu" (Ece/Emre) tek Türkçe sesli sistemde
+     aynı sesi veriyordu — kaldırıldı. */
+  $('voice-select')?.addEventListener('change', e => {
+    PZA.set('voiceName', e.target.value);
     PZA.sayNow?.();                    // seçimi hemen duyur — karşılaştırmak için
   });
   $('btn-say-test')?.addEventListener('click', () => PZA.sayNow?.());
 
-  /* Sesler gecikmeli yüklenirse etiketi tazele */
-  PZA.on('speech:voices', () => {
-    const el = $('voice-name');
-    if (el) el.textContent = PZA.voiceLabel ? PZA.voiceLabel(PZA.settings.voice) : '—';
+  /* Uyarı bloğundaki "yolunu kopyala" düğmesi — blok dinamik
+     yazıldığı için delege edilir (düğme HTML'de yok). */
+  $('voice-hint')?.addEventListener('click', async e => {
+    const b = e.target.closest('[data-kopya]');
+    if (!b) return;
+    const uri = b.dataset.kopya;
+    try {
+      await navigator.clipboard.writeText(uri);
+      b.textContent = 'Kopyalandı ✓ · Win + R ile çalıştırın';
+    } catch (err) {
+      // Pano izni yoksa yalan söyleme — yolu yaz.
+      b.textContent = 'Kopyalanamadı — yolu elle yazın: ' + uri;
+    }
   });
+
+  /* ── Yerine kilit (sağ üst köşe) ─────────────────────── */
+  $('btn-lock')?.addEventListener('click', () => PZA.set('locked', !PZA.settings.locked));
 
   $('notes-list')?.addEventListener('click', e => {
     const row = e.target.closest('.note-row');

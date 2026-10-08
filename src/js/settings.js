@@ -2,6 +2,15 @@
    Palet Zaman Asistanı · GPL-3.0 */
 window.PZA = window.PZA || {};
 
+/* ── Sürüm — TEK KAYNAK ──────────────────────────────────
+   Aynı numara `package.json`, `src-tauri/Cargo.toml` ve
+   `src-tauri/tauri.conf.json` içinde de durur. Ayarlar panelinin
+   altındaki yazı BURADAN beslenir; elle yazıldığında v1.1.0
+   yayımlandığı hâlde panelde "v1.0" kalıyordu.
+   Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
+   sürüm yükseltmesi unutulursa yayın durur. */
+PZA.SURUM = '1.2.0';
+
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
    eklemek için buraya bir kayıt + CSS'te [data-skin="id"] bloğu yeter. */
@@ -20,7 +29,12 @@ PZA.DEFAULTS = {
   preview: true,      // not başlıkları şeridi
   seconds: true,
   speech: false,      // her saat başı sesli okuma
-  voice: 'female',    // okuyucu sesi: female | male
+  /* Okuyucu sesi = sistemde kurulu sesin ADI (ör. "Microsoft Filiz
+     - Turkish (Turkey)"). Eskiden 'female' | 'male' tutuluyordu ama
+     bu iki "kişi" tek Türkçe sesli sistemde aynı sesi veriyordu;
+     adla saklamak hem gerçek hem kalıcı. null = otomatik seç. */
+  voiceName: null,
+  locked: false,      // widget yeri kilitli mi (sağ üstteki asma kilit)
   /* Varsayılan KAPALI: kullanıcı "browser açılınca arkaplana gitmiyor,
      sürekli en ön planda kullanımı engelliyor" diye bildirdi. Açık
      bırakılsaydı hata varsayılan davranış olarak kalırdı. Widget masaüstünde
@@ -91,19 +105,17 @@ PZA.apply = function () {
   bind('opt-ontop', s.alwaysOnTop);
   bind('opt-autostart', s.autostart);
 
-  // Okuyucu: Ece / Emre
-  document.querySelectorAll('[data-voice]').forEach(b =>
-    b.classList.toggle('on', b.dataset.voice === (s.voice === 'male' ? 'male' : 'female')));
-  const vn = document.getElementById('voice-name');
-  if (vn) vn.textContent = PZA.voiceLabel ? PZA.voiceLabel(s.voice) : '—';
-  // Tek Türkçe ses kuruluysa perde ayrımını ve nasıl ikinci ses
-  // kurulacağını açıkça yaz; yoksa "ses değişmiyor" sanılıyor.
-  const vh = document.getElementById('voice-hint');
-  if (vh) {
-    const ipucu = PZA.voiceHint ? PZA.voiceHint() : null;
-    vh.textContent = ipucu || '';
-    vh.hidden = !ipucu;
-  }
+  // Okuyucu sesi: sistemde kurulu seslerin listesi (speech.js).
+  // Ayrı bir çizim fonksiyonu çünkü liste ancak sesler yüklendikten
+  // sonra dolar — `voiceschanged` de aynı fonksiyonu çağırır.
+  if (PZA.renderVoiceUi) PZA.renderVoiceUi();
+
+  // Yeri kilitle (sağ üst köşe)
+  PZA.applyLock();
+
+  // Sürüm yazısı — tek kaynak PZA.SURUM
+  const sv = document.getElementById('set-ver');
+  if (sv) sv.textContent = PZA.SURUM;
 
   document.querySelectorAll('[data-theme-set]').forEach(b =>
     b.classList.toggle('on', b.dataset.themeSet === s.theme));
@@ -123,6 +135,32 @@ PZA.apply = function () {
 
   // Kullanıcı skini aktifse token'ları satır içi olarak uygula
   PZA.applySkin && PZA.applySkin();
+};
+
+/* ── Yeri kilitle ──────────────────────────────────────────
+   Kullanıcı isteği: "sağ üst köşeye kilit ikonu koyarsan olduğu
+   yere kilitleyelim, yerinden yanlışlıkla oynamasın".
+   Tauri'de pencereyi taşıyan TEK mekanizma `data-tauri-drag-region`
+   özniteliğidir (Rust tarafında `start_dragging` çağrılmaz). Bu
+   yüzden kilitlemek için özniteliği kaldırmak yeterli: ek Rust
+   komutu, yeni yetki ya da pencere durumu gerekmez.
+   Öğeler `[data-drag]` ile KALICI işaretlidir; yoksa kilidi açarken
+   hangi öğelerin taşınabilir olduğu bilinemezdi. */
+PZA.applyLock = function () {
+  const kilitli = !!(PZA.settings && PZA.settings.locked);
+  document.querySelectorAll('[data-drag]').forEach(el => {
+    if (kilitli) el.removeAttribute('data-tauri-drag-region');
+    else el.setAttribute('data-tauri-drag-region', '');
+  });
+  const w = document.getElementById('widget');
+  if (w) w.classList.toggle('locked', kilitli);
+  const b = document.getElementById('btn-lock');
+  if (b) {
+    b.classList.toggle('on', kilitli);
+    b.setAttribute('aria-pressed', kilitli ? 'true' : 'false');
+    b.title = kilitli ? 'Kilit açık — widget taşınabilir' : 'Yerine kilitle — yanlışlıkla oynamasın';
+  }
+  return kilitli;
 };
 
 /* ── Skin listesi + seçili skin çubuğu ────────────────────

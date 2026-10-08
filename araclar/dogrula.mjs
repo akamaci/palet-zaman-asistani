@@ -171,6 +171,63 @@ head('7 · Kacis davranis testi (dusmanca skin dosyasi)');
   }
 }
 
+/* ── 8. Sürüm numarası tek kaynak mı ─────────────────────
+   `PZA.SURUM` ile package.json / Cargo.toml / tauri.conf.json aynı
+   numarayı taşımalı. Ayrışırsa kurulum paketi kendi sürümünü yanlış
+   bildirir ve kullanıcı hangi sürümü kurduğunu bilemez: v1.1.0
+   yayımlandığı hâlde ayarlar panelinde "v1.0" yazıyordu, çünkü sürüm
+   elle yazılmıştı. Bu kontrol yükseltmeyi unutturmaz. */
+head('8 · Surum numarasi tek kaynak mi');
+{
+  const surumler = {};
+  const m = src('settings.js').match(/PZA\.SURUM\s*=\s*'([^']+)'/);
+  surumler['settings.js'] = m ? m[1] : null;
+  const oku = (p, yol) => {
+    try {
+      const j = JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'));
+      return yol.reduce((o, k) => (o ? o[k] : null), j);
+    } catch (e) { return null; }
+  };
+  surumler['package.json']     = oku('package.json', ['version']);
+  surumler['tauri.conf.json']  = oku('src-tauri/tauri.conf.json', ['version']);
+  const cargo = fs.readFileSync(path.join(root, 'src-tauri/Cargo.toml'), 'utf8');
+  // Yalnız [package] bloğu — bağımlılıkların `version = "2"` satırları karışmasın
+  const paket = cargo.split(/^\[/m)[1] || '';
+  const cm = paket.match(/version\s*=\s*"([^"]+)"/);
+  surumler['Cargo.toml'] = cm ? cm[1] : null;
+
+  const degerler = Object.values(surumler);
+  if (degerler.some(v => !v)) fail('surum okunamadi: ' + JSON.stringify(surumler));
+  else if (new Set(degerler).size > 1) {
+    fail('surumler ayrismis → ' + Object.entries(surumler).map(([k, v]) => k + '=' + v).join(' · '));
+  } else ok('4 dosyada da ayni: v' + degerler[0]);
+
+  /* Panelin alt yazısı sürümü ELLE yazmamalı — PZA.SURUM'dan gelir. */
+  if (/Palet Zaman Asistanı v\d/.test(html)) fail('index.html surumu elle yaziyor (PZA.SURUM kullanilmali)');
+  else ok('index.html surumu elle yazmiyor');
+}
+
+/* ── 9. Taşıma bölgeleri işaretli mi ─────────────────────
+   Kilit (settings.js → PZA.applyLock) yalnız `[data-drag]` işaretli
+   öğelerde `data-tauri-drag-region` özniteliğini kaldırıp geri koyar.
+   İşaretsiz bir taşıma bölgesi kilidi açarken geri kazanılamaz ve
+   widget bir daha taşınamaz — sessiz ve kalıcı bir kilitlenme. */
+head('9 · Tasma bolgeleri isaretli mi');
+{
+  // Yorumlar ayıklanır: açıklama metninde geçen öznitelik adı etiket
+  // sanılıp yanlış alarm üretiyordu.
+  const govde = html.replace(/<!--[\s\S]*?-->/g, '');
+  const tasiyan = [...govde.matchAll(/<[^>]*data-tauri-drag-region[^>]*>/g)].map(m => m[0]);
+  const isaretsiz = tasiyan.filter(t => !/\bdata-drag=/.test(t));
+  if (isaretsiz.length) fail('data-drag isareti olmayan tasima bolgesi: ' + isaretsiz.join(' | '));
+  else ok(tasiyan.length + ' tasima bolgesi, hepsi data-drag isaretli');
+
+  const isaretli = [...govde.matchAll(/<[^>]*\bdata-drag=[^>]*>/g)].map(m => m[0]);
+  const olu = isaretli.filter(t => !/data-tauri-drag-region/.test(t));
+  if (olu.length) note('data-drag var ama tasima yok (olu isaret): ' + olu.join(' | '));
+  else ok(isaretli.length + ' data-drag isareti, hepsi tasima bolgesi');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

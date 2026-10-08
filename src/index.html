@@ -14,12 +14,16 @@
   <!-- Kullanıcı skini arka plan görseli — z-index:-1 ile içeriğin ALTINDA -->
   <div class="skin-bg" id="skin-bg" hidden></div>
 
-  <!-- ══ ÜST BAR ══ -->
-  <div class="bar bar-top" data-tauri-drag-region>
+  <!-- ══ ÜST BAR ══
+       `data-drag` = KALICI işaret, `data-tauri-drag-region` = etkin
+       taşıma. Kilit bu ikinci özniteliği kaldırıp geri koyar
+       (settings.js → PZA.applyLock); işaret kalıcı olmazsa kilidi
+       açarken hangi öğelerin taşınabilir olduğu bilinemezdi. -->
+  <div class="bar bar-top" data-drag="1" data-tauri-drag-region>
 
     <!-- Sol: hava durumu (ayarlar alt bara taşındı — yer saat için) -->
     <div class="group-left">
-      <button id="weather-tile" class="tile" data-tauri-drag-region>
+      <button id="weather-tile" class="tile" data-drag="1" data-tauri-drag-region>
         <span class="tile-glyph" id="weather-glyph">☀</span>
         <span class="tile-body">
           <span class="tile-line">
@@ -32,7 +36,7 @@
     </div>
 
     <!-- Orta: tarih + flip saat -->
-    <div class="group-center" data-tauri-drag-region>
+    <div class="group-center" data-drag="1" data-tauri-drag-region>
       <div class="dateline">
         <span class="beacon"></span>
         <span id="date-main">—</span>
@@ -48,11 +52,25 @@
       </div>
     </div>
 
-    <!-- Sağ: notlar -->
+    <!-- Sağ: notlar + yerine kilit (sağ üst köşe) -->
     <div class="group-right">
       <button id="btn-notes" class="btn-notes" aria-expanded="false">
         <span>GÜNÜN NOTLARI</span>
         <span class="chev"><svg viewBox="0 0 24 24" class="ico"><path d="M19 9l-7 7-7-7"/></svg></span>
+      </button>
+
+      <button id="btn-lock" class="btn-lock" type="button"
+              aria-pressed="false" title="Yerine kilitle — yanlışlıkla oynamasın">
+        <!-- Açık asma kilidi: basınca yeri sabitlenir -->
+        <svg viewBox="0 0 24 24" class="ico ico-acik" aria-hidden="true">
+          <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5"/>
+          <path d="M8 10.5V7.6a4 4 0 0 1 7.7-1.5"/>
+        </svg>
+        <!-- Kapalı asma kilidi: kilit etkin -->
+        <svg viewBox="0 0 24 24" class="ico ico-kilit" aria-hidden="true">
+          <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5"/>
+          <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+        </svg>
       </button>
     </div>
 
@@ -195,12 +213,14 @@
 
     <h4>SESLİ OKUMA</h4>
     <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-speech" class="sw"></label>
+    <!-- Okuyucu seçimi = Windows'ta KURULU seslerin listesi.
+         "Ece/Emre" kaldırıldı: sistemde tek Türkçe ses (Microsoft
+         Tolga) varken ikisi de aynı sesi veriyordu, seçim hiçbir
+         şeyi değiştirmiyordu. Liste boşsa/tek sesliyse kullanıcı
+         sesi kuracağı yere yönlendirilir (aşağıdaki not). -->
     <div class="voice-row">
-      <span class="voice-lbl">Okuyucu</span>
-      <div class="seg voice-seg" id="voice-seg">
-        <button type="button" data-voice="female" aria-label="Ece — kadın sesi">Ece</button>
-        <button type="button" data-voice="male" aria-label="Emre — erkek sesi">Emre</button>
-      </div>
+      <span class="voice-lbl">Okuyucu sesi</span>
+      <select id="voice-select" class="inp voice-sel" aria-label="Okuyucu sesi"></select>
     </div>
     <div class="voice-row">
       <span class="voice-lbl voice-name" id="voice-name">—</span>
@@ -226,8 +246,12 @@
 
   </div>
 
+  <!-- Sürüm elle yazılmaz: `PZA.SURUM` tek kaynak (js/settings.js),
+       `npm run dogrula` üç paket dosyasıyla eşleştiğini doğrular.
+       Elle yazıldığında v1.1.0 yayımlandığı hâlde panelde "v1.0"
+       kalıyordu — kullanıcı hangi sürümü kurduğunu göremiyordu. -->
   <div class="set-foot">
-    <span>Palet Zaman Asistanı v1.0</span>
+    <span>Palet Zaman Asistanı v<b id="set-ver">—</b></span>
     <button id="btn-license" class="lnk">GPL-3.0</button>
   </div>
 </div>

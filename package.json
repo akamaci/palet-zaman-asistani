@@ -1,6 +1,6 @@
 {
   "name": "palet-zaman-asistani",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Windows masaüstü flip clock + günün notları + hava durumu widget'ı",
   "license": "GPL-3.0-or-later",
@@ -16,9 +16,10 @@
     "icon": "tauri icon assets/logo.png",
     "web": "node araclar/sunucu.mjs",
     "dogrula": "node araclar/dogrula.mjs",
-    "test": "node araclar/notlar-test.mjs && node araclar/ses-test.mjs",
+    "test": "node araclar/notlar-test.mjs && node araclar/ses-test.mjs && node araclar/kilit-test.mjs",
     "test:notlar": "node araclar/notlar-test.mjs",
-    "test:ses": "node araclar/ses-test.mjs"
+    "test:ses": "node araclar/ses-test.mjs",
+    "test:kilit": "node araclar/kilit-test.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.0.0`, taslak sürüm). Kurulum testi bekliyor.
+> GitHub Actions'ta derleniyor (`v1.2.0`, ön sürüm). Kurulum testi bekliyor.
 
 ---
 
@@ -19,11 +19,14 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Not önizleme** | Ana ekranda ilk 5 not başlığı şerit halinde |
 | **Hava durumu** | `<` / sol kutucuk → 7 günlük tahmin, gün doğumu yayı, telemetri |
 | **Konum** | Manuel il seçimi (geocoding ile arama) + önbellek |
-| **Sesli okuma** | `15:00` → *"saat on beş"* · `17:30` → *"saat on yedi, otuz"* — iki okuyucu: **Ece** ve **Emre** |
+| **Sesli okuma** | `15:00` → *"saat on beş"* · `17:30` → *"saat on yedi, otuz"* |
+| **Okuyucu sesi** | Sistemde **kurulu** sesler listelenir; kadın sesi otomatik seçilir ve adıyla hatırlanır. Tek (veya hiç) Türkçe ses varsa panel ses ekleme yolunu gösterir — *"Bayan sesi buradan ayarlanır"* |
+| **Yeri kilitle** | Sağ üstteki kilit ikonu pencereyi olduğu yere sabitler; yanlışlıkla sürüklenmez. Seçim kalıcıdır |
 | **Tema** | Aydınlık / karanlık — "Günün notları"nın altındaki anahtardan |
 | **Skin** | Halo · Klasik · Neon · Minimal — Winamp mantığı, genişletilebilir |
 | **Skin Stüdyosu** | Kendi temanızı tasarlayın: 27 renk, arka plan görseli, köşe, font — canlı önizlemeli |
-| **Boyut** | 1/2 · 1/3 · 1/4 ölçek. 1/4'te mini hava göstergesi korunur |
+| **Boyut** | 1/2 · 1/3 · 1/4 ölçek. Genişlik kutuya değil **içeriğe** göre daraltılır — saat kenarlarda boşlukta kalmaz. 1/4'te mini hava göstergesi korunur |
+| **Ekran sığdırma** | Ayarlar paneli açılınca pencere büyür ve **görev çubuğunu aşmaz**: çalışma alanına (`screen.availHeight`) sığdırılır, gerekirse yukarı kaydırılır, panel kapanınca eski yerine döner |
 | **Görünürlük** | Hava durumu ve not başlıkları ayrı ayrı kapatılabilir (sade mod) |
 | **Her Zaman Üstte** | Açılıp kapatılır (**varsayılan kapalı**). Kapalıyken widget normal bir penceredir — tarayıcının ya da videonun önüne geçmez, masaüstünde görünür |
 | **Başlangıç** | Windows ile otomatik başlar (8 sn gecikmeli), ayarlardan kapatılır |
@@ -58,7 +61,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.0.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.2.0_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
@@ -84,8 +87,8 @@ npm run icon           # assets/logo.png → src-tauri/icons/*
 npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
-npm run dogrula        # kod bekçisi: 7 statik kontrol (aşağıya bakın)
-npm run test           # davranış testleri: notlar/takvim + ses (107 kontrol)
+npm run dogrula        # kod bekçisi: 9 statik kontrol (aşağıya bakın)
+npm run test           # davranış testleri: notlar/takvim + ses + kilit (161 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -106,7 +109,7 @@ npm run test           # davranış testleri: notlar/takvim + ses (107 kontrol)
 
 ### `npm run dogrula` — kod bekçisi
 
-Her değişiklikten sonra çalıştırın. Yedi kontrol yapar:
+Her değişiklikten sonra çalıştırın. Dokuz kontrol yapar:
 
 | # | Kontrol | Neyi yakalar |
 |---|---------|--------------|
@@ -117,27 +120,35 @@ Her değişiklikten sonra çalıştırın. Yedi kontrol yapar:
 | 5 | Token kataloğu ↔ CSS | `PZA.TOKENS`'ta olup `:root`'ta tanımsız token |
 | 6 | innerHTML'e ham dış veri | Statik tarama: kaçış çağrılmadan yazılan dış veri |
 | 7 | Kaçış **davranış** testi | Düşmanca bir skin dosyası içe aktarılır; HTML kırılmıyor, `javascript:` reddediliyor |
+| 8 | **Sürüm tek kaynak** | `PZA.SURUM` ≠ `package.json` ≠ `tauri.conf.json` ≠ `Cargo.toml`; HTML sürümü sabit yazmış |
+| 9 | **Taşıma bölgesi bütünlüğü** | `data-tauri-drag-region` taşıyan her öğe `data-drag` de işaretli mi — kilit açılınca geri konacak mı |
 
 4 ve 7 gerçek hatalardan doğdu: `esc` adı `notes.js`'i tamamen çökertmişti ve skin
 adı üzerinden `<img src=x onerror=…>` çalışabiliyordu. İkisi de bir daha sessizce
-geri gelemeyecek.
+geri gelemeyecek. 8 ve 9 bu turda eklendi: sürüm dört dosyada elle yazılıyordu
+(biri unutulunca kurulum paketi yanlış numara taşır), ve kilit yalnızca
+`data-tauri-drag-region`'ı kaldırdığı için o özniteliği taşıyan **her** öğenin
+işaretli olması şart — biri işaretsiz kalırsa kilit açıldığında widget bir daha
+taşınamaz.
 
 ### `npm run test` — davranış testleri
 
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM ve sahte bir `speechSynthesis` üzerinde
-çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **107 kontrol**:
+çalıştırılır; tarayıcı da Rust da gerekmez. Toplam **161 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
 | `araclar/notlar-test.mjs` | **64 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı** |
-| `araclar/ses-test.mjs` | **43 kontrol** — Ece/Emre eşleşmesi, **tek Türkçe sesli sistemde perde ayrımı**, Türkçe ses yokken yedeğe düşme, hiç ses yokken çökmeme, Türkçe sayı→kelime |
+| `araclar/ses-test.mjs` | **70 kontrol** — liste sistemde kurulu seslerden gelir (uydurma ad yok), kadın sesi otomatik seçilir ve **adıyla** saklanır, seçili ses silinirse otomatiğe düşer, tek Türkçe seste yönlendirme notu çıkar, Türkçe ses yokken yedeğe düşer, hiç ses yokken çökmeme, Türkçe sayı→kelime |
+| `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
 
-İkisi de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
+Üçü de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
-bakın **bugüne** yazılıyordu; ve tek Türkçe sesli bir makinede Ece ile Emre
-**aynı** sesi veriyordu. Yayın iş akışı, paket derlenmeden **önce** bu testleri
-çalıştırır.
+bakın **bugüne** yazılıyordu; tek Türkçe sesli bir makinede "Ece" ile "Emre"
+**aynı** sesi veriyordu; ve kilidin geri konmadığı bir tasarım widget'ı kalıcı
+olarak taşınamaz hâle getirirdi. Yayın iş akışı, paket derlenmeden **önce** bu
+testleri çalıştırır.
 
 ---
 
@@ -151,7 +162,8 @@ PaletZamanAsistani/
 ├─ araclar/                 ← geliştirici araçları (uygulamaya girmez)
 │  ├─ dogrula.mjs           ← statik kod bekçisi
 │  ├─ notlar-test.mjs       ← davranış testi: notlar/takvim
-│  ├─ ses-test.mjs          ← davranış testi: sesli okuma
+│  ├─ ses-test.mjs          ← davranış testi: sesli okuma + okuyucu sesi
+│  ├─ kilit-test.mjs        ← davranış testi: yeri kilitle + sürüm kaynağı
 │  └─ sunucu.mjs            ← `npm run web` önizleme sunucusu
 ├─ src/                     ← arayüz (frontendDist)
 │  ├─ index.html
