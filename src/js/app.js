@@ -189,7 +189,7 @@
       'Bu program, yararlı olacağı umuduyla dağıtılmaktadır; ancak HİÇBİR\n' +
       'GARANTİ VERİLMEZ. Ayrıntı için LICENSE dosyasına bakın:\n' +
       'https://www.gnu.org/licenses/gpl-3.0.html\n\n' +
-      'Kaynak kod: https://github.com/paletweb/palet-zaman-asistani'
+      'Kaynak kod: https://github.com/akamaci/palet-zaman-asistani'
     );
   });
 

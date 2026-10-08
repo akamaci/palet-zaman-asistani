@@ -21,7 +21,7 @@ https://www.gnu.org/licenses/gpl-3.0.html
 KAYNAK KOD
 GPL-3.0 gereği bu programın kaynak kodu açıktır ve size dağıtılan
 sürümün tam kaynak kodunu edinme hakkınız vardır:
-https://github.com/paletweb/palet-zaman-asistani
+https://github.com/akamaci/palet-zaman-asistani
 
 Bu program, GNU Genel Kamu Lisansı ile uyumlu olan Tauri çatısını
 (MIT / Apache-2.0) ve açık kaynak bileşenleri kullanır.

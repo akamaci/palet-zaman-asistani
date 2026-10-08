@@ -7,7 +7,7 @@
   "author": "Paletweb Bilişim",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paletweb/palet-zaman-asistani.git"
+    "url": "https://github.com/akamaci/palet-zaman-asistani.git"
   },
   "scripts": {
     "dev": "tauri dev",

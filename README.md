@@ -208,7 +208,7 @@ Bu program, yararlı olacağı umuduyla dağıtılmaktadır; ancak **hiçbir gar
 verilmez**. Ayrıntı için [`LICENSE`](LICENSE) dosyasına bakın:
 <https://www.gnu.org/licenses/gpl-3.0.html>
 
-**Kaynak kod:** <https://github.com/paletweb/palet-zaman-asistani>
+**Kaynak kod:** <https://github.com/akamaci/palet-zaman-asistani>
 
 GPL-3.0 kaynak kodun açık kalmasını gerektirir. Katkı gönderen herkes aynı lisans
 altında katkı vermeyi kabul etmiş sayılır.
