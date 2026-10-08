@@ -76,7 +76,7 @@ Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 npm install            # Tauri CLI
 npm run icon           # assets/logo.png → src-tauri/icons/*
 npm run dev            # geliştirme modu (sıcak yenileme)
-npm run build          # NSIS + MSI kurulum paketi
+npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
 npm run dogrula        # kod bekçisi: 7 kontrol (aşağıya bakın)
 ```
@@ -86,6 +86,15 @@ npm run dogrula        # kod bekçisi: 7 kontrol (aşağıya bakın)
 > `file://` sayfalarında `localStorage`'ı engelleyebiliyor ve o zaman ayarlarınız
 > ve skinleriniz kaydedilmez. Arayüz Tauri API'sini bulamazsa otomatik olarak
 > tarayıcı moduna düşer (takvim/otomatik başlatma hariç her şey çalışır).
+
+> **MSI hedefi neden kapalı?** `bundle.targets` yalnızca `["nsis"]` içerir.
+> MSI (WiX) derlemesi `light.exe` adımında sıfırdan farklı çıkışla düşüyor;
+> NSIS ise aynı derlemede sorunsuz üretiliyor. Hata metni Tauri tarafından
+> yalnızca **debug** seviyesinde loglanıyor, bu yüzden normal CI çıktısında
+> görünmüyor — nedenini görmek için `npm run build -- --verbose` gerekir.
+> Son kullanıcı için fark yok: dağıtılan dosya `...-setup.exe` (NSIS) ve
+> MSI yalnızca grup ilkesi (GPO) ile kurumsal dağıtımda gerekir.
+> MSI geri istenirse önce `--verbose` ile gerçek `light.exe` hatası alınmalı.
 
 ### `npm run dogrula` — kod bekçisi
 

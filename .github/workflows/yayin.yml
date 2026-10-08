@@ -77,7 +77,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-kurulum
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+          path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
