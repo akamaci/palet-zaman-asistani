@@ -67,9 +67,9 @@ function kur(secenek = {}) {
     setItem: (k, v) => store.set(k, String(v)),
     removeItem: k => store.delete(k)
   };
-  /* Panel mesajı ve elle açma kutusu DOM'a yazıyor; ölçebilmek için
-     yalnız bu üç öğe sahtelenir. Ötekiler `null` kalır — gcal.js
-     olmayan öğeye yazmaya çalışırsa sessizce geçer. */
+  /* Panel mesajı, elle açma kutusu ve o kutunun notu DOM'a yazıyor;
+     ölçebilmek için yalnız bu dört öğe sahtelenir. Ötekiler `null`
+     kalır — gcal.js olmayan öğeye yazmaya çalışırsa sessizce geçer. */
   els = new Map();
   const mkEl = id => {
     const cls = new Set();
@@ -83,7 +83,8 @@ function kur(secenek = {}) {
   };
   g.document = {
     getElementById: id => {
-      if (id !== 'gcal-state' && id !== 'gcal-elle' && id !== 'gcal-url') return null;
+      if (id !== 'gcal-state' && id !== 'gcal-elle' && id !== 'gcal-url' &&
+          id !== 'gcal-elle-not') return null;
       if (!els.has(id)) els.set(id, mkEl(id));
       return els.get(id);
     },
@@ -526,6 +527,143 @@ console.log('\n13 · Rust tarayıcı açma: tek yönteme güvenilmez (tur 5)');
     'beyaz liste korunuyor (arayüzden gelen adres doğrudan açılmaz)');
   dogru(/IZINLI\.iter\(\)\.any/.test(fn), 'beyaz liste dışı adres reddediliyor');
 }
+
+console.log('\n14 · Dış servisin reddi kullanıcıyı yalnız bırakmaz (tur 7)');
+await (async () => {
+  /* KULLANICI BİLDİRİMİ (tur 7): Google, hesabı reddettiğinde
+     (`Hata 403: access_denied` — "uygulama test edilmektedir")
+     YÖNLENDİRME YAPMAZ. Dinleyiciye hiç istek düşmediği için akış
+     zaman aşımına düşer ve eski kod kullanıcıya yalnızca
+     "Google yanıtı alınamadı: … süre doldu" diyordu: ne sebep, ne
+     atılacak adım. Oysa bu, ilk kurulumda en sık karşılaşılan durum. */
+  const cid = 'b.apps.googleusercontent.com';
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+
+  let notBeklerken = null;
+  const PZA = kur({
+    depo,
+    komutlar: {
+      gcal_port: () => 52001,
+      /* Tarayıcı açıldı; Google onay sayfası yerine 403 gösterdi. */
+      gcal_ac: () => {
+        notBeklerken = els.get('gcal-elle-not') ? els.get('gcal-elle-not').textContent : null;
+        return true;
+      },
+      gcal_bekle: () => { throw 'Google yanıtı beklenirken süre doldu.'; }
+    }
+  });
+
+  const mesaj = [];
+  const oldu = await PZA.gcalBaglan((m, s) => mesaj.push([m, s]));
+  const son = mesaj[mesaj.length - 1] || ['', null];
+
+  esit(oldu, false, 'akış başarısız dönüyor (bağlantı kurulmuş sayılmıyor)');
+  dogru(/403|test kullanıcısı/i.test(son[0]), 'mesaj SEBEBİ söylüyor (403 / test kullanıcısı)');
+  dogru(/test kullanıcısı listesinde değil/i.test(son[0]), 'mesaj kullanıcının atacağı adımı söylüyor');
+  dogru(!/süre doldu/i.test(son[0]), 'ham "süre doldu" metni kullanıcıya gösterilmiyor');
+  esit(son[1], 'err', 'mesaj hata olarak işaretli (kırmızı)');
+
+  /* Adım, KOPYALANABİLİR adresle verilir: "Konsolu aç" düğmesi de
+     tarayıcı açma adımına bağlıdır ve o adım başarısız olabilir. */
+  const kutu = els.get('gcal-elle');
+  esit(kutu.hidden, false, 'zaman aşımında adres kutusu AÇILIYOR');
+  esit(els.get('gcal-url').value, PZA.GCAL.KITLE,
+    'kutu, OAuth "Kitle (Audience)" sayfasını gösteriyor');
+  dogru(PZA.GCAL.KITLE.startsWith('https://console.cloud.google.com/'),
+    'adres, Rust beyaz listesindeki köklerden biri (açılabilir)');
+
+  /* Bekleme SÜRERKEN de not görünür: kullanıcı üç dakika boyunca
+     tarayıcıda "erişim engellendi" yazısına bakıp ne yapacağını
+     bilemezdi. */
+  dogru(!!notBeklerken && /403/.test(notBeklerken), 'beklerken de not görünür (403)');
+  dogru(/Yayınla/.test(notBeklerken || ''), 'not kalıcı çözümü söylüyor (Yayınla)');
+  dogru(/7 günde/.test(notBeklerken || ''), 'not, test izinlerinin 7 günde dolduğunu söylüyor');
+
+  /* ── Vazgeç: bekleyen akış gerçekten durur ──
+     Eskiden "vazgeç" düğmesi boş olurdu: `gcal_kapat` yalnızca State'i
+     boşaltıyordu, ama dinleyici çoktan iş parçacığına taşınmıştı. */
+  const PZA2 = kur({
+    depo,
+    komutlar: {
+      gcal_port: () => 52002,
+      gcal_ac: () => true,
+      gcal_bekle: () => { throw 'İptal edildi.'; },
+      gcal_kapat: () => null
+    }
+  });
+  const m2 = [];
+  const s2 = await PZA2.gcalBaglan((m, s) => m2.push([m, s]));
+  const son2 = m2[m2.length - 1];
+  esit(s2, false, 'iptal edilen akış "bağlandı" demiyor');
+  dogru(/iptal/i.test(son2[0]), 'kullanıcıya iptal edildiği söyleniyor');
+  dogru(!/yanıtı alınamadı/i.test(son2[0]), 'iptal, hata gibi görünmüyor');
+  esit(els.get('gcal-elle').hidden, true, 'iptalde adres kutusu kapanıyor');
+
+  komutlar.length = 0;
+  esit(await PZA2.gcalVazgec(), true, 'gcalVazgec Rust komutunu çağırıp başarılı dönüyor');
+  esit(komutlar.filter(k => k.cmd === 'gcal_kapat').length, 1,
+    'Vazgeç düğmesi gcal_kapat komutunu çağırıyor');
+
+  /* ── Rust tarafı: iptal bayrağı gerçekten okunuyor mu? ── */
+  const rs = fs.readFileSync(
+    path.join(import.meta.dirname, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const kap = rs.slice(rs.indexOf('fn gcal_kapat'), rs.indexOf('fn dinle'));
+  const dn = rs.slice(rs.indexOf('fn dinle'), rs.indexOf('fn hedefOku'));
+  dogru(/iptal\.store\(true/.test(kap), 'gcal_kapat, iptal bayrağını kaldırıyor');
+  dogru(/iptal\.load\(Ordering::Relaxed\)/.test(dn), 'dinle, bayrağı her turda okuyor');
+  dogru(dn.indexOf('iptal.load') < dn.indexOf('Instant::now() > bitis'),
+    'iptal, süre dolumundan ÖNCE soruluyor (3 dakika bekletilmiyor)');
+  dogru(/gcal_kapat/.test(src('gcal.js')), 'arayüz gcal_kapat komutunu çağırıyor');
+  dogru(/iptal\.store\(false/.test(rs.slice(rs.indexOf('fn gcal_port'), rs.indexOf('fn gcal_ac'))),
+    'yeni akış, önceki akıştan kalan iptal işaretini SIFIRLIYOR');
+
+  /* ── Ölü yenileme anahtarı: 7 günlük jeton ömrü ──
+     Google, Test durumundaki uygulamada izni 7 gün sonra düşürür ve
+     token uç noktası `invalid_grant` döner. Ham hata kullanıcıya
+     hiçbir şey söylemez; dahası anahtar yerinde kaldıkça bağlantı
+     "bağlı" görünür ve hata her eşitlemede tekrarlanır. */
+  const PZA3 = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, refreshToken: 'OLU' })]],
+    cevap: url => url.includes('/token')
+      ? { ok: false, status: 400, json: { error: 'invalid_grant' } }
+      : { json: { items: [] } }
+  });
+  esit(PZA3.gcalBagliMi(), true, 'ölü anahtar başlangıçta "bağlı" görünüyor');
+  let hata = null;
+  try { await PZA3.gcalYenile(); } catch (e) { hata = e.message; }
+  dogru(/7 günde/.test(hata || ''), 'invalid_grant → "7 günde dolar" açıklaması');
+  dogru(/Hesap Bağla/.test(hata || ''), 'invalid_grant → atılacak adım söyleniyor');
+  dogru(!/^invalid_grant$/.test((hata || '').trim()), 'ham "invalid_grant" metni gösterilmiyor');
+  esit(PZA3.gcalBagliMi(), false, 'ölü anahtar siliniyor: durum gerçeği yansıtıyor');
+
+  /* ── Arka plan eşitlemesi sessizce ölmez ──
+     Not eklenince takvim kendiliğinden tazelenir. Bu istek
+     başarısız olduğunda hata YALNIZ konsola yazılıyordu: kullanıcı
+     notunu yazıyor, takvime gittiğini sanıyordu. */
+  const PZA4 = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, refreshToken: 'OLU' })]],
+    cevap: url => url.includes('/token')
+      ? { ok: false, status: 400, json: { error: 'invalid_grant' } }
+      : { json: { items: [] } }
+  });
+  const gercekZaman = g.setTimeout;
+  g.setTimeout = fn => { fn(); return 0; };      // 2,5 sn'lik gecikmeyi atla
+  try { PZA4.emit('notes:changed'); } finally { g.setTimeout = gercekZaman; }
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  const durum = els.get('gcal-state');
+  dogru(durum.textContent.includes('Takvim eşitlemesi başarısız'),
+    'arka plan eşitleme hatası PANELE yazılıyor (eskiden yalnız konsola)');
+  esit(durum._cls.has('err'), true, 'arka plan hatası da hata olarak işaretli');
+  dogru(/7 günde/.test(durum.textContent), 'paneldeki sebep, jeton ömrünü söylüyor');
+
+  /* Bağlı değilken arka plan eşitlemesi hiç denenmemeli (boşuna ağ trafiği). */
+  const PZA5 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]] });
+  istekler.length = 0;
+  g.setTimeout = fn => { fn(); return 0; };
+  try { PZA5.emit('notes:changed'); } finally { g.setTimeout = gercekZaman; }
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  esit(istekler.length, 0, 'bağlı değilken arka planda istek gidilmiyor');
+})();
 
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));
 process.exit(bad ? 1 : 0);

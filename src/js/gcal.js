@@ -42,8 +42,28 @@ PZA.GCAL = {
   API: 'https://www.googleapis.com/calendar/v3',
   SCOPE: 'https://www.googleapis.com/auth/calendar.events',
   IZ: 'pza',                    // extendedProperties.private anahtarı
-  SURE: 30                      // bir notun takvimdeki süresi (dakika)
+  SURE: 30,                     // bir notun takvimdeki süresi (dakika)
+  /* TUR 7 — erişim reddedildiğinde gidilecek yer: OAuth izin ekranının
+     "Kitle (Audience)" sayfası; test kullanıcıları ve Yayınla düğmesi
+     orada. Adres `gcal_ac` beyaz listesine de uyar (console.cloud.google.com). */
+  KITLE: 'https://console.cloud.google.com/auth/audience'
 };
+
+/* TUR 7 — "Paletsaat, Google doğrulama sürecini tamamlamadı … yalnızca
+   test kullanıcıları erişebilir · Hata 403: access_denied".
+
+   Google bu durumda YÖNLENDİRME YAPMAZ: kullanıcıya kendi hata sayfasını
+   gösterir ve loopback dinleyicisine hiçbir istek düşmez. Yani uygulama
+   reddi ÖĞRENEMEZ — öğrenebildiği tek şey 180 saniyelik zaman aşımıdır.
+   Bu yüzden sebep ve atılacak adım, akış boyunca ve zaman aşımında
+   gösterilir: öğrenilemeyen bir reddi kullanıcıya açıklamanın tek yolu,
+   olasılığı ÖNCEDEN yazmaktır. */
+PZA.GCAL.TEST_NOT = 'Google onay sayfası yerine "erişim engellendi (403)" ya da ' +
+  '"uygulama test edilmektedir" yazısı görürseniz: uygulama Google\'da Test ' +
+  'durumunda ve bu hesap test kullanıcısı listesinde değil. Konsolda OAuth izin ' +
+  'ekranı → Kitle (Audience) → Test kullanıcıları bölümüne bu hesabı ekleyin, ' +
+  'sonra "Hesap Bağla"ya yeniden basın. Kalıcı çözüm: aynı sayfadan Yayınla — ' +
+  'test izinleri 7 günde dolar, yayımlanınca dolmaz.';
 
 PZA.gcalYukle = function () {
   try { return JSON.parse(localStorage.getItem(GCALKEY)) || {}; }
@@ -177,6 +197,21 @@ PZA.gcalYenile = async function () {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.access_token) {
+    /* TUR 7: `invalid_grant` = yenileme anahtarı ölmüş. Google, Test
+       durumundaki bir uygulamada test kullanıcısının iznini 7 GÜN
+       sonra düşürür (yayımlanmış uygulamada düşmez). Ham "invalid_grant"
+       kullanıcıya hiçbir şey söylemez; üstelik anahtar yerinde
+       kaldığı sürece bağlantı "bağlı" görünür ve hata HER eşitlemede
+       sessizce tekrarlanırdı. Ölü anahtar silinir: durum olduğu gibi
+       görünür, "Hesap Bağla" ile düzelir. */
+    if (j.error === 'invalid_grant') {
+      g.refreshToken = null;
+      g.accessToken = null;
+      g.exp = 0;
+      PZA.gcalKaydet();
+      throw new Error('Google izni düşmüş — uygulama Test durumundayken ' +
+        'verilen izinler 7 günde dolar. "Hesap Bağla" ile yeniden bağlanın.');
+    }
     throw new Error(j.error_description || j.error || ('Google ' + r.status));
   }
   g.accessToken = j.access_token;
@@ -352,12 +387,21 @@ PZA.gcalMesajTemizle = function () { gcalSon = null; };
 
 /** Elle açma kutusu. Tarayıcı açılamazsa akış DURMAZ: adres burada
     gösterilir, kullanıcı kopyalayıp kendi tarayıcısına yapıştırır ve
-    dönüş yine `127.0.0.1` dinleyicisine düşer. */
-PZA.gcalElle = function (url) {
+    dönüş yine `127.0.0.1` dinleyicisine düşer.
+
+    TUR 7: kutu artık bir ADRES ve bir AÇIKLAMA taşır (`not`). Aynı kutu,
+    Google reddettiğinde Konsol adresini ve nedenini göstermek için de
+    kullanılır — yeni bileşen eklenmedi, mevcut kutu genelleştirildi.
+    `not` verilmezse kutunun kendi metni (HTML'den bir kez okunur) döner. */
+let gcalElleVarsayilan = null;
+PZA.gcalElle = function (url, not) {
   const k = document.getElementById('gcal-elle');
   const i = document.getElementById('gcal-url');
   if (!k || !i) return;
+  const n = document.getElementById('gcal-elle-not');
+  if (n && gcalElleVarsayilan === null) gcalElleVarsayilan = n.textContent;
   if (!url) { k.hidden = true; return; }
+  if (n) n.textContent = not || gcalElleVarsayilan || '';
   i.value = url;
   k.hidden = false;
 };
@@ -416,11 +460,11 @@ PZA.gcalBaglan = async function (bildir) {
   const { dogrulayici, ozet } = await gcalPkce();
   const durum = gcalRastgele(16);
 
-  /* Onay adresi, tarayıcı açılsa da açılmasa da GÖSTERİLİR. Böylece
-     tarayıcıyı açamayan bir sistemde akış çıkmaza girmez: kullanıcı
-     adresi kopyalayıp kendisi açar, dönüş yine dinleyiciye düşer. */
+  /* Onay adresi, tarayıcı açılsa da açılmasa da GÖSTERİLİR — ve yanında
+     TUR 7 notu vardır: Google reddederse (403) dönüş hiç gelmez, akış
+     zaman aşımına düşer; kullanıcı beklerken sebebi ve çözümü görebilsin. */
   const yetkiUrl = PZA.gcalYetkiUrl(clientId, yonlendirme, ozet, durum);
-  PZA.gcalElle(yetkiUrl);
+  PZA.gcalElle(yetkiUrl, PZA.GCAL.TEST_NOT);
 
   try {
     await gcalCagir('gcal_ac', { url: yetkiUrl });
@@ -434,7 +478,32 @@ PZA.gcalBaglan = async function (bildir) {
 
   let hedef;
   try { hedef = await gcalCagir('gcal_bekle'); }
-  catch (e) { PZA.gcalElle(null); yaz('Google yanıtı alınamadı: ' + e, 'err'); return false; }
+  catch (e) {
+    /* TUR 7 HATASI: Google hesabı reddettiğinde (403 / "uygulama test
+       edilmektedir") YÖNLENDİRME YAPMAZ. Dinleyiciye istek düşmediği
+       için akış zaman aşımına düşer ve kullanıcı "Google yanıtı alınamadı:
+       süre doldu" görürdü — SEBEPSİZ ve YOLSUZ. Oysa bu, ilk kurulumda
+       en sık karşılaşılan durumdur. Artık mesaj sebebi söyler ve
+       kullanıcının atacağı adımı kopyalanabilir adresle gösterir. */
+    const m = String(e);
+    if (/süre doldu/i.test(m)) {
+      yaz('Google yanıtı gelmedi. Tarayıcıda "erişim engellendi (403)" ya da ' +
+          '"uygulama test edilmektedir" yazısı gördüyseniz hesabınız test ' +
+          'kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.', 'err');
+      PZA.gcalElle(PZA.GCAL.KITLE, PZA.GCAL.TEST_NOT);
+    } else if (/ptal/i.test(m)) {
+      /* Neden `/ptal/` ve `/iptal/` değil: Rust "İptal edildi." döndürür,
+         ve JavaScript'te `/i` bayrağı TÜRKÇE noktalı büyük İ'yi `i` ile
+         EŞLEŞTİRMEZ (İ'nin küçüğü `i` değil, `i̇`). `/iptal/i` sessizce
+         hiçbir zaman tutmaz ve iptal, genel hataya düşerdi. */
+      PZA.gcalElle(null);
+      yaz('Bağlanma iptal edildi.');
+    } else {
+      PZA.gcalElle(null);
+      yaz('Google yanıtı alınamadı: ' + m, 'err');
+    }
+    return false;
+  }
   PZA.gcalElle(null);
 
   const c = PZA.gcalKodCoz(hedef);
@@ -485,6 +554,15 @@ PZA.gcalKonsolAc = async function () {
   return await gcalCagir('gcal_ac', { url });
 };
 
+/** Bekleyen bağlanma akışını iptal et ("Vazgeç" düğmesi).
+    Rust, iptal bayrağını dinleyicinin her turunda okur; bekleme üç
+    dakika dolmadan biter ve akış "Bağlanma iptal edildi." der. */
+PZA.gcalVazgec = async function () {
+  if (!GCAL_TAURI) return false;
+  try { await gcalCagir('gcal_kapat'); return true; }
+  catch (e) { return false; }
+};
+
 /** Bağlantıyı kes: jetonu Google tarafında da geçersiz kıl, yerel kopyayı sil.
     Client ID kalır — yeniden bağlanmak için tekrar konsola gidilmesin. */
 PZA.gcalKes = async function () {
@@ -510,6 +588,12 @@ PZA.on('notes:changed', () => {
   if (!PZA.gcalBagliMi()) return;
   clearTimeout(gcalZaman);
   gcalZaman = setTimeout(() => {
-    PZA.gcalEsitle(PZA.activeDay).catch(e => console.warn('takvim eşitleme', e));
+    PZA.gcalEsitle(PZA.activeDay).catch(e => {
+      /* TUR 7: bu hata eskiden YALNIZ konsola yazılıyordu. Kullanıcı
+         notunu yazıyor, takvime gittiğini sanıyor, gerçekte hiçbir şey
+         gitmiyordu — sessiz başarısızlık bu projede en pahalı hata
+         sınıfı. Artık panelde görünür. */
+      PZA.gcalYaz('Takvim eşitlemesi başarısız: ' + (e && e.message || e), 'err');
+    });
   }, 2500);
 });

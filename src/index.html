@@ -249,9 +249,14 @@
          Bu yüzden adres her hâlükârda burada gösterilir: kullanıcı
          kopyalayıp kendi tarayıcısına yapıştırır, Google izni verir ve
          dönüş yine uygulamanın 127.0.0.1 dinleyicisine düşer.
-         Yani tarayıcı açılmasa bile bağlanma TAMAMLANABİLİR. -->
+         Yani tarayıcı açılmasa bile bağlanma TAMAMLANABİLİR.
+
+         TUR 7: aynı kutu, Google'ın REDDETTİĞİ durumda Konsol adresini
+         göstermek için de kullanılır. Google 403'te yönlendirme yapmaz,
+         yani uygulama reddi öğrenemez; öğrenebildiği tek şey zaman
+         aşımıdır. Sebebi ve atılacak adımı ancak burası anlatabilir. -->
     <div id="gcal-elle" hidden>
-      <p class="hint">Tarayıcı kendiliğinden açılmadıysa adresi kopyalayıp
+      <p class="hint" id="gcal-elle-not">Tarayıcı kendiliğinden açılmadıysa adresi kopyalayıp
         tarayıcınıza yapıştırın — dönüş yine yakalanır.</p>
       <input id="gcal-url" class="inp" type="text" readonly spellcheck="false">
       <button id="gcal-kopyala" class="btn-gcal ikincil">Adresi kopyala</button>

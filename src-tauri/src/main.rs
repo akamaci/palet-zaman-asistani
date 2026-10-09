@@ -4,7 +4,8 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -41,9 +42,19 @@ fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
    herkese açık olan Client ID'yi girer.
 
    Loopback dinleyicisi komutlar arasında paylaşıldığı için State'te
-   tutulur; `gcal_port` açar, `gcal_bekle` alıp tüketir. */
+   tutulur; `gcal_port` açar, `gcal_bekle` alıp tüketir.
+
+   TUR 7 — vazgeçme gerçekten iptal eder: `gcal_kapat` bir zamanlar
+   yalnızca State'i boşaltıyordu; ama `gcal_bekle` dinleyiciyi oradan
+   ALIP kendi iş parçacığına taşıdığı için, bekleme SÜRERKEN bu komut
+   hiçbir şey yapmıyordu. Yani kullanıcının "vazgeç" düğmesi boş
+   olurdu — bu projede en pahalı hata sınıfı. İptal artık dinleyicinin
+   her turda baktığı bir bayraktır. */
 #[derive(Default)]
-struct OauthKapi(Mutex<Option<TcpListener>>);
+struct OauthKapi {
+    dinleyici: Mutex<Option<TcpListener>>,
+    iptal: Arc<AtomicBool>,
+}
 
 /// Boş bir yerel port aç ve numarasını döndür. Google, masaüstü
 /// istemcilerinde `http://127.0.0.1:<herhangi bir port>` yönlendirmesine
@@ -52,7 +63,10 @@ struct OauthKapi(Mutex<Option<TcpListener>>);
 fn gcal_port(kapi: tauri::State<'_, OauthKapi>) -> Result<u16, String> {
     let l = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
     let port = l.local_addr().map_err(|e| e.to_string())?.port();
-    *kapi.0.lock().map_err(|e| e.to_string())? = Some(l);
+    /* Yeni akış: önceki akıştan kalan iptal işareti sıfırlanır, yoksa
+       ikinci deneme daha başlamadan "iptal edildi" diye biterdi. */
+    kapi.iptal.store(false, Ordering::Relaxed);
+    *kapi.dinleyici.lock().map_err(|e| e.to_string())? = Some(l);
     Ok(port)
 }
 
@@ -111,28 +125,29 @@ fn gcal_ac(url: String) -> Result<bool, String> {
 #[tauri::command]
 async fn gcal_bekle(kapi: tauri::State<'_, OauthKapi>) -> Result<String, String> {
     let l = kapi
-        .0
+        .dinleyici
         .lock()
         .map_err(|e| e.to_string())?
         .take()
         .ok_or_else(|| "Dinleyici başlatılmadı.".to_string())?;
-    tauri::async_runtime::spawn_blocking(move || dinle(l))
+    /* İptal bayrağı iş parçacığına KOPYALANARAK geçer (Arc): dinleyici
+       taşındığı için State'ten okunamaz, ama bayrak paylaşılır. */
+    let iptal = kapi.iptal.clone();
+    tauri::async_runtime::spawn_blocking(move || dinle(l, iptal))
         .await
         .map_err(|e| e.to_string())?
 }
 
-/// Kullanıcı vazgeçebilsin diye dinleyiciyi kapat.
+/// Kullanıcı vazgeçebilsin diye bekleyen dinleyiciyi iptal et.
 #[tauri::command]
 fn gcal_kapat(kapi: tauri::State<'_, OauthKapi>) {
-    if let Ok(mut k) = kapi.0.lock() {
-        *k = None;
-    }
+    kapi.iptal.store(true, Ordering::Relaxed);
 }
 
 /// Yönlendirme isteğini bekle. Tarayıcı sayfa için ek istekler
 /// (favicon, ön bağlantı) gönderebilir; yalnızca `code=`/`error=`
 /// taşıyan istek gerçek yönlendirmedir, ötekiler yok sayılır.
-fn dinle(l: TcpListener) -> Result<String, String> {
+fn dinle(l: TcpListener, iptal: Arc<AtomicBool>) -> Result<String, String> {
     let bitis = Instant::now() + Duration::from_secs(180);
     l.set_nonblocking(true).map_err(|e| e.to_string())?;
     loop {
@@ -146,6 +161,11 @@ fn dinle(l: TcpListener) -> Result<String, String> {
                 cevapla(&s, false); // favicon / boş bağlantı → yok say
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                /* Vazgeç işareti süre dolumundan ÖNCE sorulur: kullanıcı
+                   beklemekten vazgeçtiyse 3 dakika daha bekletilmez. */
+                if iptal.load(Ordering::Relaxed) {
+                    return Err("İptal edildi.".into());
+                }
                 if Instant::now() > bitis {
                     return Err("Google yanıtı beklenirken süre doldu.".into());
                 }

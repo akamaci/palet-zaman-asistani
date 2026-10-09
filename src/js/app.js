@@ -523,16 +523,35 @@
   });
 
   $('btn-gcal')?.addEventListener('click', async () => {
+    const b = $('btn-gcal');
+
+    /* TUR 7: Google hesabı reddederse (403 / "uygulama test edilmektedir")
+       yönlendirme HİÇ gelmez; akış üç dakika boyunca bekler. Bekleyen
+       kullanıcının elinde çıkış yolu olmalı. Bu yüzden akış sürerken
+       düğme "Vazgeç" olur ve DEVRE DIŞI BIRAKILMAZ — bırakılsaydı
+       iptal düğmesinin kendisi ölü olurdu. */
+    if (b && b.dataset.calisiyor === '1') {
+      b.disabled = true;               // çift tıklama ikinci iptal göndermesin
+      await PZA.gcalVazgec?.();
+      return;                          // etiketi akışın `finally`'si geri koyar
+    }
+
     const cid = ($('gcal-id')?.value || '').trim();
     if (cid) { PZA.gcal.clientId = cid; PZA.gcalKaydet(); }
-    const b = $('btn-gcal');
-    b.disabled = true;
+    if (b) { b.dataset.calisiyor = '1'; b.textContent = 'Vazgeç'; }
     PZA.gcalMesajTemizle();
     /* Gözlemci verilmez: akış mesajı doğrudan panele yazar ve
        `finally` içindeki tazeleme onu EZMEZ. */
     try { await PZA.gcalBaglan(); }
     catch (e) { gcalYaz('Bağlanma akışı çöktü: ' + (e && e.message || e), 'err'); }
-    finally { b.disabled = false; gcalPanel(); }
+    finally {
+      if (b) {
+        b.disabled = false;
+        b.dataset.calisiyor = '';
+        b.innerHTML = '<b>G</b> Hesap Bağla';
+      }
+      gcalPanel();
+    }
   });
 
   /* Tarayıcı açılamadıysa adresi kopyala: kullanıcı kendi tarayıcısına
