@@ -65,6 +65,25 @@ PZA.GCAL.TEST_NOT = 'Google onay sayfası yerine "erişim engellendi (403)" ya d
   'sonra "Hesap Bağla"ya yeniden basın. Kalıcı çözüm: aynı sayfadan Yayınla — ' +
   'test izinleri 7 günde dolar, yayımlanınca dolmaz.';
 
+/* TUR 8 — kısa sürüm: DURUM SATIRINDA gösterilir (beklerken ve iptalde).
+   TUR 7'de bu bilgi yalnız `#gcal-elle` kutusunun İÇİNDEKİ nota konmuştu;
+   kullanıcı tarayıcıda 403'ü görüp panele döndüğünde o kutu ekranın
+   altında kalıyor ve kimse okumuyor. Kullanıcı çözümü uygulamada değil,
+   bize sorarak buldu — yani mesaj yanlış yerdeydi. Artık asıl durum
+   satırı da söylüyor; kutu yalnız adresi taşıyor. */
+PZA.GCAL.TEST_KISA = 'Sayfada "erişim engellendi (403)" yazıyorsa hesabınız ' +
+  'test kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.';
+
+/* TUR 8 — Konsol adresi, İSTEMCİNİN PROJESİNE sabitlenir. Client ID'nin
+   tire öncesi parçası Google proje NUMARASIDIR (631177154665-…). Proje
+   seçicisinde başka bir proje duruyorsa kullanıcı yanlış projenin izin
+   ekranını düzenler ve hata "hiçbir şey yapmamışım gibi" sürer. Adresi
+   sabitlemek bu tuzağı tamamen kaldırır. */
+PZA.gcalKitleUrl = function () {
+  const no = String(PZA.gcalClientId() || '').split('-')[0].trim();
+  return /^\d{6,}$/.test(no) ? PZA.GCAL.KITLE + '?project=' + no : PZA.GCAL.KITLE;
+};
+
 PZA.gcalYukle = function () {
   try { return JSON.parse(localStorage.getItem(GCALKEY)) || {}; }
   catch { return {}; }
@@ -468,12 +487,12 @@ PZA.gcalBaglan = async function (bildir) {
 
   try {
     await gcalCagir('gcal_ac', { url: yetkiUrl });
-    yaz('Tarayıcıda Google onay sayfası açıldı — izin verin…');
+    yaz('Tarayıcıda Google onay sayfası açıldı — izin verin. ' + PZA.GCAL.TEST_KISA);
   } catch (e) {
     /* Burada DÖNMÜYORUZ: tarayıcı açılamaması, kullanıcının adresi
        elle açmasına engel değil. */
     yaz('Tarayıcı açılamadı (' + e + '). Aşağıdaki adresi kopyalayıp ' +
-        'tarayıcınıza yapıştırın — dönüş yine yakalanır.', 'err');
+        'tarayıcınıza yapıştırın — dönüş yine yakalanır. ' + PZA.GCAL.TEST_KISA, 'err');
   }
 
   let hedef;
@@ -490,14 +509,20 @@ PZA.gcalBaglan = async function (bildir) {
       yaz('Google yanıtı gelmedi. Tarayıcıda "erişim engellendi (403)" ya da ' +
           '"uygulama test edilmektedir" yazısı gördüyseniz hesabınız test ' +
           'kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.', 'err');
-      PZA.gcalElle(PZA.GCAL.KITLE, PZA.GCAL.TEST_NOT);
+      PZA.gcalElle(PZA.gcalKitleUrl(), PZA.GCAL.TEST_NOT);
     } else if (/ptal/i.test(m)) {
       /* Neden `/ptal/` ve `/iptal/` değil: Rust "İptal edildi." döndürür,
          ve JavaScript'te `/i` bayrağı TÜRKÇE noktalı büyük İ'yi `i` ile
          EŞLEŞTİRMEZ (İ'nin küçüğü `i` değil, `i̇`). `/iptal/i` sessizce
-         hiçbir zaman tutmaz ve iptal, genel hataya düşerdi. */
-      PZA.gcalElle(null);
-      yaz('Bağlanma iptal edildi.');
+         hiçbir zaman tutmaz ve iptal, genel hataya düşerdi.
+
+         Ayrıca kutu AÇIK bırakılır: Google bekleyişini iptal eden
+         kullanıcının sebebi çoğu zaman "tarayıcıda olmadı"dır; yol
+         görünür kalmazsa tam da burada çıkmaza girer. */
+      PZA.gcalElle(PZA.gcalKitleUrl(), PZA.GCAL.TEST_NOT);
+      yaz('Bağlanma iptal edildi. Tarayıcıda "erişim engellendi (403)" ' +
+          'gördüyseniz hesabınız test kullanıcısı listesinde değil — ' +
+          'aşağıdaki adresten ekleyip yeniden deneyin.');
     } else {
       PZA.gcalElle(null);
       yaz('Google yanıtı alınamadı: ' + m, 'err');

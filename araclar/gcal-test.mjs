@@ -528,7 +528,7 @@ console.log('\n13 · Rust tarayıcı açma: tek yönteme güvenilmez (tur 5)');
   dogru(/IZINLI\.iter\(\)\.any/.test(fn), 'beyaz liste dışı adres reddediliyor');
 }
 
-console.log('\n14 · Dış servisin reddi kullanıcıyı yalnız bırakmaz (tur 7)');
+console.log('\n14 · Dış servisin reddi kullanıcıyı yalnız bırakmaz (tur 7-8)');
 await (async () => {
   /* KULLANICI BİLDİRİMİ (tur 7): Google, hesabı reddettiğinde
      (`Hata 403: access_denied` — "uygulama test edilmektedir")
@@ -536,7 +536,8 @@ await (async () => {
      zaman aşımına düşer ve eski kod kullanıcıya yalnızca
      "Google yanıtı alınamadı: … süre doldu" diyordu: ne sebep, ne
      atılacak adım. Oysa bu, ilk kurulumda en sık karşılaşılan durum. */
-  const cid = 'b.apps.googleusercontent.com';
+  /* Kullanıcının GERÇEK istemcisi — proje numarası buradan çıkar. */
+  const cid = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
   const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
 
   let notBeklerken = null;
@@ -567,8 +568,10 @@ await (async () => {
      tarayıcı açma adımına bağlıdır ve o adım başarısız olabilir. */
   const kutu = els.get('gcal-elle');
   esit(kutu.hidden, false, 'zaman aşımında adres kutusu AÇILIYOR');
-  esit(els.get('gcal-url').value, PZA.GCAL.KITLE,
+  esit(els.get('gcal-url').value, PZA.gcalKitleUrl(),
     'kutu, OAuth "Kitle (Audience)" sayfasını gösteriyor');
+  esit(els.get('gcal-url').value, PZA.GCAL.KITLE + '?project=631177154665',
+    'zaman aşımında adres, istemcinin projesine sabitlenmiş');
   dogru(PZA.GCAL.KITLE.startsWith('https://console.cloud.google.com/'),
     'adres, Rust beyaz listesindeki köklerden biri (açılabilir)');
 
@@ -578,6 +581,14 @@ await (async () => {
   dogru(!!notBeklerken && /403/.test(notBeklerken), 'beklerken de not görünür (403)');
   dogru(/Yayınla/.test(notBeklerken || ''), 'not kalıcı çözümü söylüyor (Yayınla)');
   dogru(/7 günde/.test(notBeklerken || ''), 'not, test izinlerinin 7 günde dolduğunu söylüyor');
+
+  /* TUR 8 — asıl düzeltme: bilgi yalnız kutunun İÇİNDEKİ notta kalmamalı.
+     Kullanıcı tarayıcıda 403'ü görüp panele döndüğünde kutu ekranın
+     altında kalır; mesaj DURUM SATIRINDA olmalı. Bu, kullanıcının
+     çözümü bize sorarak bulmasından çıkan derstir. */
+  dogru(mesaj.some(m => /403/.test(m[0])), 'beklerken DURUM SATIRI da 403 ipucunu söylüyor');
+  dogru(mesaj.some(m => /test kullanıcısı listesinde değil/.test(m[0])),
+    'durum satırı, atılacak adımı da söylüyor');
 
   /* ── Vazgeç: bekleyen akış gerçekten durur ──
      Eskiden "vazgeç" düğmesi boş olurdu: `gcal_kapat` yalnızca State'i
@@ -597,7 +608,24 @@ await (async () => {
   esit(s2, false, 'iptal edilen akış "bağlandı" demiyor');
   dogru(/iptal/i.test(son2[0]), 'kullanıcıya iptal edildiği söyleniyor');
   dogru(!/yanıtı alınamadı/i.test(son2[0]), 'iptal, hata gibi görünmüyor');
-  esit(els.get('gcal-elle').hidden, true, 'iptalde adres kutusu kapanıyor');
+  /* TUR 8: iptal eden kullanıcının sebebi çoğu zaman "tarayıcıda olmadı"dır;
+     kutu kapanırsa tam burada çıkmaza girer. */
+  esit(els.get('gcal-elle').hidden, false, 'iptalde de adres kutusu AÇIK kalıyor');
+  dogru(/403/.test(son2[0]), 'iptal mesajı, olası reddin çözümünü de söylüyor');
+
+  /* ── Konsol adresi doğru PROJEYE sabitleniyor mu? ──
+     Client ID'nin tire öncesi parçası Google proje numarasıdır. Proje
+     seçicisinde başka bir proje duruyorsa kullanıcı yanlış projenin izin
+     ekranını düzenler ve hata "hiçbir şey yapmamışım gibi" sürer. */
+  const gercek = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
+  const PZA6 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: gercek })]] });
+  esit(PZA6.gcalKitleUrl(), PZA6.GCAL.KITLE + '?project=631177154665',
+    'Konsol adresi, istemcinin projesine sabitleniyor');
+  dogru(PZA6.gcalKitleUrl().startsWith('https://console.cloud.google.com/'),
+    'sabitlenmiş adres de Rust beyaz listesine uyuyor');
+  const PZA7 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'b.apps.googleusercontent.com' })]] });
+  esit(PZA7.gcalKitleUrl(), PZA7.GCAL.KITLE,
+    'proje numarası çıkarılamıyorsa adres sabitlenmez (uydurulmaz)');
 
   komutlar.length = 0;
   esit(await PZA2.gcalVazgec(), true, 'gcalVazgec Rust komutunu çağırıp başarılı dönüyor');
