@@ -74,6 +74,16 @@ PZA.GCAL.TEST_NOT = 'Google onay sayfası yerine "erişim engellendi (403)" ya d
 PZA.GCAL.TEST_KISA = 'Sayfada "erişim engellendi (403)" yazıyorsa hesabınız ' +
   'test kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.';
 
+/* TUR 8 — Tarayıcının açıldığını İDDİA ETMEYEN çıkış yolu.
+   Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
+   *"onun yerine belgelerim açılıyor"*. Sebep Rust tarafında bulundu
+   (`explorer.exe` adresi klasör sanıp Belgeler'i açıyordu) ama ders
+   arayüzde: tarayıcı açma isteğinin kabul edilmiş olması, tarayıcının
+   AÇILDIĞINI göstermez. Bu yüzden mesaj "açıldı" demez; iki olasılığı
+   da söyler ve her durumda elinin altında duran yolu gösterir. */
+PZA.GCAL.ACILMADI = 'Aşağıdaki adresi "Adresi kopyala" ile alıp tarayıcınızın ' +
+  'adres çubuğuna yapıştırın — dönüş yine yakalanır.';
+
 /* TUR 8 — Konsol adresi, İSTEMCİNİN PROJESİNE sabitlenir. Client ID'nin
    tire öncesi parçası Google proje NUMARASIDIR (631177154665-…). Proje
    seçicisinde başka bir proje duruyorsa kullanıcı yanlış projenin izin
@@ -485,14 +495,22 @@ PZA.gcalBaglan = async function (bildir) {
   const yetkiUrl = PZA.gcalYetkiUrl(clientId, yonlendirme, ozet, durum);
   PZA.gcalElle(yetkiUrl, PZA.GCAL.TEST_NOT);
 
+  /* TUR 8 — burada "tarayıcı açıldı" DENMEZ. `gcal_ac`'ın başarılı
+     dönmesi yalnız "açma isteği kabul edildi" demektir; işletim sistemi
+     adresi yanlış yorumlayıp başka bir pencere açabilir (kullanıcı
+     "onun yerine belgelerim açılıyor" dedi) ya da hiçbir şey açmaz.
+     Süreç başlatma başarısı ≠ tarayıcı açıldı — tur 5'in dersi, tur 8'de
+     arayüzde tekrar ihlal edilmişti. */
   try {
     await gcalCagir('gcal_ac', { url: yetkiUrl });
-    yaz('Tarayıcıda Google onay sayfası açıldı — izin verin. ' + PZA.GCAL.TEST_KISA);
+    yaz('Google onay sayfası tarayıcınızda açılmalı. Açılmadıysa ya da ' +
+        'beklediğinizden başka bir pencere (ör. Belgeler) açıldıysa: ' +
+        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA);
   } catch (e) {
     /* Burada DÖNMÜYORUZ: tarayıcı açılamaması, kullanıcının adresi
        elle açmasına engel değil. */
-    yaz('Tarayıcı açılamadı (' + e + '). Aşağıdaki adresi kopyalayıp ' +
-        'tarayıcınıza yapıştırın — dönüş yine yakalanır. ' + PZA.GCAL.TEST_KISA, 'err');
+    yaz('Tarayıcı açılamadı (' + e + '). ' +
+        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA, 'err');
   }
 
   let hedef;

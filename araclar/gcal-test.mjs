@@ -401,6 +401,20 @@ await (async () => {
   dogru(durumlar[0].startsWith('https://accounts.google.com/'), 'yalnızca Google adresi açıldı');
   dogru(durumlar[0].includes('redirect_uri=http%3A%2F%2F127.0.0.1%3A51234'), 'yönlendirme açılan portu gösteriyor');
   esit(PZA.gcalOzet().startsWith('Bağlı ✓'), true, 'panel özeti bağlıyı bildiriyor');
+
+  /* TUR 8 — mesaj, bilmediği bir şeyi olmuş gibi anlatmaz.
+     Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
+     *"onun yerine belgelerim açılıyor"*. `gcal_ac`'ın dönüşü yalnız
+     "açma isteği kabul edildi" demektir; tarayıcının açıldığını
+     KANITLAMAZ. Eski mesaj "tarayıcıda onay sayfası açıldı" diyordu —
+     kullanıcının gözünde yalandı. Artık iki olasılık da söylenir ve
+     çıkış yolu (kopyala/yapıştır) her zaman elinin altındadır. */
+  const basari = (mesaj.find(m => /onay sayfası/.test(m[0])) || [''])[0];
+  dogru(basari.includes('açılmalı'), 'mesaj "açılmalı" der, "açıldı" diye İDDİA etmez');
+  dogru(!basari.includes('onay sayfası açıldı'), 'eski yanıltıcı ifade kalmadı');
+  dogru(basari.includes('yapıştırın'), 'açılmadıysa diye çıkış yolu (kopyala/yapıştır) gösteriliyor');
+  dogru(basari.includes('Belgeler'), 'yanlış pencerenin açılması durumu adıyla anılıyor');
+  dogru(basari.includes('403'), 'beklerken 403 ipucu da veriliyor (tur 7)');
 })();
 
 console.log('\n10 · Bağlantıyı kesme (jeton iptali)');
@@ -481,8 +495,13 @@ await (async () => {
   dogru(denenenAdres.includes('code_challenge='), 'adres PKCE challenge taşıyor (elle açmak da güvenli)');
   esit(sonuc, true, 'tarayıcı açılamasa bile bağlanma TAMAMLANDI (elle açılan adres üzerinden)');
   esit(PZA.gcalBagliMi(), true, 'bağlantı kuruldu');
-  dogru(mesaj.some(m => m[1] === 'err' && m[0].includes('kopyalayıp')),
+  dogru(mesaj.some(m => m[1] === 'err' && m[0].includes('yapıştırın')),
     'kullanıcıya "adresi kopyalayıp tarayıcınıza yapıştırın" deniyor');
+  /* TUR 8: hata dalı dahil HİÇBİR dal, tarayıcının açıldığını iddia etmez. */
+  dogru(mesaj.every(m => !m[0].includes('onay sayfası açıldı')),
+    'hiçbir dal "onay sayfası açıldı" diye İDDİA etmiyor');
+  dogru(mesaj.some(m => m[1] === 'err' && m[0].includes('403')),
+    'hata dalında da 403 ipucu var (tur 7 mesajı kaybolmamış)');
   esit(elle().hidden, true, 'akış bitince elle açma kutusu kapanıyor');
 
   /* ── Mesajın ezilmemesi: tur 5'nın asıl hatası ──
@@ -509,19 +528,32 @@ await (async () => {
   esit(elle().hidden, true, 'null verilince kutu kapanıyor');
 })();
 
-console.log('\n13 · Rust tarayıcı açma: tek yönteme güvenilmez (tur 5)');
+console.log('\n13 · Rust tarayıcı açma: yanlış şeyi açan yol atıldı (tur 5, 8)');
 {
-  /* `gcal_ac` üç yöntemi sırayla dener. Bu statik bir kontrol:
-     yöntemlerden birinin sessizce çalışmaması durumunda ötekine
-     geçildiğini kodda görmek istiyoruz. Rust derleyicisi olmadan
-     davranışı ölçemiyoruz, ama yöntem listesi ve sırası sabitlenir. */
+  /* TUR 8 — kullanıcı bildirimi: *"onun yerine belgelerim açılıyor"*.
+     `explorer.exe`'ye URL verildiğinde Windows onu klasör yolu sanıp
+     Belgeler'i açar; süreç başarıyla başladığı için `spawn()` `Ok`
+     döner ve uygulama "tarayıcı açıldı" sanır. Yani bu yöntem yalnız
+     işe yaramıyor değildi — YANLIŞ ŞEYİ YAPIP BAŞARILI GÖRÜNÜYORDU.
+     Bu yüzden listeden çıkarıldı; zincirin başına, işi kabuğa devreden
+     `ShellExecuteW` kondu. Rust derleyicisi bu makinede yok
+     (`cargo`/`rustc` bulunamadı), bu yüzden davranış ölçülemez;
+     sabitlenen şey yöntem listesi, SIRASI ve beyaz listedir. */
   const rs = fs.readFileSync(
     path.join(import.meta.dirname, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
   const fn = rs.slice(rs.indexOf('fn gcal_ac'), rs.indexOf('async fn gcal_bekle'));
-  dogru(fn.includes('explorer.exe'), 'explorer.exe yöntemi var');
-  dogru(fn.includes('rundll32.exe'), 'rundll32 yöntemi var');
+  dogru(!fn.includes('explorer.exe'),
+    "explorer.exe YOK — adresi klasör sanıp Belgeler'i açan yol atıldı");
+  dogru(/ShellExecuteW/.test(rs), 'kabuğa devreden ShellExecuteW var');
+  dogru(/mod kabuk/.test(rs) && /#\[link\(name = "shell32"\)\]/.test(rs),
+    'shell32 bağlanıyor');
+  dogru(/if kabuk::ac\(&url\)/.test(fn), 'ShellExecuteW zincirin BAŞINDA deneniyor');
+  dogru(fn.indexOf('kabuk::ac') < fn.indexOf('rundll32.exe'),
+    'kabuk yolu yedeklerden ÖNCE geliyor');
+  dogru(/r as isize > 32/.test(rs), 'ShellExecuteW dönüşü eşikle denetleniyor (<=32 = hata)');
+  dogru(fn.includes('rundll32.exe'), 'rundll32 yedek yöntemi var');
   dogru(fn.includes('"start"'), 'cmd start yedek yöntemi var');
-  dogru(/for \(program, onler\) in denemeler/.test(fn), 'yöntemler SIRAYLA deneniyor');
+  dogru(/for \(program, onler\) in denemeler/.test(fn), 'yedekler SIRAYLA deneniyor');
   dogru(/Err\(e\) => son = format!/.test(fn), 'başarısız yöntem hatayı kaydedip devam ediyor');
   dogru(fn.includes('accounts.google.com') && fn.includes('console.cloud.google.com'),
     'beyaz liste korunuyor (arayüzden gelen adres doğrudan açılmaz)');

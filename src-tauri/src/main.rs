@@ -70,6 +70,51 @@ fn gcal_port(kapi: tauri::State<'_, OauthKapi>) -> Result<u16, String> {
     Ok(port)
 }
 
+/// Windows'un kendi "varsayılan uygulamayla aç" API'si.
+///
+/// TUR 8 — kullanıcı bildirimi: *"browserda açılan bişi yok"*, üstelik
+/// arayüz "tarayıcıda onay sayfası açıldı" yazıyordu. Sebep: `spawn()`
+/// başarısı yalnızca bir sürecin BAŞLATILDIĞINI söyler; üç yardımcı
+/// program da sessizce hiçbir şey açmadan dönebilir (tur 5'in dersi,
+/// tekrar yaşandı).
+///
+/// Doğru yol süreç başlatmak değil, işi **kabuğa devretmektir**:
+/// `ShellExecuteW` tam olarak bunu yapar ve Windows'ta bir adresi
+/// varsayılan tarayıcıda açmanın kanonik yoludur. Dönüş değeri 32'den
+/// büyükse kabuk isteği kabul etmiştir.
+#[cfg(windows)]
+mod kabuk {
+    use core::ffi::c_void;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: *mut c_void,
+            islem: *const u16,
+            dosya: *const u16,
+            parametreler: *const u16,
+            dizin: *const u16,
+            goster: i32,
+        ) -> *mut c_void;
+    }
+
+    /// SW_SHOWNORMAL = 1 (pencere normal boyutta, öne gelir).
+    pub fn ac(url: &str) -> bool {
+        let genis: Vec<u16> = url.encode_utf16().chain(std::iter::once(0)).collect();
+        let r = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                genis.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1,
+            )
+        };
+        r as isize > 32
+    }
+}
+
 /// Sistemin varsayılan tarayıcısında aç.
 ///
 /// Kabuk (cmd/sh) KULLANILMAZ: URL tek bir argv öğesi olarak geçtiği için
@@ -83,6 +128,16 @@ fn gcal_port(kapi: tauri::State<'_, OauthKapi>) -> Result<u16, String> {
 /// ötekine geçilir; hiçbiri açamazsa hata döner ve ARAYÜZ ÇIKMAZA
 /// GİRMEZ: onay adresi kullanıcıya gösterilir, kendi tarayıcısında
 /// açıp izin verir (bkz. gcal.js · `PZA.gcalElle`).
+///
+/// TUR 8: zincirin BAŞINA `ShellExecuteW` kondu, `explorer.exe`
+/// yedeklerden ÇIKARILDI.
+///
+/// Kullanıcı bildirimi: *"onun yerine belgelerim açılıyor"*. Sebep net —
+/// `explorer.exe`'ye URL verildiğinde Windows onu bir klasör yolu sanar,
+/// bulamayınca varsayılanına (Belgeler) düşer. Üstelik süreç başarıyla
+/// başladığı için `spawn()` `Ok` döner ve uygulama "tarayıcı açıldı"
+/// sanır. Yani bu yöntem yalnız işe yaramıyor değildi; **yanlış şeyi
+/// yapıp başarılı görünüyordu** — bu projede en pahalı hata sınıfı.
 #[tauri::command]
 fn gcal_ac(url: String) -> Result<bool, String> {
     // Yalnızca listedeki adresler açılır: arayüzden gelen bir dize
@@ -94,8 +149,15 @@ fn gcal_ac(url: String) -> Result<bool, String> {
     if !IZINLI.iter().any(|p| url.starts_with(p)) {
         return Err("Beklenmeyen adres reddedildi.".into());
     }
-    let denemeler: [(&str, &[&str]); 3] = [
-        ("explorer.exe", &[]),
+
+    /* Birinci yol: kabuğa devret. Süreç başlatmadığı için "başladı ama
+       görünmedi" durumu oluşmaz. */
+    #[cfg(windows)]
+    if kabuk::ac(&url) {
+        return Ok(true);
+    }
+
+    let denemeler: [(&str, &[&str]); 2] = [
         ("rundll32.exe", &["url.dll,FileProtocolHandler"]),
         ("cmd.exe", &["/C", "start", ""]),
     ];
