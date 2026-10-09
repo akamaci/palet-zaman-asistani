@@ -37,7 +37,7 @@ const TEMEL = 120;                 // bar-top + not önizleme şeridi + alt bar
 const PANEL = { 'panel-notes': 428, 'panel-weather': 300 };
 const AYARLAR_H = 1125;            // ölçülmüş ayarlar paneli içeriği
 
-let els, pencere, kayitlar, fit, ekran, panelIc;
+let els, pencere, kayitlar, fit, ekran, panelIc, depo, tasindi;
 let dinlenmeY = null;      // panel açılmadan önceki pencere konumu
 
 function mkEl(id) {
@@ -77,12 +77,25 @@ const el = id => {
 function kur(ayar = {}) {
   els = new Map();
   kayitlar = [];
-  ekran = { availTop: ayar.ust || 0, availHeight: ayar.boy !== undefined ? ayar.boy : 1040 };
+  ekran = {
+    availTop: ayar.ust || 0,
+    availHeight: ayar.boy !== undefined ? ayar.boy : 1040,
+    availWidth: ayar.en || 1920,
+    width: ayar.en || 1920
+  };
   pencere = { x: 100, y: ayar.y || 100, w: 940, h: 430 };
   panelIc = ayar.ic || null;      // 'panel-notes' | 'settings' | null
+  tasindi = null;
 
   g.window = g;
-  g.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  /* Depo gerçek gibi davranır: konum kalıcılığı testi kaydedilen değeri
+     geri okuyabilmeli (tur 6). `ayar.depo` ile önceden tohumlanır. */
+  depo = Object.assign({}, ayar.depo || {});
+  g.localStorage = {
+    getItem: k => (k in depo ? depo[k] : null),
+    setItem: (k, v) => { depo[k] = String(v); },
+    removeItem: k => { delete depo[k]; }
+  };
   g.getComputedStyle = () => ({ maxWidth: '940px' });
   g.screen = ekran;
 
@@ -103,6 +116,7 @@ function kur(ayar = {}) {
     outerPosition: async () => ({ x: pencere.x, y: pencere.y }),
     outerSize: async () => ({ width: pencere.w, height: pencere.h }),
     currentMonitor: async () => null,
+    onMoved: fn => { tasindi = fn; },   // taşıma olayı (konum kalıcılığı, tur 6)
     setSize: async s => { pencere.w = s.width; pencere.h = s.height; kayitlar.push(['boyut', s.width, s.height]); },
     setPosition: async p => { pencere.x = p.x; pencere.y = p.y; kayitlar.push(['konum', p.x, p.y]); }
   };
@@ -229,6 +243,63 @@ console.log('\n7 · CSS karşılığı gerçekten var mı (app.js sınıf koyar,
     'gövde alttan hizalı (kırpılınca saat görünür kalsın)');
   dogru(/\.widget\.yukari\s*>\s*\.panel[^{]*\{[^}]*border-top:\s*0/.test(duz),
     'dikiş çizgisi saatin üstünde kalıyor (yatay çizgi yukarıda değil)');
+}
+
+console.log('\n8 · Pencere konumu kalıcı mı (tur 6)');
+{
+  /* KULLANICI BİLDİRİMİ: "dün ekranın sağ üst köşesine sabitleyip
+     kilitlediğim saat bu gün açıldığında ekranın ortasındaydı."
+     Kök neden: `tauri.conf.json` `"center": true` + konum hiç kaydedilmiyordu.
+     Bu test, ÖLÇÜTÜ kullanıcının cümlesinden alır: uygulama kapanıp
+     açıldığında pencere bıraktığı yerde mi? */
+
+  // Elle taşıma → depoya yazılmalı (paneller kapalıyken)
+  kur({ y: 100 });
+  await fit();
+  pencere.x = 1500; pencere.y = 40;        // kullanıcı sağ üste taşıdı
+  dogru(!!tasindi, 'taşıma olayı (onMoved) dinleniyor');
+  tasindi();
+  await new Promise(r => setTimeout(r, 600));   // 500ms gecikme + pay
+  esit(JSON.parse(depo['pza.pencere.v1']), { x: 1500, y: 40 },
+    'kullanıcının bıraktığı konum diske yazıldı');
+
+  // Panel açıkken taşıma KAYDEDİLMEMELİ (fit penceresini geçici kaydırır)
+  kayitlar = [];
+  pencere.x = 1000; pencere.y = 500;
+  el('settings').hidden = false;
+  tasindi();
+  await new Promise(r => setTimeout(r, 600));
+  esit(JSON.parse(depo['pza.pencere.v1']), { x: 1500, y: 40 },
+    'kaplama panel açıkken taşıma KAYDEDİLMEDİ (yanlış yeri hatırlamasın)');
+
+  // Yeniden açılış → kayıtlı konum geri yüklenmeli, `center` yok
+  kur({ depo: { 'pza.pencere.v1': JSON.stringify({ x: 1500, y: 40 }) }, y: 999 });
+  await fit();
+  esit([pencere.x, pencere.y], [1500, 40],
+    'açılışta kayıtlı konum geri yüklendi (ortada açılmıyor)');
+
+  // Kayıt yoksa hiçbir şey dayatılmaz (ilk açılış)
+  kur({ y: 260 });
+  await fit();
+  esit(pencere.y, 260, 'kayıt yokken konum dayatılmıyor (ilk açılış)');
+
+  // Monitör değişmiş: kayıtlı konum ekran dışındaysa görünür alana kırpılır
+  kur({ depo: { 'pza.pencere.v1': JSON.stringify({ x: 5000, y: 4000 }) } });
+  await fit();
+  dogru(pencere.x <= ekran.availWidth - 80, 'ekran dışı x görünür alana kırpıldı');
+  dogru(pencere.y <= ekran.availHeight - 60, 'ekran dışı y görünür alana kırpıldı');
+
+  // `center: true` gerçekten kaldırıldı mı (kök neden)
+  const CONF = JSON.parse(fs.readFileSync(
+    path.join(import.meta.dirname, '..', 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  esit(CONF.app.windows[0].center, undefined,
+    'tauri.conf.json `center` KALDIRILDI (her açılışta ortalama yok)');
+  const CAP = JSON.parse(fs.readFileSync(
+    path.join(import.meta.dirname, '..', 'src-tauri', 'capabilities', 'default.json'), 'utf8'));
+  dogru(CAP.permissions.includes('core:window:allow-set-position'),
+    'set-position yetkisi var (konum geri yüklenebilir)');
+  dogru(CAP.permissions.includes('core:window:allow-outer-position'),
+    'outer-position yetkisi var (konum okunabilir)');
 }
 
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));

@@ -324,11 +324,27 @@ PZA.gcalYaz = function (m, sinif) {
 };
 
 /** Akışın yazdığı mesaj duruyorsa `null` döner: tazeleme yazmasın. */
-PZA.gcalVarsayilan = function (ozet, cid) {
+/** Client ID geçerli mi? "…apps.googleusercontent.com" ile bitmeli ve
+    API anahtarı (`AIza…`) OLMAMALI.
+    TUR 6: kullanıcı API anahtarı girdi; eski kod "Client ID var" sanıp
+    kurulum kutusunu kalıcı olarak gizledi ve kurtarma yolu bırakmadı. */
+PZA.gcalClientIdGecerliMi = function (cid) {
+  const s = (cid === undefined ? PZA.gcalClientId() : cid) || '';
+  if (!s) return false;
+  if (/^AIza[0-9A-Za-z_-]{20,}$/.test(s)) return false;
+  return /\.apps\.googleusercontent\.com$/.test(s);
+};
+
+PZA.gcalVarsayilan = function (ozet, cid, gecerliMi) {
   if (gcalSon) return null;
-  return ozet || (cid
-    ? 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.'
-    : 'Notlarınız telefonunuzda da görünsün.');
+  if (ozet) return ozet;
+  const s = cid || '';
+  if (!s) return 'Notlarınız telefonunuzda da görünsün.';
+  const gecerli = gecerliMi === undefined ? PZA.gcalClientIdGecerliMi(s) : gecerliMi;
+  /* Geçersiz değer (API anahtarı vb.) kayıtlıysa türetilmiş ipucu YAZMA:
+     aksi hâlde "Client ID kaydedildi" diyerek kullanıcıyı yanıltır. */
+  if (!gecerli) return null;
+  return 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.';
 };
 
 /** Yeni bir akış başlarken çağrılır: eski mesaj yeni denemeyi engellemesin. */
@@ -372,8 +388,23 @@ PZA.gcalBaglan = async function (bildir) {
     yaz('Bu ortam güvenli anahtar üretimini desteklemiyor; bağlantı kurulamaz.', 'err');
     return false;
   }
+  /* TUR 6 HATASI: kullanıcı "Api key girdim kabul etti" dedi. Girdiği
+     değer bir **API anahtarıydı** (`AIza…`), Client ID değil. Eski kod
+     bunu yalnız "…apps.googleusercontent.com ile bitmeli" diye
+     reddediyordu; kullanıcı ne yaptığını anlamıyordu. Artık API
+     anahtarı ayrıca ve açıkça tanınır — ve doğru istemci türü söylenir. */
+  if (/^AIza[0-9A-Za-z_-]{20,}$/.test(clientId)) {
+    yaz('Bu bir API anahtarı (AIza…), Client ID değil. Google Cloud Console → ' +
+        'Kimlik Bilgileri → "OAuth istemcisi oluştur" → **Masaüstü uygulaması** seçip ' +
+        'onun "…apps.googleusercontent.com" ile biten Client ID değerini yapıştırın. ' +
+        'Anahtarlar ve İstemciler sayfasında API anahtarı değil, **OAuth 2.0 İstemci Kimliği** ' +
+        'kopyalanmalıdır.', 'err');
+    return false;
+  }
   if (!/\.apps\.googleusercontent\.com$/.test(clientId)) {
-    yaz('Client ID "…apps.googleusercontent.com" ile bitmeli.', 'err');
+    yaz('Client ID "…apps.googleusercontent.com" ile bitmeli. ' +
+        'Cloud Console → Kimlik Bilgileri → "OAuth istemcisi oluştur" → ' +
+        'uygulama türü **Masaüstü uygulaması** olmalı.', 'err');
     return false;
   }
 

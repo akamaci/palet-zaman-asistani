@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.4.0';
+PZA.SURUM = '1.5.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -42,7 +42,11 @@ PZA.DEFAULTS = {
   alwaysOnTop: false,
   autostart: false,
   city: null,         // { name, lat, lon }
-  gcal: false
+  gcal: false,
+  /* Günlük (log.js): varsayılan AÇIK — yalnızca bellekte döner,
+     diske yazmaz, zamanlayıcı kurmaz; yani eski makinelerde de sıfır
+     yük. Kullanıcı isterse KAPATABİLİR (bkz. tur 6). */
+  log: true
 };
 
 const KEY = 'pza.settings.v1';
@@ -104,6 +108,8 @@ PZA.apply = function () {
   bind('opt-speech', s.speech);
   bind('opt-ontop', s.alwaysOnTop);
   bind('opt-autostart', s.autostart);
+  bind('opt-log', s.log !== false);
+  if (PZA.LOG) PZA.LOG.acik = s.log !== false;
 
   // Okuyucu sesi: sistemde kurulu seslerin listesi (speech.js).
   // Ayrı bir çizim fonksiyonu çünkü liste ancak sesler yüklendikten

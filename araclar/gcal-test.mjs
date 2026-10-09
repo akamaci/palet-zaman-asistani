@@ -335,6 +335,23 @@ await (async () => {
   esit(await PZA.gcalBaglan((m, s) => mesaj.push([m, s])), false, 'yanlış biçimli Client ID reddedildi');
   dogru(mesaj[0][0].includes('apps.googleusercontent.com'), 'beklenen biçim söyleniyor');
 
+  // TUR 6: API anahtarı girildi (kullanıcı bildirimi: "Api key girdim kabul etti")
+  PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'AIzaSyA1b2C3d4E5f6G7h8I9j0KLMNOPQRSTUV' })]] });
+  mesaj = [];
+  esit(await PZA.gcalBaglan((m, s) => mesaj.push([m, s])), false, 'API anahtarı Client ID sanılmıyor');
+  dogru(mesaj[0][0].includes('API anahtarı'), 'API anahtarı olduğu AÇIKÇA söyleniyor');
+  dogru(mesaj[0][0].includes('Masaüstü uygulaması'), 'doğru istemci türü (Masaüstü) söyleniyor');
+
+  // TUR 6: geçersiz değer kurulum kutusunu GİZLEMEMELİ (kurtarma yolu kalsın)
+  PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'AIzaSyA1b2C3d4E5f6G7h8I9j0KLMNOPQRSTUV' })]] });
+  esit(PZA.gcalClientIdGecerliMi(), false, 'API anahtarı geçerli Client ID sayılmıyor');
+  esit(PZA.gcalClientIdGecerliMi('a.apps.googleusercontent.com'), true, 'doğru biçim geçerli sayılıyor');
+  esit(PZA.gcalClientIdGecerliMi(''), false, 'boş değer geçersiz');
+  esit(PZA.gcalVarsayilan(null, 'AIzaSyA1b2C3d4E5f6G7h8I9j0KLMNOPQRSTUV', false), null,
+    'geçersiz değerde türetilmiş ipucu YAZILMAZ (yanıltmaz)');
+  esit(PZA.gcalVarsayilan(null, 'a.apps.googleusercontent.com', true),
+    'Client ID kaydedildi — "Hesap Bağla" ile izin verin.', 'geçerli değerde ipucu gelir');
+
   // Tarayıcı önizlemesi (Tauri yok)
   PZA = kur({ tauri: false, depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'a.apps.googleusercontent.com' })]] });
   mesaj = [];

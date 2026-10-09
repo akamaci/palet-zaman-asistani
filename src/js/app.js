@@ -41,6 +41,58 @@
       return !!(el && !el.hidden);
     };
 
+    /* ── Pencere konumu kalıcı (tur 6) ─────────────────────
+       KULLANICI BİLDİRİMİ: "dün ekranın sağ üst köşesine sabitleyip
+       kilitlediğim saat bu gün açıldığında ekranın ortasındaydı."
+       Kök neden: `tauri.conf.json`'da `"center": true` vardı — pencere
+       HER açılışta ortalanıyordu ve konum hiçbir yere yazılmıyordu.
+       `center` kaldırıldı; burada konum saklanır ve açılışta `fit()`
+       çalışmadan ÖNCE geri yüklenir. Böylece kilitli widget, kapatılıp
+       açıldığında bırakıldığı yerde durur. */
+    const KONUMKEY = 'pza.pencere.v1';
+    const winApi = window.__TAURI__.window;
+    const w0 = winApi.getCurrentWindow();
+
+    const konumYaz = async () => {
+      try {
+        const p = await w0.outerPosition();
+        const sf = (await w0.scaleFactor()) || 1;
+        localStorage.setItem(KONUMKEY, JSON.stringify({
+          x: Math.round(p.x / sf), y: Math.round(p.y / sf)
+        }));
+      } catch (e) { /* konum okunamadı — önemli değil */ }
+    };
+
+    /* Kullanıcının elle bıraktığı konumu sakla. Panel açılınca `fit()`
+       pencereyi geçici olarak kaydırır; o kaymalar KAYDEDİLMEZ, yoksa
+       panel açıkken kapatılan uygulama yanlış yeri hatırlar. */
+    let konumZaman = null;
+    try {
+      w0.onMoved(() => {
+        if (acikMi('settings') || acikMi('studio') ||
+            acikMi('panel-notes') || acikMi('panel-weather')) return;
+        clearTimeout(konumZaman);
+        konumZaman = setTimeout(konumYaz, 500);
+      });
+    } catch (e) { /* onMoved yoksa kalıcılık sessizce kapalı kalır */ }
+
+    const konumGeriYukle = async () => {
+      let k = null;
+      try { k = JSON.parse(localStorage.getItem(KONUMKEY)); } catch (_) {}
+      if (!k || !isFinite(k.x) || !isFinite(k.y)) return false;
+      /* Monitör değişmiş olabilir: pencerenin bir parçası görünür kalsın
+         diye iş alanına kırpılır (tamamen ekran dışında açılmasın). */
+      const ek = window.screen || {};
+      const gw = ek.availWidth || ek.width || 1920;
+      const gh = ek.availHeight || ek.height || 1080;
+      const x = Math.min(Math.max(k.x, 0), Math.max(0, gw - 80));
+      const y = Math.min(Math.max(k.y, 0), Math.max(0, gh - 60));
+      try {
+        await w0.setPosition(new winApi.LogicalPosition(x, y));
+        return true;
+      } catch (e) { return false; }
+    };
+
     /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
        (Ayarlar / Stüdyo). Bu ikisi #widget'ın KARDEŞİ ve
        `position: fixed`: widget'ı büyütmedikleri için tek başına
@@ -119,7 +171,13 @@
       return Math.max(0, Math.round(t));
     };
 
+    /* Açılışta önce KAYITLI KONUM geri yüklenir, sonra `fit()` devam eder.
+       Sıra önemli: `fit()` temel konumu `outerPosition()`ten okur; konum
+       önce gelmezse pencere ortada açılıp orada kalırdı. Mandal, `fit`
+       birden çok kez çağrıldığında (gözlemciler) yalnız bir kez yüklenir. */
+    let konumYuklendi = false;
     const fit = async () => {
+      if (!konumYuklendi) { konumYuklendi = true; await konumGeriYukle(); }
       const h = gerekliH();
       const g = Math.max(EN_AZ_G, gerekliG());
       // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma. Ölçülen pencere
@@ -257,7 +315,8 @@
 
   const toggles = {
     'opt-weather': 'weather', 'opt-preview': 'preview', 'opt-seconds': 'seconds',
-    'opt-speech': 'speech', 'opt-ontop': 'alwaysOnTop', 'opt-autostart': 'autostart'
+    'opt-speech': 'speech', 'opt-ontop': 'alwaysOnTop', 'opt-autostart': 'autostart',
+    'opt-log': 'log'
   };
   Object.entries(toggles).forEach(([id, key]) => {
     $(id)?.addEventListener('change', async e => {
@@ -433,15 +492,23 @@
   const gcalPanel = () => {
     const cid = PZA.gcalClientId();
     const bagli = PZA.gcalBagliMi();
+    /* TUR 6 HATASI: kullanıcı tur 5'te bir API anahtarı girdi; eski kod
+       onu "Client ID var" sanıp kurulum kutusunu KALICI olarak gizledi
+       (`kur.hidden = !!cid`). Bağlı olmadığı için "Bağlantıyı kes" de
+       görünmüyordu → kullanıcının elinde kurtarma yolu kalmadı.
+       Artık kutu yalnızca **geçerli** bir Client ID varsa gizlenir. */
+    const gecerli = PZA.gcalClientIdGecerliMi();
     const kur = $('gcal-kur');
-    if (kur) kur.hidden = !!cid;                    // Client ID varsa kurulum kapanır
+    if (kur) kur.hidden = gecerli;
+    /* Geçersiz/kalıntı değer alanda duruyorsa kullanıcı görsün ki
+       düzeltebilsin — geçerliyse yine gösterilir (düzenlenebilir). */
     const idAlani = $('gcal-id');
     if (idAlani && document.activeElement !== idAlani) idAlani.value = cid;
     const sync = $('btn-gcal-sync');
     if (sync) sync.hidden = !bagli;
     const kes = $('gcal-kes');
     if (kes) kes.hidden = !bagli;
-    const m = PZA.gcalVarsayilan(PZA.gcalOzet(), cid);
+    const m = PZA.gcalVarsayilan(PZA.gcalOzet(), cid, gecerli);
     if (m !== null) gcalYaz(m);              // akış yazdıysa DOKUNMA
   };
   gcalPanel();
@@ -511,6 +578,15 @@
     PZA.gcalElle(null);
     PZA.gcalMesajTemizle();
     gcalPanel();
+  });
+
+  /* ── Günlük (tur 6) ─────────────────────────────────── */
+  $('btn-log-kopyala')?.addEventListener('click', async () => {
+    const b = $('btn-log-kopyala');
+    let tamam = false;
+    try { tamam = await PZA.logKopyala(); } catch (_) {}
+    b.textContent = tamam ? 'Kopyalandı ✓' : 'Kopyalanamadı';
+    setTimeout(() => { b.textContent = 'Günlüğü kopyala'; }, 2200);
   });
 
   /* ── Lisans ─────────────────────────────────────────── */

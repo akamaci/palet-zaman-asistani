@@ -281,6 +281,14 @@
     <h4>BAŞLANGIÇ</h4>
     <label class="row"><span>Windows ile Başlat <i class="hint-i">(8 sn gecikmeli)</i></span><input type="checkbox" id="opt-autostart" class="sw"></label>
 
+    <!-- TUR 6: kullanıcı isteği — "programın bir yerine log ve hataları
+         otomatik almasını sağlayalım". Günlük yalnız BELLEKTE döner
+         (200 kayıt); diske yazmaz, zamanlayıcı kurmaz → eski makinelerde
+         de yük getirmez. Bir sorun bildirirken bu düğmeyle kopyalanır. -->
+    <h4>GÜNLÜK</h4>
+    <label class="row"><span>Günlüğü tut <i class="hint-i">(bellekte, diske yazmaz)</i></span><input type="checkbox" id="opt-log" class="sw"></label>
+    <button id="btn-log-kopyala" class="btn-gcal ikincil">Günlüğü kopyala</button>
+
   </div>
 
   <!-- Sürüm elle yazılmaz: `PZA.SURUM` tek kaynak (js/settings.js),
@@ -396,6 +404,7 @@
   </div>
 </div>
 
+<script src="js/log.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/skins.js"></script>
 <script src="js/clock.js"></script>
