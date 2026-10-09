@@ -591,6 +591,20 @@
     PZA.gcalKonsolAc?.();
   });
 
+  /* TUR 9 — kutudaki adresi aç. 403 sonrası bu adres, kullanıcının
+     gitmesi gereken Konsol sayfasıdır; kopyala-yapıştır iki adımı
+     kullanıcıyı yanlış Google ürününe sürükledi. Açma başarısız olursa
+     kopyalama düğmesi zaten yanında duruyor — o yüzden hata mesajı
+     yalnız o yolu hatırlatır, akışı bozmaz. */
+  $('gcal-url-ac')?.addEventListener('click', async e => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const oldu = await (PZA.gcalAdresAc?.() ?? Promise.resolve(false));
+    b.textContent = oldu ? 'Tarayıcıda açıldı' : 'Açılamadı — kopyalayın';
+    if (!oldu) gcalYaz('Adres açılamadı. ' + (PZA.GCAL?.ACILMADI || ''), 'err');
+    setTimeout(() => { b.textContent = 'Tarayıcıda aç'; b.disabled = false; }, 2200);
+  });
+
   $('gcal-kes')?.addEventListener('click', async () => {
     if (!confirm('Google Takvim bağlantısı kesilsin mi? Takvimdeki notlar silinmez.')) return;
     await PZA.gcalKes();

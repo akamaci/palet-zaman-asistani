@@ -725,5 +725,95 @@ await (async () => {
   esit(istekler.length, 0, 'bağlı değilken arka planda istek gidilmiyor');
 })();
 
+console.log('\n15 · Kullanıcıya adres değil KAPI verilir (tur 9)');
+await (async () => {
+  /* KULLANICI BİLDİRİMİ (tur 8 sonu): 403 ekran görüntüsüyle birlikte
+     yalnızca hata metni geldi — kullanıcı çözümü yine uygulamada
+     bulamamış. Sebep, tur 8'de KENDİ yazdığımız kuralın ihlaliydi:
+     "iyi mesaj yanlış yerdeyse yok hükmündedir". Uygulamanın elinde
+     TAM ADRES vardı ama kullanıcıdan iki adım isteniyordu
+     (kopyala → adres çubuğuna yapıştır) ve kullanıcı bu iki adımda
+     başka bir Google ürününe (Play test programı sayfası) savruldu.
+     Tek kullanışlı düğme ("Konsolu aç") ise KURULUM kutusunun
+     içindeydi — Client ID kayıtlı olduğu için o kutu gizli, yani
+     düğme görünmez. Çözüm: elle açma kutusu adresi artık KENDİSİ
+     açabilir. Kopyalama düğmesi KALIR (açma adımı da başarısız
+     olabilir — tur 5-8 dersi). */
+  const cid = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+
+  /* ── (a) Açma, kutudaki adresi kullanır — uydurmaz ── */
+  const PZA = kur({
+    depo,
+    komutlar: { gcal_ac: () => true }
+  });
+  const kutu = els.get('gcal-url') || null;
+  PZA.gcalElle('https://console.cloud.google.com/auth/audience?project=631177154665',
+    PZA.GCAL.TEST_NOT);
+  komutlar.length = 0;
+  const oldu = await PZA.gcalAdresAc();
+  esit(oldu, true, 'adres açılabildi');
+  esit(komutlar.length, 1, 'tek Rust çağrısı yapıldı');
+  esit(komutlar[0].cmd, 'gcal_ac', 'açma komutu gcal_ac');
+  esit(komutlar[0].args.url, els.get('gcal-url').value,
+    'açılan adres, kutuda GÖSTERİLEN adresin aynısı (yeniden üretilmiyor)');
+
+  /* ── (b) 403 yolunda gösterilen adres AÇILABİLİR olmalı ──
+     Kullanıcının gideceği sayfa Rust beyaz listesindeki köklerden
+     biri değilse düğme her zaman hata verir — o zaman düğme ölüdür. */
+  const PZA2 = kur({
+    depo,
+    komutlar: {
+      gcal_port: () => 52007,
+      gcal_ac: () => true,
+      gcal_bekle: () => { throw 'Google yanıtı beklenirken süre doldu.'; }
+    }
+  });
+  await PZA2.gcalBaglan(() => {});
+  const gosterilen = els.get('gcal-url').value;
+  dogru(/^https:\/\/console\.cloud\.google\.com\//.test(gosterilen),
+    '403 yolunda gösterilen adres Konsol kökünden (Rust beyaz listesine uyar)');
+  dogru(gosterilen.includes('project=' + cid.split('-')[0]),
+    'adres istemcinin projesine sabitli (tur 8)');
+
+  /* ── (c) Açma başarısız olursa adres KAYBOLMAZ ──
+     Düğmenin işe yaramadığı durumda tek çıkış kopyalamaktır; kutu ve
+     içeriği yerinde kalmalı. */
+  const PZA3 = kur({
+    depo,
+    komutlar: { gcal_ac: () => { throw 'Tarayıcı açılamadı'; } }
+  });
+  PZA3.gcalElle('https://console.cloud.google.com/auth/audience?project=1', null);
+  esit(await PZA3.gcalAdresAc(), false, 'açma başarısızsa false dönüyor');
+  esit(els.get('gcal-elle').hidden, false, 'kutu AÇIK kalıyor (adres kaybolmuyor)');
+  esit(els.get('gcal-url').value, 'https://console.cloud.google.com/auth/audience?project=1',
+    'adres kutuda duruyor — kopyalanabilir');
+
+  /* ── (d) Boş adres açılmaya çalışılmaz ── */
+  const PZA4 = kur({ depo, komutlar: { gcal_ac: () => true } });
+  PZA4.gcalElle(null);
+  komutlar.length = 0;
+  esit(await PZA4.gcalAdresAc(), false, 'adres yoksa açma denenmiyor');
+  esit(komutlar.length, 0, 'boş adresle Rust hiç çağrılmıyor');
+
+  /* ── (e) Düğme gerçekten bağlı mı (statik) ──
+     Bu düğmenin değeri, GÖRÜNÜR bir kutuda olmasında: tur 8'de
+     "Konsolu aç" düğmesi kurulum kutusunun içinde gizli kaldığı için
+     kullanıcı onu hiç göremedi. */
+  const html = fs.readFileSync(path.join(import.meta.dirname, '..', 'src', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'src', 'js', 'app.js'), 'utf8');
+  const elleBlok = html.slice(html.indexOf('id="gcal-elle"'), html.indexOf('id="gcal-kur"'));
+  dogru(elleBlok.includes('id="gcal-url-ac"'), 'kutuda "Tarayıcıda aç" düğmesi var');
+  dogru(elleBlok.includes('id="gcal-kopyala"'),
+    'kopyalama düğmesi de aynı kutuda — açma başarısız olursa çıkış var');
+  dogru(elleBlok.indexOf('gcal-url-ac') < elleBlok.indexOf('gcal-kopyala'),
+    'açma düğmesi kopyalamadan önce (birincil yol açmak)');
+  dogru(/'gcal-url-ac'\]?\)?\.addEventListener/.test(app) || app.includes("$('gcal-url-ac')"),
+    'app.js "Tarayıcıda aç" düğmesini bağlıyor');
+  dogru(app.includes('PZA.gcalAdresAc'), 'düğme, gcal.js\'teki açma yolunu çağırıyor');
+  dogru(/gcal-url-ac[\s\S]{0,400}?ACILMADI/.test(app),
+    'açma başarısız olursa kopyalama yolu hatırlatılıyor');
+})();
+
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));
 process.exit(bad ? 1 : 0);

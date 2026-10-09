@@ -72,7 +72,8 @@ PZA.GCAL.TEST_NOT = 'Google onay sayfası yerine "erişim engellendi (403)" ya d
    bize sorarak buldu — yani mesaj yanlış yerdeydi. Artık asıl durum
    satırı da söylüyor; kutu yalnız adresi taşıyor. */
 PZA.GCAL.TEST_KISA = 'Sayfada "erişim engellendi (403)" yazıyorsa hesabınız ' +
-  'test kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.';
+  'test kullanıcısı listesinde değil — aşağıdaki adresi "Tarayıcıda aç" ile ' +
+  'açıp hesabınızı ekleyin, sonra yeniden deneyin.';
 
 /* TUR 8 — Tarayıcının açıldığını İDDİA ETMEYEN çıkış yolu.
    Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
@@ -524,9 +525,13 @@ PZA.gcalBaglan = async function (bildir) {
        kullanıcının atacağı adımı kopyalanabilir adresle gösterir. */
     const m = String(e);
     if (/süre doldu/i.test(m)) {
+      /* TUR 9: adım, "adresi kopyala" değil "aşağıdaki adresi AÇ"tır —
+         kutudaki düğme o adresi doğrudan açar. Kopyalama, açma
+         başarısız olursa diye yedek olarak yanında duruyor. */
       yaz('Google yanıtı gelmedi. Tarayıcıda "erişim engellendi (403)" ya da ' +
           '"uygulama test edilmektedir" yazısı gördüyseniz hesabınız test ' +
-          'kullanıcısı listesinde değil — aşağıdaki adresten ekleyip yeniden deneyin.', 'err');
+          'kullanıcısı listesinde değil — aşağıdaki adresi "Tarayıcıda aç" ' +
+          'ile açıp hesabınızı ekleyin, sonra yeniden deneyin.', 'err');
       PZA.gcalElle(PZA.gcalKitleUrl(), PZA.GCAL.TEST_NOT);
     } else if (/ptal/i.test(m)) {
       /* Neden `/ptal/` ve `/iptal/` değil: Rust "İptal edildi." döndürür,
@@ -595,6 +600,23 @@ PZA.gcalKonsolAc = async function () {
   const url = 'https://console.cloud.google.com/apis/credentials';
   if (!GCAL_TAURI) { window.open(url, '_blank', 'noopener'); return true; }
   return await gcalCagir('gcal_ac', { url });
+};
+
+/** Kutuda gösterilen adresi tarayıcıda aç ("Tarayıcıda aç" düğmesi).
+    TUR 9: 403 sonrası kutu, kullanıcının gideceği Konsol sayfasını
+    taşır — ama iki adım istemek (kopyala → adres çubuğuna yapıştır)
+    kullanıcıyı yanlış yere sürükledi: bir Google ürününde çözüm
+    ararken buldu kendini. Adresi uygulama açsın.
+
+    Dönüş: gerçekten açıldı mı diye İDDİA EDİLMEZ (tur 5-8 dersi);
+    açma başarısız olursa çağıran taraf kopyalama yolunu gösterir. */
+PZA.gcalAdresAc = async function () {
+  const i = document.getElementById('gcal-url');
+  const url = i ? String(i.value || '').trim() : '';
+  if (!url) return false;
+  if (!GCAL_TAURI) { window.open(url, '_blank', 'noopener'); return true; }
+  try { await gcalCagir('gcal_ac', { url }); return true; }
+  catch (e) { return false; }
 };
 
 /** Bekleyen bağlanma akışını iptal et ("Vazgeç" düğmesi).

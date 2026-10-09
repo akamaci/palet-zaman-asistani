@@ -259,6 +259,13 @@
       <p class="hint" id="gcal-elle-not">Tarayıcı kendiliğinden açılmadıysa adresi kopyalayıp
         tarayıcınıza yapıştırın — dönüş yine yakalanır.</p>
       <input id="gcal-url" class="inp" type="text" readonly spellcheck="false">
+      <!-- TUR 9: kutudaki adres ARTIK AÇILABİLİR. Kullanıcı 403 sonrası
+           Konsol'da doğru sayfayı ararken başka bir Google ürününe
+           gidiyordu (Play test programı sayfası); oysa uygulamanın elinde
+           tam adres var. Kopyalama düğmesi KALIR: açma adımı da
+           başarısız olabilir (tur 5-8 dersi) ve o zaman tek çıkış
+           kopyalamaktır. -->
+      <button id="gcal-url-ac" class="btn-gcal ikincil">Tarayıcıda aç</button>
       <button id="gcal-kopyala" class="btn-gcal ikincil">Adresi kopyala</button>
     </div>
 
