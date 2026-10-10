@@ -928,15 +928,25 @@ PZA.gcalKes = async function () {
 
 /* Not eklenip silindikçe takvimi kendiliğinden tazele. Kısa bir gecikme
    şart: kullanıcı arka arkaya not yazarken her tuş için istek gitmesin.
-   TUR 12: burası TEK GÜNÜ eşitler — kullanıcının o an düzenlediği gün,
-   hızlı tepki için. BÜTÜN günler bağlanma anında ve elle
-   "Notları takvime gönder" düğmesiyle eşitlenir. */
+
+   TUR 16: burası artık BÜTÜN günleri eşitler. Kullanıcı bildirimi:
+   "kullanıcı takvime ekle butonuna basıyor. Bu buton saat başlarında
+   otomatik çalışmalı…" — kullanıcı düğmeye basıyordu çünkü (a) tek gün
+   eşitlendiği için başka gündeki notlar ve silinen olaylar kendiliğinden
+   gitmiyordu, (b) bu yol `sonEsitleme`yi güncellemediği için panelde
+   işin yapıldığına dair HİÇBİR iz kalmıyordu. Görünmeyen iş, yapılmamış
+   iş sayılır; kullanıcı da haklı olarak düğmeye bastı. */
 let gcalZaman = null;
 PZA.on('notes:changed', () => {
   if (!PZA.gcalBagliMi()) return;
   clearTimeout(gcalZaman);
   gcalZaman = setTimeout(() => {
-    PZA.gcalEsitle(PZA.activeDay).catch(e => {
+    PZA.gcalTumunuEsitle().then(s => {
+      /* Değişiklik olmasa da özet yazılır: kullanıcının "gitti mi?"
+         sorusunu panelin cevaplaması gerekir. Özet sıfırları saymaz,
+         atlanan günü gizlemez (tur 15 kuralı). */
+      PZA.gcalYaz(PZA.gcalEsitlemeOzeti(s), s.atlanan ? 'err' : undefined);
+    }).catch(e => {
       /* TUR 7: bu hata eskiden YALNIZ konsola yazılıyordu. Kullanıcı
          notunu yazıyor, takvime gittiğini sanıyor, gerçekte hiçbir şey
          gitmiyordu — sessiz başarısızlık bu projede en pahalı hata
@@ -945,3 +955,38 @@ PZA.on('notes:changed', () => {
     });
   }, 2500);
 });
+
+/* ── Saat başı güvenlik süpürmesi (tur 16) ───────────────────────
+   Kullanıcının istediği ikinci yol: "saat başlarında otomatik çalışmalı".
+   Elle "Notları takvime gönder" düğmesi KALIR — o artık "şimdi gönder"
+   zorlamasıdır, kurtarma yolu; varsayılan yol ise kendiliğinden işler.
+
+   Neden yalnız not değişimine güvenilmiyor: uygulama kapalıyken, ağ
+   yokken ya da jeton yenilenirken yapılan bir deneme başarısız olursa
+   not değişmedikçe o iş BİR DAHA denenmezdi. Saat başı süpürme, tek
+   seferlik başarısızlığın sonsuza dek sessiz kalmasını engeller
+   (tur 14 dersi: yetki veren yol ile yenileyen yol aynı girdiyi ister).
+
+   Mandal SAAT BAŞINA bir kez: `PZA.tick` saniyede bir çağırır; damga
+   olmasaydı saniyede bir eşitleme isteği giderdi. */
+let gcalSaatBasiSon = null;               // "Y-A-G|S" damgası
+PZA.gcalSaatBasi = function (d) {
+  const t = d || new Date();
+  const damga = t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate()
+    + '|' + t.getHours();
+  if (gcalSaatBasiSon === damga) return false;   // bu saat başı işlendi
+  if (!PZA.gcalBagliMi()) return false;          // bağlı değilken ağ trafiği yok
+  gcalSaatBasiSon = damga;
+  PZA.gcalTumunuEsitle().then(s => {
+    /* Sessiz saat başı ≠ sessiz hata: yalnız GERÇEKTEN bir şey olduysa
+       ya da bir gün atlandıysa yazılır. Değişiklik yokken saat başı
+       satır basmak, günde 24 gereksiz mesaj demekti. */
+    if (s.eklenen || s.guncellenen || s.silinen || s.atlanan) {
+      PZA.gcalYaz('Saat başı eşitleme · ' + PZA.gcalEsitlemeOzeti(s),
+        s.atlanan ? 'err' : undefined);
+    }
+  }).catch(e => {
+    PZA.gcalYaz('Saat başı eşitleme başarısız: ' + (e && e.message || e), 'err');
+  });
+  return true;
+};

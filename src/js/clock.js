@@ -119,6 +119,12 @@ PZA.tick = function () {
 
   // Saat başı → sesli okuma
   saatAnonsu(d);
+
+  // Saat başı → takvim güvenlik süpürmesi (tur 16).
+  // Mandal gcal.js içinde: buradan saniyede bir çağrılır, iş saatte
+  // bir yapılır. `?.` ile çağrılır — takvim modülü yoksa saat çalışmaya
+  // devam etsin (aynı desen: `PZA.checkRollover?.()`).
+  PZA.gcalSaatBasi?.(d);
 };
 
 PZA.startClock = function () {

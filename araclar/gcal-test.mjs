@@ -1239,5 +1239,141 @@ await (async () => {
     'proje numarası okunamıyorsa projesiz adres (uydurma project= yok)');
 })();
 
+console.log('\n21 · Takvim ekleme KENDİLİĞİNDEN çalışır — düğmeye basmak gerekmez (tur 16)');
+await (async () => {
+  /* KULLANICI BİLDİRİMİ: "takvimde kayıt ok sorun yok ancak kullanıcı
+     takvime ekle butonuna basıyor. Bu buton saat başlarında otomatik
+     çalışmalı yada not eklediğimiz kısımda google takvime ekle / ekleme
+     seçeneği not eklenirken sorulmalı."
+
+     KÖK NEDEN (ölçüldü): otomatik yol VARDI ama iki yönden kördü —
+     (1) yalnız ekranda seçili TEK günü eşitliyordu, (2) `sonEsitleme`yi
+     güncellemiyordu, yani panelde işin yapıldığına dair hiçbir iz
+     kalmıyordu. Kullanıcının düğmeye basması bu yüzden mantıklıydı:
+     görünmeyen iş, yapılmamış iş sayılır.
+
+     Bu bölüm üç soruyu ölçer: (1) not yazınca bütün günler kendiliğinden
+     gidiyor mu, (2) saat başı süpürme çalışıyor mu ve saniyede bir
+     çağrıldığında israf etmiyor mu, (3) değişiklik yokken saat başı
+     gereksiz mesaj basmıyor mu. */
+  const bagli = (ek = {}) => ['pza.gcal.v1', JSON.stringify(Object.assign(
+    { clientId: 'C', refreshToken: 'R', accessToken: 'A', exp: Date.now() + 6e5 }, ek))];
+  /* Arka plan işi kimse `await` etmiyor: 2,5 sn'lik gecikmeyi atlar ve
+     mikro görev kuyruğunu boşaltırız (sahte `fetch` söz verir, her
+     `await` bir tur ilerler). */
+  const bosalt = async () => { for (let i = 0; i < 120; i++) await Promise.resolve(); };
+  const arkaPlan = async fn => {
+    const gercek = g.setTimeout;
+    g.setTimeout = f => { f(); return 0; };
+    try { fn(); } finally { g.setTimeout = gercek; }
+    await bosalt();
+  };
+  const gonderilenler = () => istekler
+    .filter(i => i.opt.method === 'POST' && i.url.includes('/calendars/'))
+    .map(i => i.govde.extendedProperties.private.pza);
+
+  /* ── (a) Not eklenince SEÇİLİ OLMAYAN günler de kendiliğinden gider ── */
+  let PZA = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?') ? { json: { items: [] } } : { json: {} }
+  });
+  PZA.notes = {
+    '2026-10-07': [{ t: '09:00', x: 'Dün' }],
+    '2026-10-08': [{ t: '10:00', x: 'Önceki gün' }],
+    '2026-10-09': [{ t: '11:00', x: 'Bugün' }]
+  };
+  PZA.activeDay = '2026-10-09';            // ekranda yalnız bu gün duruyor
+  await arkaPlan(() => PZA.emit('notes:changed'));
+  esit(gonderilenler(),
+    ['2026-10-07|09:00|1', '2026-10-08|10:00|1', '2026-10-09|11:00|1'],
+    'not yazınca ÜÇ günün notu da gitti — düğmeye basılmadan');
+  const panel = els.get('gcal-state');
+  dogru(/3 gün tarandı/.test(panel.textContent),
+    'panel ne yaptığını YAZIYOR (eskiden hiçbir iz kalmıyordu)');
+  dogru(/takvimde 3 not/.test(panel.textContent), 'özet ölçülen sayıyı taşıyor');
+  dogru(/^\d\d:\d\d$/.test(JSON.parse(store.get('pza.gcal.v1')).sonEsitleme || ''),
+    'son eşitleme damgası diske yazıldı — durum satırı artık gerçeği gösterir');
+
+  /* ── (b) Bağlı değilken arka plan hiç ağa çıkmaz ── */
+  const P2 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'C' })]] });
+  await arkaPlan(() => P2.emit('notes:changed'));
+  esit(istekler.length, 0, 'bağlı değilken not değişimi istek üretmiyor');
+
+  /* ── (c) Saat başı süpürme: saatte BİR kez, tick saniyede bir ──
+     ÖLÇÜM NOTU: her `kur()` çağrısı modülü YENİDEN yükler, yani eski bir
+     örneğin fonksiyonları çağrıldıklarında YENİ örneğin durumuna bakar.
+     Bu yüzden her ölçüm kendi örneğiyle yapılır (taze mandal şart). */
+  const P6 = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?') ? { json: { items: [] } } : { json: {} }
+  });
+  P6.notes = { '2026-10-07': [{ t: '09:00', x: 'Not' }] };
+  const saat = new Date(2026, 9, 10, 14, 0, 3);        // 14:00:03
+  const ayniSaat = new Date(2026, 9, 10, 14, 59, 59);  // aynı saatin sonu
+  const sonraki = new Date(2026, 9, 10, 15, 0, 0);     // sonraki saat başı
+  const yarin = new Date(2026, 9, 11, 14, 0, 0);       // ertesi gün, aynı saat
+  esit(P6.gcalSaatBasi(saat), true, 'saat başında süpürme başlıyor');
+  await bosalt();
+  const ilkTur = istekler.length;
+  dogru(ilkTur > 0, 'saat başı süpürme gerçekten ağa çıkıyor (ölü kod değil)');
+  esit(P6.gcalSaatBasi(ayniSaat), false,
+    'aynı saat içinde İKİNCİ kez çalışmaz (tick saniyede bir çağırıyor)');
+  await bosalt();
+  esit(istekler.length, ilkTur, 'mandal tutuyor: saniyelik çağrı istek üretmiyor');
+  esit(P6.gcalSaatBasi(sonraki), true, 'sonraki saat başında yeniden çalışır');
+  await bosalt();
+  esit(P6.gcalSaatBasi(yarin), true,
+    'ertesi günün aynı saati YENİ saat başıdır (mandal yalnız saate bakmıyor)');
+
+  /* ── (d) Bağlı değilse mandal harcanmaz: bağlanınca o saat yine çalışır ── */
+  const P3 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'C', clientSecret: 'S' })]] });
+  istekler.length = 0;
+  esit(P3.gcalSaatBasi(saat), false, 'bağlı değilken süpürme yapılmıyor');
+  esit(istekler.length, 0, 'bağlı değilken ağa çıkılmıyor');
+  P3.gcal.refreshToken = 'R';
+  P3.gcal.accessToken = 'A';
+  P3.gcal.exp = Date.now() + 6e5;
+  esit(P3.gcalSaatBasi(saat), true,
+    'aynı saat içinde bağlantı kurulursa süpürme yine yapılır (mandal harcanmadı)');
+  await bosalt();
+
+  /* ── (e) Değişiklik yokken saat başı satır BASILMAZ ──
+     Günde 24 gereksiz mesaj, paneli okunmaz hâle getirirdi; ama hata
+     yine de sessiz kalmıyor (üstteki catch). Notu olmayan bağlı hesap:
+     eşitleme çalışır, değişecek bir şey yoktur. */
+  const P4 = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?') ? { json: { items: [] } } : { json: {} }
+  });
+  P4.notes = {};
+  P4.gcalYaz('ÖNCEKİ MESAJ');
+  esit(P4.gcalSaatBasi(saat), true, 'süpürme yine çalışıyor');
+  await bosalt();
+  esit(els.get('gcal-state').textContent, 'ÖNCEKİ MESAJ',
+    'değişiklik yokken saat başı paneli ELE GEÇİRMİYOR');
+  /* Not değişimi ise kullanıcının az önce yaptığı iştir: sessiz kalmaz. */
+  await arkaPlan(() => P4.emit('notes:changed'));
+  esit(els.get('gcal-state').textContent, 'Gönderilecek not yok.',
+    'not değişiminde değişiklik olmasa da panel cevap veriyor (sessiz başarısızlık yok)');
+
+  /* ── (f) Saat başı hatası görünür kalır ──
+     Ölü jeton: `accessToken` OLMAMALI, yoksa tazeleme hiç denenmez ve
+     hata hiç doğmaz (ölçüm boşa giderdi). */
+  const P5 = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'C', refreshToken: 'OLU', clientSecret: 'S' })]],
+    cevap: url => url.includes('/token')
+      ? { ok: false, status: 400, json: { error: 'invalid_grant' } }
+      : { json: { items: [] } }
+  });
+  P5.notes = { '2026-10-07': [{ t: '09:00', x: 'Not' }] };
+  esit(P5.gcalSaatBasi(sonraki), true, 'süpürme deneniyor');
+  await bosalt();
+  dogru(/Saat başı eşitleme başarısız/.test(els.get('gcal-state').textContent),
+    'saat başı hatası panelde ANLAŞILIR biçimde yazılıyor');
+  esit(els.get('gcal-state')._cls.has('err'), true, 'hata olarak işaretli');
+  dogru(/7 günde/.test(els.get('gcal-state').textContent),
+    'sebep de taşınıyor (jeton ömrü) — yalnız "başarısız" demek yetmez');
+})();
+
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));
 process.exit(bad ? 1 : 0);

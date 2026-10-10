@@ -228,6 +228,26 @@ head('9 · Tasma bolgeleri isaretli mi');
   else ok(isaretli.length + ' data-drag isareti, hepsi tasima bolgesi');
 }
 
+head('10 · Saat basi takvim supurmesi saate BAGLI mi (tur 16)');
+{
+  /* Kullanıcı isteği: takvime ekleme düğmeye basılmadan kendiliğinden
+     olsun. `gcal.js` saat başı süpürmeyi tanımlıyor ama onu ÇAĞIRAN
+     bir yer olmazsa özellik ölü koddur — testler onu elle çağırdığı
+     için yeşil kalır, uygulamada hiç çalışmaz. Bu kontrol bağı ölçer. */
+  const clock = src('clock.js');
+  const gcal = src('gcal.js');
+  if (!/PZA\.gcalSaatBasi\s*=\s*function/.test(gcal))
+    fail('gcal.js: PZA.gcalSaatBasi tanimli degil (saat basi supurmesi yok)');
+  else ok('gcal.js saat basi supurmesini tanimliyor');
+  if (!/PZA\.gcalSaatBasi\?\.\(/.test(clock))
+    fail('clock.js: PZA.tick saat basi supurmesini CAGRMIYOR (olu ozellik)');
+  else ok('clock.js her saniye cagiriyor (mandal gcal.js icinde)');
+  /* Mandal olmadan bu, saniyede bir takvim istegi demekti. */
+  if (!/gcalSaatBasiSon\s*===\s*damga/.test(gcal))
+    fail('gcal.js: saat basi mandali yok — saniyede bir esitleme istegi gider');
+  else ok('mandal var: is saatte bir, cagri saniyede bir');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
