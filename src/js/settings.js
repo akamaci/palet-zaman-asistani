@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.9.0';
+PZA.SURUM = '1.10.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -28,7 +28,21 @@ PZA.DEFAULTS = {
   weather: true,
   preview: true,      // not başlıkları şeridi
   seconds: true,
-  speech: false,      // her saat başı sesli okuma
+  /* ── Sesli okuma (tur 12) ─────────────────────────────────
+     KULLANICI BİLDİRİMİ: "saatimiz ayrıca saat başı saati
+     söylemiyor. Bunun için 2. eklenti olmalı; ayarlarda saat başı
+     uyarı, her yarım saatte uyarı olsun."
+     `speech` = saat anonsunun ANA anahtarı. Tur 12'ye kadar
+     varsayılanı KAPALIYDI: kullanıcı ayarı hiç açmadığı için saat
+     başı okuma hiç duyulmadı ve "saat konuşmuyor" diye bildirdi.
+     Eski kayıtlar `yukle()` içinde BİR KEZ yükseltilir (gerekçe orada). */
+  speech: true,       // saat anonsu (sesli)
+  saatBasi: true,     // her saat başı oku (:00)
+  yarimSaat: false,   // her yarım saatte oku (:30)
+  /* Ayrı anahtar, çünkü ayrı bir iş: yıldızlı (önemli) kaydın SAATİ
+     geldiğinde metni "Önemli …" diye okunur. Saat anonsu kapalıyken de
+     çalışır — kullanıcı yalnız hatırlatma istiyor olabilir. */
+  onemliOku: true,
   /* Okuyucu sesi = sistemde kurulu sesin ADI (ör. "Microsoft Filiz
      - Turkish (Turkey)"). Eskiden 'female' | 'male' tutuluyordu ama
      bu iki "kişi" tek Türkçe sesli sistemde aynı sesi veriyordu;
@@ -58,11 +72,27 @@ PZA.emit = (ev, data) => (listeners[ev] || []).forEach(fn => { try { fn(data); }
 
 /* ── Depo ─────────────────────────────────────────────── */
 function load() {
+  let ham = null;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return Object.assign({}, PZA.DEFAULTS, JSON.parse(raw));
+    if (raw) ham = JSON.parse(raw);
   } catch (e) { console.warn('ayar okunamadı', e); }
-  return Object.assign({}, PZA.DEFAULTS);
+  const s = Object.assign({}, PZA.DEFAULTS, ham || {});
+
+  /* TUR 12 — ESKİ AYARI BİR KEZ YÜKSELT.
+     `saatBasi`/`yarimSaat`/`onemliOku` anahtarları tur 12'de geldi.
+     Bu anahtarlar yoksa kayıt v1.9 ya da öncesinden geliyordur; oradaki
+     `speech: false` KULLANICININ SEÇİMİ DEĞİL, hiç dokunulmamış
+     varsayılandı. Kullanıcı "saat başı saati söylemiyor" diye bildirdi;
+     yükseltme yapılmasaydı aynı sessizlik yeni sürümde de sürerdi.
+     Saat anonsu bu yüzden AÇILIR ve bu GÜNLÜĞE yazılır — kullanıcı
+     isterse ayardan kapatır (karar, tur kaydında gerekçesiyle duruyor). */
+  if (ham && ham.saatBasi === undefined) {
+    s.speech = true;
+    s.saatBasi = true;
+    PZA.logYaz?.('bilgi', 'Eski ayar yükseltildi: saat anonsu açıldı (v1.10)');
+  }
+  return s;
 }
 
 PZA.settings = load();
@@ -106,6 +136,11 @@ PZA.apply = function () {
   bind('opt-preview', s.preview);
   bind('opt-seconds', s.seconds);
   bind('opt-speech', s.speech);
+  /* `!== false` / `=== true`: eski kayıtta bu anahtarlar yoktu; eksik
+     anahtar "kapalı" değil "varsayılan" demektir (bkz. `PZA.DEFAULTS`). */
+  bind('opt-saatbasi', s.saatBasi !== false);
+  bind('opt-yarimsaat', s.yarimSaat === true);
+  bind('opt-onemli', s.onemliOku !== false);
   bind('opt-ontop', s.alwaysOnTop);
   bind('opt-autostart', s.autostart);
   bind('opt-log', s.log !== false);

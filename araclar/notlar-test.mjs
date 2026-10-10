@@ -146,10 +146,17 @@ console.log('\n6 · Saat başı okuma mandalı (eski şart: seconds === 0)');
 const GercekDate = g.Date;
 let anonslar = [];
 PZA.settings.speech = true;
-PZA.say = (h, m) => { anonslar.push(h + ':' + m); return true; };
+/* TUR 12: `ekler` üçüncü parametre — önemli (yıldızlı) kaydın metni
+   saat cümlesiyle AYNI konuşmada gider. Burada konuşma yok (speech.js
+   yüklü değil), o yüzden aktarılan metin kaydedilir. */
+PZA.say = (h, m, ekler) => {
+  anonslar.push(h + ':' + m + (ekler && ekler.length ? ' + ' + ekler.join('|') : ''));
+  return true;
+};
 
-function saatKur(h, m, s) {
-  const t = new GercekDate(2026, 9, 9, h, m, s);
+function saatKur(h, m, s, gun = '2026-10-09') {
+  const [y, a, gg] = gun.split('-').map(Number);
+  const t = new GercekDate(y, a - 1, gg, h, m, s);
   g.Date = class { constructor() { return t; } static now() { return t.getTime(); } };
 }
 const adet = () => anonslar.length;
@@ -177,6 +184,40 @@ PZA.settings.speech = false;
 saatKur(17, 0, 0);
 PZA.tick();
 esit(adet(), 2, 'ayar kapalıyken okuma yok');
+
+/* TUR 12 — kullanıcı isteği: "ayarlarda saat başı uyarı her yarım
+   saatte uyarı olsun". İki ayrı anahtar, iki AYRI mandal. */
+PZA.settings.speech = true;
+PZA.settings.saatBasi = false;          // yalnız saat başı kapatıldı
+saatKur(18, 0, 0);
+PZA.tick();
+esit(adet(), 2, 'saat başı kapalı → :00 sessiz');
+
+PZA.settings.yarimSaat = true;
+saatKur(18, 30, 0);
+PZA.tick();
+esit(adet(), 3, 'yarım saat açık → :30 okundu (ayrı mandal)');
+
+saatKur(18, 30, 30);
+PZA.tick();
+esit(adet(), 3, ':30 ikinci kez okunmuyor');
+
+/* Önemli kayıt varsa metni saat cümlesine EKLENİR: ayrı iki konuşma
+   olsaydı `speechSynthesis.cancel()` biri ötekini keserdi. */
+PZA.notes['2026-10-09'] = [{ t: '19:00', x: 'Yemek', star: true }];
+PZA.settings.saatBasi = true;
+PZA.settings.yarimSaat = false;
+saatKur(19, 0, 1);
+PZA.tick();
+esit(anonslar.at(-1), '19:0 + Önemli. Yemek', 'önemli kayıt saat cümlesine ekleniyor');
+
+/* Saat anonsu kapalıyken hatırlatma yine yapılmalı; bu dosyada konuşma
+   yolu (speech.js) yüklü değil, o yüzden ölçülen şey ÇÖKMEMESİ. */
+PZA.settings.speech = false;
+PZA.notes['2026-10-10'] = [{ t: '20:00', x: 'Tek başına', star: true }];
+saatKur(20, 0, 1, '2026-10-10');
+PZA.tick();
+esit(adet(), 4, 'saat anonsu kapalı + önemli kayıt → çökme yok');
 
 g.Date = GercekDate;
 

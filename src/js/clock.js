@@ -26,20 +26,76 @@ function setDigit(unit, value) {
 
 const p2 = n => String(n).padStart(2, '0');
 
-/* ── Saat başı okuma ─────────────────────────────────────
+/* ── Saat başı / yarım saat okuma ────────────────────────
    Eskiden şart `seconds === 0` idi. setInterval(1000) kayar ve
    pencere gizlenince saat durur; o TEK saniye kaçınca okuma
    tamamen kayboluyordu. Artık "bu saatin anonsu yapıldı mı"
-   damgası tutulur → dakika 00 boyunca ilk tick yakalar. */
-let anonsSaat = null;
+   damgası tutulur → dakika 00 boyunca ilk tick yakalar.
 
+   TUR 12: anons artık iki anahtara bağlı (kullanıcı isteği) —
+   `saatBasi` (:00) ve `yarimSaat` (:30). Mandal ikisi için AYRI
+   tutulur; tek mandal olsaydı bir saat diliminde yalnız ilk anons
+   yapılır, öteki sessizce düşerdi. */
+let anonsSaat = null;      // "YYYY-MM-DD HH" — saat başı okundu
+let anonsYarim = null;     // "YYYY-MM-DD HH:30" — yarım saat okundu
+
+/* ── Önemli kayıt anonsu (tur 12) ────────────────────────
+   KULLANICI İSTEĞİ: "önemli yani yıldız konulan randevu ve notlarda
+   da Önemli diye başlayıp notumuz ne ise sesli okuyabilir mi?"
+   Kaydın SAATİ geldiğinde BİR KEZ okunur (mandal, küme ile).
+   Eşitlik değil PENCERE kullanılır: pencere gizlenince saat durur
+   (`visibilitychange`); 17:30 kaydı 17:33'te geri gelindiğinde
+   kaybolmamalı. Pencere dışındaki (geçmiş) kayıtlar okunmaz — yoksa
+   uygulama her açılışta günün bütün önemli kayıtlarını sıralardı. */
+const ONEMLI_PENCERE_DK = 5;
+let onemliOkunan = new Set();
+let onemliGun = null;
+
+function onemliAnonslari(d) {
+  if (!PZA.settings || PZA.settings.onemliOku === false) return [];
+  const gun = PZA.todayKey();
+  /* Gün değişince küme sıfırlanır: dünkü anahtarlar birikmesin
+     (küme günde en fazla birkaç kayıt büyür). */
+  if (onemliGun !== gun) { onemliOkunan.clear(); onemliGun = gun; }
+
+  const suDk = d.getHours() * 60 + d.getMinutes();
+  const cikti = [];
+  for (const n of ((PZA.notes && PZA.notes[gun]) || [])) {
+    if (!n || !n.star) continue;                       // yalnız ÖNEMLİ olanlar
+    const [h, mk] = String(n.t || '').split(':').map(Number);
+    if (!isFinite(h) || !isFinite(mk)) continue;
+    const fark = suDk - (h * 60 + mk);
+    if (fark < 0 || fark > ONEMLI_PENCERE_DK) continue;
+    const k = gun + '|' + n.t + '|' + n.x;             // metin de anahtarda:
+    if (onemliOkunan.has(k)) continue;                 // metin değişirse yeniden okunur
+    onemliOkunan.add(k);
+    cikti.push('Önemli. ' + n.x);
+  }
+  return cikti;
+}
+
+/** Bu tick'te okunacakları seslendir. Saat anonsu ile önemli kayıt
+    aynı saniyeye düşerse TEK cümlede okunur (`ekler`): `PZA.say`
+    konuşmadan önce `cancel()` çağırır, ayrı iki çağrı birbirini
+    keserdi (17:30 hem yarım saat hem önemli kayıt olabilir). */
 function saatAnonsu(d) {
-  if (!PZA.settings || !PZA.settings.speech) return;
-  if (d.getMinutes() !== 0) return;
-  const damga = `${PZA.todayKey()} ${d.getHours()}`;
-  if (anonsSaat === damga) return;
-  anonsSaat = damga;
-  PZA.say?.(d.getHours(), 0);
+  const s = PZA.settings || {};
+  const onemli = onemliAnonslari(d);
+
+  let saat = null;
+  if (s.speech) {
+    const gun = PZA.todayKey(), h = d.getHours(), mk = d.getMinutes();
+    if (s.saatBasi !== false && mk === 0) {
+      const damga = gun + ' ' + h;
+      if (anonsSaat !== damga) { anonsSaat = damga; saat = [h, 0]; }
+    } else if (s.yarimSaat && mk === 30) {
+      const damga = gun + ' ' + h + ':30';
+      if (anonsYarim !== damga) { anonsYarim = damga; saat = [h, 30]; }
+    }
+  }
+
+  if (saat) PZA.say?.(saat[0], saat[1], onemli);
+  else if (onemli.length) PZA.sayMetin?.(onemli.join('. '));
 }
 
 PZA.tick = function () {

@@ -316,6 +316,10 @@
   const toggles = {
     'opt-weather': 'weather', 'opt-preview': 'preview', 'opt-seconds': 'seconds',
     'opt-speech': 'speech', 'opt-ontop': 'alwaysOnTop', 'opt-autostart': 'autostart',
+    /* TUR 12 — sesli okuma üçe ayrıldı (saat başı / yarım saat / önemli
+       kayıtlar). Kullanıcı isteği: "ayarlarda saat başı uyarı, her yarım
+       saatte uyarı olsun". */
+    'opt-saatbasi': 'saatBasi', 'opt-yarimsaat': 'yarimSaat', 'opt-onemli': 'onemliOku',
     'opt-log': 'log'
   };
   Object.entries(toggles).forEach(([id, key]) => {
@@ -513,6 +517,18 @@
   };
   gcalPanel();
 
+  /* TUR 12 — Açılışta bağlantı ÖLÇÜLÜR. Kullanıcı bildirimi: takvim
+     "bağlı" görünüyordu ama hiçbir şey aktarılmıyordu; durum satırı
+     saklanan anahtarın varlığından türetildiği için yalan söyleyebiliyordu.
+     Artık gerçek bir API çağrısı yapılır ve ÖLÇÜLEN sonuç panele yazılır.
+     Akış sürerken (`gcalSon` dolu) satıra dokunulmaz: `gcalPanel` zaten
+     yalnız kendi türettiği mesajı yazar. */
+  if (PZA.gcalBagliMi()) {
+    PZA.gcalDogrula?.()
+      .then(() => { PZA.gcalMesajTemizle?.(); gcalPanel(); })
+      .catch(() => {});
+  }
+
   /* Client ID yazıldıkça sakla: kullanıcı bağlanmadan önce panel
      kapanırsa yeniden yazmak zorunda kalmasın. */
   $('gcal-id')?.addEventListener('change', e => {
@@ -578,11 +594,18 @@
     b.disabled = true;
     gcalYaz('Notlar takvime gönderiliyor…');
     try {
-      const s = await PZA.gcalEsitle(PZA.activeDay);
-      gcalYaz('Gönderildi ✓ · ' + s.eklenen + ' yeni, ' + s.guncellenen +
-              ' güncel, ' + s.silinen + ' silindi');
+      /* TUR 12 — düğme artık BÜTÜN günleri gönderir. Eskiden yalnız
+         ekranda seçili gün gönderiliyordu; kullanıcı "dün girdiğim
+         veriler aktarılmadı" dediğinde düğmeye basmak da işe
+         yaramıyordu. */
+      const s = await PZA.gcalTumunuEsitle((i, n) => {
+        if (n > 1) gcalYaz('Gönderiliyor… ' + i + '/' + n);
+      });
+      gcalYaz((s.atlanan ? 'Kısmen gönderildi · ' : 'Gönderildi ✓ · ')
+              + PZA.gcalEsitlemeOzeti(s), s.atlanan ? 'err' : undefined);
     } catch (e) {
       gcalYaz('Eşitleme başarısız: ' + e.message, 'err');
+      PZA.logYaz?.('hata', 'Elle eşitleme başarısız', { hata: String(e.message || e) });
     } finally { b.disabled = false; }
   });
 

@@ -181,13 +181,17 @@ PZA.gcalYetkiUrl = function (clientId, yonlendirme, ozet, durum) {
   return PZA.GCAL.AUTH + '?' + p.toString();
 };
 
-/** Rust'ın yakaladığı istek hedefini çöz: `/?code=…&state=…` */
+/** Rust'ın yakaladığı istek hedefini çöz: `/?code=…&state=…`
+    TUR 12: `error_description` de okunur — Google reddettiğinde
+    (ör. `access_denied`) sebep İngilizce tek kelime değil, cümledir;
+    kullanıcıya gösterilecek olan odur. */
 PZA.gcalKodCoz = function (hedef) {
   const p = new URLSearchParams(String(hedef || '').split('?')[1] || '');
   return {
     kod: p.get('code') || null,
     durum: p.get('state') || null,
-    hata: p.get('error') || null
+    hata: p.get('error') || null,
+    aciklama: p.get('error_description') || null
   };
 };
 
@@ -266,11 +270,47 @@ PZA.gcalBagliMi = function () {
 
 PZA.gcalClientId = function () { return PZA.gcal.clientId || ''; };
 
+/* TUR 12 — BAĞLANTI ÖLÇÜLÜR, İDDİA EDİLMEZ.
+   Kullanıcı bildirimi: "şu an google takvime bağlı ancak dün girdiğim
+   verileri google takvime aktarmadı." Panel "bağlı" görünüyordu çünkü
+   durum satırı **saklanan jetonun varlığından** türetiliyordu; jetonun
+   gerçekten çalıştığı hiç sınanmamıştı (diskte de tazeleme anahtarı
+   yoktu). Artık gerçek bir API çağrısı yapılır ve satır, ÖLÇÜLEN
+   sonucu yazar. Hata varsa "bağlı" denmez. */
+PZA.gcalDogrula = async function () {
+  if (!PZA.gcalBagliMi()) return false;
+  const g = PZA.gcal;
+  try {
+    const token = await PZA.gcalToken();          // jeton tazelenebiliyor mu?
+    const j = await gcalIstek('GET', '/calendars/primary/events?maxResults=1', null, token);
+    g.sonDogrulama = new Date().toTimeString().slice(0, 5);
+    g.dogrulamaHata = null;
+    PZA.gcalKaydet();
+    PZA.logYaz?.('bilgi', 'Takvim bağlantısı doğrulandı', {
+      okunan: ((j && j.items) || []).length
+    });
+    return true;
+  } catch (e) {
+    g.dogrulamaHata = String((e && e.message) || e);
+    PZA.gcalKaydet();
+    PZA.logYaz?.('uyari', 'Takvim bağlantısı doğrulanamadı: ' + g.dogrulamaHata);
+    return false;
+  }
+};
+
 PZA.gcalOzet = function () {
   if (!PZA.gcalBagliMi()) return null;
-  return PZA.gcal.sonEsitleme
-    ? 'Bağlı ✓ · son eşitleme ' + PZA.gcal.sonEsitleme
-    : 'Bağlı ✓ · notlar takvime gönderiliyor.';
+  const g = PZA.gcal;
+  if (g.dogrulamaHata) {
+    return 'Bağlantı kurulamıyor: ' + g.dogrulamaHata +
+      ' — "Bağlantıyı kes" deyip yeniden bağlanın.';
+  }
+  /* Doğrulama henüz yapılmadıysa "Bağlı ✓" DENMEZ: bu, ölçülmemiş bir
+     iddia olurdu. Satır yalnız kaydın varlığını söyler. */
+  if (!g.sonDogrulama) return 'Anahtar kaydedildi ✓ — bağlantı sınanıyor…';
+  const p = ['Bağlı ✓', 'doğrulandı ' + g.sonDogrulama];
+  if (g.sonEsitleme) p.push('son eşitleme ' + g.sonEsitleme);
+  return p.join(' · ');
 };
 
 /* ── Takvim yazma/okuma ────────────────────────────────── */
@@ -330,10 +370,12 @@ PZA.gcalGunOlaylari = async function (gun, token) {
 };
 
 /** Bir günün notlarını takvime yansıt: yeni not → yeni olay, değişen
-    not → olay güncellenir, silinen not → olay silinir. */
-PZA.gcalEsitle = async function (gun) {
+    not → olay güncellenir, silinen not → olay silinir.
+    `hazirToken` verilirse jeton yeniden istenmez (tam eşitleme tek
+    jetonla bütün günleri dolaşır). */
+PZA.gcalEsitle = async function (gun, hazirToken) {
   if (!PZA.gcalBagliMi()) throw new Error('Önce hesabı bağlayın.');
-  const token = await PZA.gcalToken();
+  const token = hazirToken || await PZA.gcalToken();
   const notlar = (PZA.notes && PZA.notes[gun]) || [];
   const mevcut = await PZA.gcalGunOlaylari(gun, token);
 
@@ -369,6 +411,102 @@ PZA.gcalEsitle = async function (gun) {
   PZA.gcal.sonEsitleme = new Date().toTimeString().slice(0, 5);
   PZA.gcalKaydet();
   return { eklenen, guncellenen, silinen, toplam: notlar.length };
+};
+
+/* ── TAM EŞİTLEME — bütün günler (tur 12) ────────────────
+   KULLANICI BİLDİRİMİ: "dün girdiğim verileri google takvime
+   aktarmadı. Senkronize olmadı."
+
+   KÖK NEDEN: eşitleme ÜÇ yolda da tek günü kapsıyordu —
+   `gcalEsitle(PZA.activeDay)`: bağlanma anında, not değişince ve elle
+   "Notları takvime gönder" düğmesinde. Yani yalnız EKRANDA SEÇİLİ
+   günün notları takvime gidiyordu; başka günlere girilmiş notlar
+   takvime HİÇ ulaşmıyor, o günlerde silinen notların olayları da
+   takvimde kalıyordu. Tek günlük eşitleme hâlâ yerinde (not
+   değişince hızlı tepki için); eksik olan BÜTÜN günleri kapsayan
+   bir işlemdi ve bu o. */
+
+/** Notu olan bütün günler (ISO, artan sırada). */
+PZA.gcalNotGunleri = function () {
+  return Object.keys(PZA.notes || {})
+    .filter(g => /^\d{4}-\d{2}-\d{2}$/.test(g) && (PZA.notes[g] || []).length)
+    .sort();
+};
+
+/** Bütün günleri takvimle eşitle. `bildir(i, n)` verilirse ilerleme
+    bildirilir (panel uzun işte sessiz kalmasın).
+
+    Hangi günler taranır: notu olan bütün günler + **son eşitlemede
+    dokunulmuş** günler. İkincisi şart: bir günün notları tamamen
+    silinirse o gün `gcalNotGunleri()`nden düşer, ama takvimde olayları
+    durur — kayıt tutulmasaydı o olaylar sonsuza dek takvimde kalırdı.
+    (v1.9 ve öncesinde takvime hiçbir şey yazılmadığı için — jetonsuz
+    "bağlı" görünen o sürümlerde eşitleme fiilen çalışmamıştı — geriye
+    dönük yetim olay temizliği gerekmiyor.) */
+PZA.gcalTumunuEsitle = async function (bildir) {
+  if (!PZA.gcalBagliMi()) throw new Error('Önce hesabı bağlayın.');
+  const g = PZA.gcal;
+  const token = await PZA.gcalToken();
+
+  const notGunleri = PZA.gcalNotGunleri();
+  const dokunulan = (Array.isArray(g.gunler) ? g.gunler : [])
+    .filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x));
+  const gunler = [...new Set([...notGunleri, ...dokunulan])].sort();
+
+  const top = { gunler: gunler.length, degisenGun: 0, eklenen: 0,
+                guncellenen: 0, silinen: 0, toplam: 0, atlanan: 0, hata: null };
+
+  /* Hiç gün yoksa hiç API çağrısı yapılmaz ve "bağlandı ✓" ölçülmemiş
+     kalırdı. En az bir gerçek çağrı garanti edilir: bağlantı sınanır. */
+  if (!gunler.length) await PZA.gcalDogrula();
+
+  for (let i = 0; i < gunler.length; i++) {
+    const gun = gunler[i];
+    if (bildir) bildir(i + 1, gunler.length, gun);
+    try {
+      const s = await PZA.gcalEsitle(gun, token);
+      top.eklenen += s.eklenen;
+      top.guncellenen += s.guncellenen;
+      top.silinen += s.silinen;
+      top.toplam += s.toplam;
+      if (s.eklenen || s.guncellenen || s.silinen) top.degisenGun++;
+    } catch (e) {
+      /* TEK gün patlarsa eşitlemenin tamamı düşmez: kalan günler
+         denenir ve atlanan gün DÜRÜSTÇE bildirilir (sessiz yutma, bu
+         projede en pahalı hata sınıfı). */
+      top.atlanan++;
+      top.hata = top.hata || String((e && e.message) || e);
+      PZA.logYaz?.('uyari', 'Gün eşitlenemedi: ' + gun,
+        { hata: String((e && e.message) || e) });
+    }
+  }
+
+  g.gunler = notGunleri;                 // bir sonraki taramanın kaydı
+  g.sonEsitleme = new Date().toTimeString().slice(0, 5);
+  g.sonEsitlemeGun = gunler.length;
+  PZA.gcalKaydet();
+  PZA.logYaz?.('bilgi', 'Takvim eşitlemesi bitti (' + gunler.length + ' gün)', {
+    eklenen: top.eklenen, guncellenen: top.guncellenen,
+    silinen: top.silinen, atlanan: top.atlanan
+  });
+  return top;
+};
+
+/** Eşitleme sonucunu ÖLÇTÜĞÜ gibi anlatan cümle. Sıfırları saymaz,
+    atlanan günü gizlemez. */
+PZA.gcalEsitlemeOzeti = function (s) {
+  if (!s) return 'Eşitleme yapılmadı.';
+  if (!s.gunler) return 'Gönderilecek not yok.';
+  const p = [];
+  if (s.eklenen) p.push(s.eklenen + ' yeni');
+  if (s.guncellenen) p.push(s.guncellenen + ' güncellendi');
+  if (s.silinen) p.push(s.silinen + ' silindi');
+  let m = s.gunler + ' gün tarandı'
+    + (s.degisenGun ? ' (' + s.degisenGun + ' günde değişiklik)' : '')
+    + ' · ' + (p.length ? p.join(', ') : 'değişiklik yok');
+  m += ' · takvimde ' + s.toplam + ' not';
+  if (s.atlanan) m += ' · ' + s.atlanan + ' gün atlandı (' + (s.hata || 'hata') + ')';
+  return m;
 };
 
 /* ── Panel mesajı ──────────────────────────────────────── */
@@ -556,7 +694,20 @@ PZA.gcalBaglan = async function (bildir) {
 
   const c = PZA.gcalKodCoz(hedef);
   if (c.hata) {
-    yaz(c.hata === 'access_denied' ? 'İzin verilmedi.' : ('Google: ' + c.hata), 'err');
+    /* TUR 12 — red artık tek satıra düşmüyor. Eskiden her hata
+       "İzin verilmedi." oluyordu; kullanıcı ne olduğunu ve nereye
+       gideceğini öğrenemiyordu. Şimdi sebep (`error_description`)
+       yazılır ve 403'ün çözüm yeri (Konsol → Kitle) gösterilir. */
+    if (c.hata === 'access_denied') {
+      PZA.gcalElle(PZA.gcalKitleUrl(), PZA.GCAL.TEST_NOT);
+      yaz('Google izin vermedi' + (c.aciklama ? ': ' + c.aciklama : ' (access_denied)') +
+          '. Hesabınız uygulamanın test kullanıcısı listesinde olmayabilir — ' +
+          'aşağıdaki adresten ekleyip yeniden deneyin.', 'err');
+    } else {
+      yaz('Google bağlanmaya izin vermedi: ' + c.hata +
+          (c.aciklama ? ' — ' + c.aciklama : ''), 'err');
+    }
+    PZA.logYaz?.('uyari', 'OAuth reddi', { hata: c.hata, aciklama: c.aciklama });
     return false;
   }
   if (!c.kod) { yaz('Google yetki kodu döndürmedi.', 'err'); return false; }
@@ -585,11 +736,17 @@ PZA.gcalBaglan = async function (bildir) {
 
   yaz('Bağlandı ✓ — notlar gönderiliyor…');
   try {
-    const s = await PZA.gcalEsitle(PZA.activeDay);
-    yaz('Bağlandı ✓ · ' + s.toplam + ' not takvimde (' +
-        s.eklenen + ' yeni, ' + s.guncellenen + ' güncel, ' + s.silinen + ' silindi)');
+    /* TUR 12: bağlanma anında SEÇİLİ gün değil, BÜTÜN günler gönderilir.
+       Kullanıcının bildirdiği tam olarak buydu: "dün girdiğim verileri
+       aktarmadı" — çünkü o an ekranda duran gün eşitleniyordu. */
+    const s = await PZA.gcalTumunuEsitle((i, n) => {
+      if (n > 1) yaz('Notlar gönderiliyor… ' + i + '/' + n);
+    });
+    yaz('Bağlandı ✓ · ' + PZA.gcalEsitlemeOzeti(s),
+        s.atlanan ? 'err' : undefined);
   } catch (e) {
-    yaz('Bağlandı ✓ — eşitleme sonra tekrar denenecek: ' + e.message, 'err');
+    yaz('Bağlandı ✓ — eşitleme sonra yeniden denenecek: ' + e.message, 'err');
+    PZA.logYaz?.('hata', 'Bağlanma sonrası eşitleme başarısız', { hata: String(e.message || e) });
   }
   return true;
 };
@@ -647,7 +804,10 @@ PZA.gcalKes = async function () {
 };
 
 /* Not eklenip silindikçe takvimi kendiliğinden tazele. Kısa bir gecikme
-   şart: kullanıcı arka arkaya not yazarken her tuş için istek gitmesin. */
+   şart: kullanıcı arka arkaya not yazarken her tuş için istek gitmesin.
+   TUR 12: burası TEK GÜNÜ eşitler — kullanıcının o an düzenlediği gün,
+   hızlı tepki için. BÜTÜN günler bağlanma anında ve elle
+   "Notları takvime gönder" düğmesiyle eşitlenir. */
 let gcalZaman = null;
 PZA.on('notes:changed', () => {
   if (!PZA.gcalBagliMi()) return;

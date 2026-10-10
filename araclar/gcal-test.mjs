@@ -184,11 +184,14 @@ console.log('\n3 · Yetki URL\'i — Google\'ın istediği alanlar');
 console.log('\n4 · Dönüş adresini çözme');
 {
   const PZA = kur();
+  /* TUR 12: dönen şekle `aciklama` eklendi (Google'ın `error_description`ı).
+     Red sebebi tek kelime değil cümle olabilir; kullanıcıya gösterilen o. */
   esit(PZA.gcalKodCoz('/?code=4/0AY0e&state=xyz'),
-    { kod: '4/0AY0e', durum: 'xyz', hata: null }, 'kod + state');
+    { kod: '4/0AY0e', durum: 'xyz', hata: null, aciklama: null }, 'kod + state');
   esit(PZA.gcalKodCoz('/?error=access_denied'),
-    { kod: null, durum: null, hata: 'access_denied' }, 'kullanıcı reddetti');
-  esit(PZA.gcalKodCoz(''), { kod: null, durum: null, hata: null }, 'boş hedef çökertmiyor');
+    { kod: null, durum: null, hata: 'access_denied', aciklama: null }, 'kullanıcı reddetti');
+  esit(PZA.gcalKodCoz(''),
+    { kod: null, durum: null, hata: null, aciklama: null }, 'boş hedef çökertmiyor');
   esit(PZA.gcalKodCoz('/?code=4%2F0AY0e%20x').kod, '4/0AY0e x', 'yüzde kodlaması çözülüyor');
 }
 
@@ -370,13 +373,16 @@ await (async () => {
   dogru(mesaj.some(m => m[0].includes('state')), 'güvenlik uyarısı gösteriliyor');
   esit(istekler.length, 0, 'STATE TUTMADIĞINDA TOKEN İSTENMEZ');
 
-  // Kullanıcı reddetti
+  /* Kullanıcı reddetti — TUR 12: mesaj artık tek satır değil.
+     Eskiden HER hata "İzin verilmedi." oluyordu; kullanıcı ne olduğunu
+     (sebep) ve nereye gideceğini (Konsol → Kitle) öğrenemiyordu.
+     Ayrıntılı ölçüm bölüm 19'da; burada yalnız akışın durduğu görülür. */
   PZA = kur({
     depo, komutlar: { gcal_port: () => 51234, gcal_ac: () => true, gcal_bekle: () => '/?error=access_denied' }
   });
   mesaj = [];
   esit(await PZA.gcalBaglan((m, s) => mesaj.push([m, s])), false, 'izin verilmeyince bağlanmıyor');
-  dogru(mesaj.some(m => m[0] === 'İzin verilmedi.'), 'reddetme anlaşılır biçimde bildiriliyor');
+  dogru(mesaj.some(m => /^Google izin vermedi/.test(m[0])), 'reddetme sebebiyle bildiriliyor');
 
   // Mutlu yol
   const durumlar = [];
@@ -813,6 +819,285 @@ await (async () => {
   dogru(app.includes('PZA.gcalAdresAc'), 'düğme, gcal.js\'teki açma yolunu çağırıyor');
   dogru(/gcal-url-ac[\s\S]{0,400}?ACILMADI/.test(app),
     'açma başarısız olursa kopyalama yolu hatırlatılıyor');
+})();
+
+console.log('\n16 · Bütün günler eşitlenir — kullanıcının bildirdiği senkron hatası (tur 12)');
+await (async () => {
+  /* KULLANICI BİLDİRİMİ: "şu an google takvime bağlı ancak dün girdiğim
+     verileri google takvime aktarmadı. Senkronize olmadı."
+
+     KÖK NEDEN: eşitleme üç yolda da tek günü kapsıyordu
+     (`gcalEsitle(PZA.activeDay)`) — yalnız EKRANDA SEÇİLİ günün notları
+     takvime gidiyordu. Aşağıdaki ölçümler bu yüzden "seçili olmayan gün
+     de gitti mi?" sorusunu sorar. */
+  const olay = (id, oz, ozet) => ({
+    id, summary: ozet, extendedProperties: { private: { pza: oz } }
+  });
+  const bagli = (ek = {}) => ['pza.gcal.v1', JSON.stringify(Object.assign(
+    { clientId: 'C', refreshToken: 'R', accessToken: 'A', exp: Date.now() + 6e5 }, ek))];
+
+  /* Yanıtı GÜNE göre veren sahte takvim: `gcalGunOlaylari` aralığı
+     `timeMin` ile sorar (gün−1 → gün+2), oradan günü geri hesaplarız.
+     Sabit bir liste dönerseydi her gün aynı olayları görür ve testin
+     ölçtüğü şey ("o günün olayları") anlamsızlaşırdı. */
+  const gunOlaylari = harita => url => {
+    const t = new URL(url).searchParams.get('timeMin') || '';
+    const ms = Date.parse(t);
+    if (!isFinite(ms)) return { json: { items: [] } };
+    const gun = new Date(ms + 864e5).toISOString().slice(0, 10);
+    return { json: { items: harita[gun] || [] } };
+  };
+
+  // (a) Ekranda SEÇİLİ olmayan günlerin notları da takvime gider
+  /* POST süzgeci `govde`ye bakmadan önce takvim yolunu arar: jeton
+     isteği de POST'tur ve gövdesinde `extendedProperties` yoktur. */
+  const eklenenler = () => istekler
+    .filter(i => i.opt.method === 'POST' && i.url.includes('/calendars/'))
+    .map(i => i.govde.extendedProperties.private.pza);
+  let PZA = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?') ? { json: { items: [] } } : { json: {} }
+  });
+  PZA.notes = {
+    '2026-10-07': [{ t: '09:00', x: 'Dün' }],
+    '2026-10-08': [{ t: '10:00', x: 'Önceki gün' }],
+    '2026-10-09': [{ t: '11:00', x: 'Bugün' }]
+  };
+  PZA.activeDay = '2026-10-09';        // ekranda yalnız bu gün duruyor
+  let s = await PZA.gcalTumunuEsitle();
+  esit(s.gunler, 3, 'üç gün tarandı (yalnız ekrandaki değil)');
+  esit(eklenenler(),
+    ['2026-10-07|09:00|1', '2026-10-08|10:00|1', '2026-10-09|11:00|1'],
+    'ÜÇ günün notu da takvime gitti');
+  esit(JSON.parse(store.get('pza.gcal.v1')).gunler,
+    ['2026-10-07', '2026-10-08', '2026-10-09'], 'dokunulan günler diske yazıldı');
+
+  // (b) Notları tamamen silinen günün olayları da silinir
+  /* Gün, notlar bitince `gcalNotGunleri()`nden DÜŞER; kayıt
+     tutulmasaydı o günün olayları takvimde sonsuza dek kalırdı. */
+  PZA = kur({
+    depo: [bagli({ gunler: ['2026-10-06', '2026-10-07'] })],
+    cevap: url => url.includes('/events?')
+      ? gunOlaylari({
+          '2026-10-06': [olay('e6', '2026-10-06|08:00|1', 'Silinmiş notun olayı')],
+          '2026-10-07': [olay('e7', '2026-10-07|08:00|1', 'Duran not')]
+        })(url)
+      : { json: {} }
+  });
+  PZA.notes = { '2026-10-07': [{ t: '08:00', x: 'Duran not' }] };
+  s = await PZA.gcalTumunuEsitle();
+  esit(s.gunler, 2, 'notu kalmayan gün de tarandı (son eşitleme kaydından)');
+  esit(s.silinen, 1, 'boşalan günün olayı silindi');
+  esit(istekler.filter(i => i.opt.method === 'DELETE').map(i => i.url.split('/').pop()),
+    ['e6'], 'silinen olay, o güne ait olandır');
+  esit(JSON.parse(store.get('pza.gcal.v1')).gunler, ['2026-10-07'],
+    'kayıt artık yalnız notu olan günü tutuyor (temizlik kendini sınırlar)');
+
+  // (c) Bir gün patlarsa kalanlar yine gönderilir, atlanan GİZLENMEZ
+  PZA = kur({
+    depo: [bagli()],
+    cevap: url => {
+      if (url.includes('/events?') && url.includes('timeMin=2026-10-07T')) {
+        return { ok: false, status: 500, json: { error: { message: 'Takvim sunucusu hatası' } } };
+      }
+      return url.includes('/events?') ? { json: { items: [] } } : { json: {} };
+    }
+  });
+  PZA.notes = {
+    '2026-10-08': [{ t: '09:00', x: 'Patlayan gün' }],
+    '2026-10-09': [{ t: '09:00', x: 'Sağlam gün' }]
+  };
+  s = await PZA.gcalTumunuEsitle();
+  esit([s.gunler, s.atlanan, s.eklenen], [2, 1, 1],
+    'bir gün atlandı, öteki yine gönderildi');
+  dogru(/Takvim sunucusu/.test(s.hata || ''), 'atlanan günün SEBEBİ taşınıyor');
+  dogru(/1 gün atlandı/.test(PZA.gcalEsitlemeOzeti(s)),
+    'özet atlanan günü GİZLEMİYOR (sessiz yutma yok)');
+
+  // (d) Not yokken uydurma sayı verilmez, ama bağlantı yine SINANIR
+  PZA = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?') ? { json: { items: [] } } : { json: {} }
+  });
+  PZA.notes = {};
+  s = await PZA.gcalTumunuEsitle();
+  esit(PZA.gcalEsitlemeOzeti(s), 'Gönderilecek not yok.', 'not yokken dürüst cümle');
+  esit(typeof PZA.gcal.sonDogrulama, 'string',
+    'not olmasa da bağlantı SINANDI — ölçülmemiş "bağlı" kalmasın');
+
+  // (e) Bağlanma akışı da bütün günleri gönderir
+  const cid = 'a.apps.googleusercontent.com';
+  const durumlar = [];
+  PZA = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]],
+    komutlar: {
+      gcal_port: () => 51234,
+      gcal_ac: a => { durumlar.push(a.url); return true; },
+      gcal_bekle: () => '/?code=K&state=' + (durumlar[0].match(/state=([^&]+)/) || [])[1]
+    },
+    cevap: url => url.includes('/token')
+      ? { json: { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 } }
+      : (url.includes('/events?') ? { json: { items: [] } } : { json: {} })
+  });
+  PZA.notes = {
+    '2026-10-08': [{ t: '10:00', x: 'Dün' }],
+    '2026-10-09': [{ t: '11:00', x: 'Bugün' }]
+  };
+  PZA.activeDay = '2026-10-09';
+  const baglanma = [];
+  esit(await PZA.gcalBaglan((m, k) => baglanma.push([m, k])), true, 'bağlanma tamamlandı');
+  const postlar = eklenenler();
+  esit(postlar, ['2026-10-08|10:00|1', '2026-10-09|11:00|1'],
+    'BAĞLANIRKEN seçili olmayan gün de gönderildi (kullanıcının bildirdiği hata buydu)');
+  dogru(baglanma.some(m => /Bağlandı ✓ · 2 gün tarandı/.test(m[0])),
+    'bağlanma mesajı ÖLÇÜLEN sonucu yazıyor (gün sayısı)');
+
+  /* (f) Statik: düğme ve gcal.js'in kendisi de tam eşitlemeyi kullanır;
+     not değişimindeki hızlı yol ise bilerek TEK GÜN kalır. */
+  const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'src', 'js', 'app.js'), 'utf8');
+  const gc = src('gcal.js');
+  /* SON görünüm: id önce panel tazelemesinde (`const sync = $('…')`)
+     geçiyor; düğmenin kendi işleyicisi dosyanın ilerisinde. */
+  const dugme = app.slice(app.lastIndexOf("$('btn-gcal-sync')"));
+  dogru(/gcalTumunuEsitle/.test(dugme), 'elle "gönder" düğmesi de BÜTÜN günleri eşitler');
+  dogru(/gcalEsitlemeOzeti/.test(dugme), 'düğme, ölçülen sonucu yazıyor');
+  const akis = gc.slice(gc.indexOf('PZA.gcalBaglan = async function'), gc.indexOf('PZA.gcalKonsolAc'));
+  dogru(/gcalTumunuEsitle/.test(akis), 'bağlanma akışı tam eşitlemeyi çağırıyor');
+  dogru(!/gcalEsitle\(/.test(akis), 'bağlanma akışında tek günlük eşitleme KALMADI');
+  dogru(/gcalEsitle\(PZA\.activeDay\)/.test(gc),
+    'not eklenince ekrandaki gün eşitlenir (hızlı tepki yolu korundu)');
+})();
+
+console.log('\n17 · "Bağlı" iddia edilmez, ÖLÇÜLÜR (tur 12)');
+await (async () => {
+  /* Panel durum satırı, saklanan jetonun VARLIĞINDAN türetiliyordu:
+     jeton hiç çalışmamış olsa da satır "bağlı" diyordu. Kullanıcının
+     "bağlı ama aktarmıyor" demesi bu yüzdendi. */
+  const bagli = (ek = {}) => ['pza.gcal.v1', JSON.stringify(Object.assign(
+    { clientId: 'C', refreshToken: 'R', accessToken: 'A', exp: Date.now() + 6e5 }, ek))];
+
+  // (a) Ölçülmemiş kayıt "Bağlı ✓" yazmaz
+  let PZA = kur({ depo: [bagli()] });
+  esit(PZA.gcalOzet(), 'Anahtar kaydedildi ✓ — bağlantı sınanıyor…',
+    'doğrulanmamış bağlantı "Bağlı ✓" diye yazılmıyor');
+
+  // (b) Doğrulama gerçek bir takvim çağrısı yapar
+  PZA = kur({ depo: [bagli()], cevap: () => ({ json: { items: [{ id: 'x' }] } }) });
+  esit(await PZA.gcalDogrula(), true, 'doğrulama başarılı döndü');
+  esit(istekler.length, 1, 'tek çağrı yapıldı (jeton geçerliydi, yenilenmedi)');
+  dogru(/^\/calendars\/primary\/events\?maxResults=1/.test(
+    istekler[0].url.replace(/^.*calendar\/v3/, '')), 'takvimden GERÇEKTEN kayıt okundu');
+  dogru(/^Bağlı ✓ · doğrulandı \d\d:\d\d/.test(PZA.gcalOzet()),
+    'ölçümden sonra "Bağlı ✓" yazılabilir');
+  esit(PZA.gcal.dogrulamaHata, null, 'başarılı ölçüm hatayı temizledi');
+
+  // (c) Ölçüm başarısızsa "bağlı" DENMEZ; sebep yazılır
+  PZA = kur({
+    depo: [bagli()],
+    cevap: url => url.includes('/events?')
+      ? { ok: false, status: 403, json: { error: { message: 'Erişim engellendi' } } }
+      : { json: {} }
+  });
+  esit(await PZA.gcalDogrula(), false, 'doğrulama başarısız döndü');
+  esit(PZA.gcal.dogrulamaHata, 'Erişim engellendi', 'hata kayda geçti (sonraki açılışta da görünür)');
+  dogru(/Erişim engellendi/.test(PZA.gcalOzet()), 'sebep panelde görünüyor');
+  dogru(!/^Bağlı ✓/.test(PZA.gcalOzet()), 'başarısız ölçümden sonra "Bağlı ✓" YAZILMAZ');
+  dogru(/yeniden bağlanın/.test(PZA.gcalOzet()), 'çıkış yolu da söyleniyor');
+
+  // (d) Bağlı değilken ölçüm denenmez (boşuna ağ trafiği yok)
+  PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'C' })]] });
+  esit(await PZA.gcalDogrula(), false, 'bağlı değilken doğrulama yapılmaz');
+  esit(istekler.length, 0, 'boşuna ağ isteği yok');
+  esit(PZA.gcalOzet(), null, 'bağlı değilken özet de yok');
+
+  // (e) Açılışta bir kez ölçülür (app.js)
+  const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'src', 'js', 'app.js'), 'utf8');
+  const acilis = app.slice(app.indexOf('gcalPanel();'));
+  dogru(/gcalBagliMi\(\)[\s\S]{0,300}?gcalDogrula/.test(acilis),
+    'açılışta bağlantı doğrulanıyor (app.js)');
+  dogru(/gcalDogrula\?\.\(\)[\s\S]{0,200}?gcalMesajTemizle/.test(acilis),
+    'ölçüm bitince panel tazeleniyor (sonuç görünür)');
+})();
+
+console.log('\n18 · Tarayıcıdaki kapanış sayfası reddi de söyler (tur 12, Rust)');
+{
+  /* TUR 12 — BÖCEK: `dinle()`, `code=` ile `error=` için AYNI
+     "Bağlantı alındı ✓" sayfasını gönderiyordu. Google reddettiğinde
+     kullanıcı tarayıcıda BAŞARI görüyor, panele dönüyor ve bağlandığını
+     sanıyordu — mesajın ölçmediği şeyi olmuş gibi anlatması, bu projede
+     en pahalı hata sınıfı.
+     Rust derleyicisi bu makinede yok; sabitlenen şey kaynak metnin
+     kendisi: iki dalın AYRILIĞI, sebebin yazılması ve kaçış. */
+  const rs = fs.readFileSync(
+    path.join(import.meta.dirname, '..', 'src-tauri', 'src', 'main.rs'), 'utf8');
+  const dn = rs.slice(rs.indexOf('fn dinle'), rs.indexOf('fn hedefOku'));
+  const cv = rs.slice(rs.indexOf('fn cevapla'), rs.indexOf('fn hide_window'));
+
+  dogru(/hedef\.contains\("code="\)/.test(dn) && /Durum::Tamam/.test(dn),
+    'code= → başarı sayfası');
+  dogru(/hedef\.contains\("error="\)/.test(dn) && /Durum::Red/.test(dn),
+    'error= → RED sayfası');
+  dogru(dn.indexOf('Durum::Tamam') < dn.indexOf('Durum::Red'),
+    'iki dal AYRI AYRI ele alınıyor');
+  dogru(!/contains\("code="\)\s*\|\|\s*hedef\.contains\("error="\)/.test(rs),
+    'eski birleşik koşul kalmadı (aynı sayfayı gönderen hata)');
+
+  dogru(/Google izin vermedi/.test(cv), 'red sayfası sebebi YAZIYOR');
+  dogru(/kacis\(&hata\)/.test(cv) && /kacis\(&aciklama\)/.test(cv),
+    'Google\'dan gelen metin HTML kaçışından geçiyor (sayfaya ham konmaz)');
+  dogru(/fn kacis/.test(rs) && /replace\('&', "&amp;"\)/.test(rs), 'kaçış fonksiyonu var');
+  dogru(/sorgu\(hedef, "error"\)/.test(cv), 'error parametresi okunuyor');
+  dogru(/sorgu\(hedef, "error_description"\)/.test(cv), 'error_description okunuyor');
+  dogru(/console\.cloud\.google\.com\/auth\/audience/.test(cv),
+    'red sayfası atılacak adımı (Konsol → Kitle) veriyor');
+  dogru(/fn yuzdeCoz/.test(rs) && /from_str_radix/.test(rs) && /b'\+'/.test(rs),
+    'yüzde kodlu metin çözülüyor (+ → boşluk)');
+  dogru(/Durum::Yok/.test(cv), 'tarayıcının ek isteği (favicon) boş sayfa alıyor');
+}
+
+console.log('\n19 · Reddin SEBEBİ arayüze de ulaşır (tur 12)');
+await (async () => {
+  const cid = 'a.apps.googleusercontent.com';
+  let PZA = kur();
+
+  const c = PZA.gcalKodCoz('/?error=access_denied&error_description=The+user+denied+access&state=X');
+  esit([c.kod, c.hata, c.aciklama, c.durum],
+    [null, 'access_denied', 'The user denied access', 'X'],
+    'hedef çözüldü: kod yok, sebep ve açıklama var');
+  esit(PZA.gcalKodCoz('/?error=x').aciklama, null, 'açıklama yoksa null (uydurulmaz)');
+
+  /* Rust tarafı artık `error_description`ı da döndürüyor; arayüz onu
+     kullanıcıya gösterir. Eskiden her red tek satıra düşüyordu. */
+  const reddet = async hedef => {
+    const durumlar = [];
+    const P = kur({
+      depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]],
+      komutlar: {
+        gcal_port: () => 51234,
+        gcal_ac: a => { durumlar.push(a.url); return true; },
+        gcal_bekle: () => hedef
+      }
+    });
+    const mesaj = [];
+    const sonuc = await P.gcalBaglan((m, s) => mesaj.push([m, s]));
+    return { P, sonuc, son: mesaj[mesaj.length - 1] };
+  };
+
+  const a = await reddet('/?error=access_denied&error_description=The+user+denied+access');
+  esit(a.sonuc, false, 'access_denied → bağlanmıyor');
+  dogru(/^Google izin vermedi/.test(a.son[0]), 'mesaj sebebi adlandırıyor');
+  dogru(/The user denied access/.test(a.son[0]), 'Google\'ın açıklaması gösteriliyor');
+  dogru(/test kullanıcısı/.test(a.son[0]), 'atılacak adım söyleniyor');
+  esit(a.son[1], 'err', 'hata olarak işaretli (kırmızı)');
+  esit(els.get('gcal-elle').hidden, false, 'Konsol adresi kutusu açılıyor');
+  esit(els.get('gcal-url').value, a.P.gcalKitleUrl(), 'kutu doğru adresi taşıyor');
+  esit(istekler.length, 0, 'redden sonra jeton İSTENMEZ');
+
+  const b = await reddet('/?error=invalid_client');
+  esit(b.sonuc, false, 'başka sebep de bağlanmıyor');
+  dogru(/invalid_client/.test(b.son[0]), 'sebebin adı yazılıyor (genel metne düşmüyor)');
+  dogru(!/test kullanıcısı/.test(b.son[0]),
+    'test kullanıcısı tavsiyesi yalnız access_denied için (her hataya yapıştırılmıyor)');
 })();
 
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));

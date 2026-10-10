@@ -186,8 +186,14 @@ if ('speechSynthesis' in window) {
   };
 }
 
-/** Verilen saat için konuş */
-PZA.say = function (h, m) {
+/** Verilen METNİ konuş (tur 12). Saatten bağımsız: önemli kayıt
+    anonsu ("Önemli …") bu yolu kullanır.
+    Konuşmadan önce `cancel()` çağrılır — üst üste binen anonslar
+    birbirini kesmesin diye, aynı saniyeye düşen metinleri ÇAĞIRAN
+    taraf tek cümlede birleştirir (bkz. clock.js → `saatAnonsu`). */
+PZA.sayMetin = function (metin, baglam) {
+  const m = String(metin == null ? '' : metin).trim();
+  if (!m) return false;
   if (!('speechSynthesis' in window)) {
     console.warn('Bu ortamda speechSynthesis yok.');
     return false;
@@ -195,8 +201,7 @@ PZA.say = function (h, m) {
   if (!PZA.sesListesi.length) sesleriTopla();
   const v = PZA.seciliSes();
 
-  const metin = PZA.trClock(h, m);
-  const u = new SpeechSynthesisUtterance(metin);
+  const u = new SpeechSynthesisUtterance(m);
   u.lang = 'tr-TR';
   u.rate = OKUMA_AYAR.rate;
   u.pitch = OKUMA_AYAR.pitch;
@@ -205,8 +210,21 @@ PZA.say = function (h, m) {
   speechSynthesis.cancel();     // üst üste binmesin
   speechSynthesis.resume();     // kimi motorlarda cancel sonrası takılı kalır
   speechSynthesis.speak(u);
-  PZA.emit('speech:said', { metin, h, m, voice: v ? v.name : null });
+  PZA.emit('speech:said',
+    Object.assign({ metin: m, voice: v ? v.name : null }, baglam || {}));
   return true;
+};
+
+/** Verilen saat için konuş. `ekler` verilirse AYNI cümleye eklenir:
+    saat başı / yarım saat anonsu ile "Önemli …" kaydı aynı saniyeye
+    düşerse tek ses olsun — iki ayrı çağrı birbirini keserdi. */
+PZA.say = function (h, m, ekler) {
+  const parcalar = [PZA.trClock(h, m)];
+  for (const e of (ekler || [])) {
+    const t = String(e == null ? '' : e).trim();
+    if (t) parcalar.push(t);
+  }
+  return PZA.sayMetin(parcalar.join('. '), { h, m });
 };
 
 /** Şu anki saati oku (ayarlar önizlemesi için) */

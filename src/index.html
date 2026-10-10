@@ -212,7 +212,18 @@
     </div>
 
     <h4>SESLİ OKUMA</h4>
-    <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-speech" class="sw"></label>
+    <!-- TUR 12 — KULLANICI İSTEĞİ: "saatimiz ayrıca saat başı saati
+         söylemiyor. Bunun için 2. eklenti olmalı; ayarlarda saat başı
+         uyarı, her yarım saatte uyarı olsun."
+         Bu yüzden tek satır üçe ayrıldı: ana anahtar (saat anonsu),
+         saat başı, yarım saat. "Önemli kayıtları oku" AYRI bir anahtar:
+         yıldızlı bir kaydın saati geldiğinde metni "Önemli …" diye
+         okunur ve saat anonsu kapalıyken de çalışır (kullanıcı yalnız
+         hatırlatma isteyebilir). -->
+    <label class="row"><span>Saat anonsu <i>(sesli okuma)</i></span><input type="checkbox" id="opt-speech" class="sw"></label>
+    <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-saatbasi" class="sw"></label>
+    <label class="row"><span>Her yarım saatte oku <i>(:30)</i></span><input type="checkbox" id="opt-yarimsaat" class="sw"></label>
+    <label class="row"><span>Önemli kayıtları oku <i>(yıldızlı notun saati gelince)</i></span><input type="checkbox" id="opt-onemli" class="sw"></label>
     <!-- Okuyucu seçimi = Windows'ta KURULU seslerin listesi.
          "Ece/Emre" kaldırıldı: sistemde tek Türkçe ses (Microsoft
          Tolga) varken ikisi de aynı sesi veriyordu, seçim hiçbir

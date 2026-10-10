@@ -206,6 +206,16 @@ fn gcal_kapat(kapi: tauri::State<'_, OauthKapi>) {
     kapi.iptal.store(true, Ordering::Relaxed);
 }
 
+/// Kapanış sayfasının türü.
+/// `Yok` = tarayıcının kendi ek isteği (favicon, ön bağlantı) — boş
+/// sayfa döner ve akış DEVAM eder.
+#[derive(Clone, Copy, PartialEq)]
+enum Durum {
+    Yok,
+    Tamam,
+    Red,
+}
+
 /// Yönlendirme isteğini bekle. Tarayıcı sayfa için ek istekler
 /// (favicon, ön bağlantı) gönderebilir; yalnızca `code=`/`error=`
 /// taşıyan istek gerçek yönlendirmedir, ötekiler yok sayılır.
@@ -216,11 +226,22 @@ fn dinle(l: TcpListener, iptal: Arc<AtomicBool>) -> Result<String, String> {
         match l.accept() {
             Ok((s, _)) => {
                 let hedef = hedefOku(&s).unwrap_or_default();
-                if hedef.contains("code=") || hedef.contains("error=") {
-                    cevapla(&s, true);
+                /* TUR 12 — BÖCEK KAPATILDI: eskiden `code=` ve `error=`
+                   AYNI "Bağlantı alındı ✓" sayfasını alıyordu. Google
+                   reddettiğinde kullanıcı tarayıcıda BAŞARI görüyor,
+                   panele dönüyor ve bağlandığını sanıyordu — mesajın
+                   ölçmediği şeyi olmuş gibi anlatması (bu projede en
+                   pahalı hata sınıfı) tam buradaydı. Artık iki durum
+                   AYRI sayfa alır ve reddin SEBEBİ yazılır. */
+                if hedef.contains("code=") {
+                    cevapla(&s, Durum::Tamam, &hedef);
                     return Ok(hedef);
                 }
-                cevapla(&s, false); // favicon / boş bağlantı → yok say
+                if hedef.contains("error=") {
+                    cevapla(&s, Durum::Red, &hedef);
+                    return Ok(hedef);
+                }
+                cevapla(&s, Durum::Yok, &hedef); // favicon / boş bağlantı → yok say
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 /* Vazgeç işareti süre dolumundan ÖNCE sorulur: kullanıcı
@@ -246,17 +267,102 @@ fn hedefOku(s: &TcpStream) -> Option<String> {
     satir.split_whitespace().nth(1).map(|h| h.to_string())
 }
 
-/// Tarayıcıya küçük bir kapanış sayfası gönder.
-fn cevapla(mut s: &TcpStream, tamam: bool) {
-    let govde = if tamam {
+/// HTML kaçışı. Sayfaya yazılan tek dış veri Google'ın döndürdüğü
+/// `error` / `error_description` metnidir; ham konmaz.
+fn kacis(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+/// Hedefin sorgu dizesinden parametre oku (`?error=access_denied&…`).
+fn sorgu(hedef: &str, ad: &str) -> Option<String> {
+    let q = hedef.split_once('?')?.1;
+    for cift in q.split('&') {
+        if let Some((k, v)) = cift.split_once('=') {
+            if k == ad {
+                return Some(yuzdeCoz(v));
+            }
+        }
+    }
+    None
+}
+
+/// `application/x-www-form-urlencoded` çözümü: `+` → boşluk, `%XX` → bayt.
+/// Google `error_description` metnini yüzde kodlayarak döndürür
+/// ("The+user+denied+…"); çözülmezse kullanıcı ham `%2B` okurdu.
+fn yuzdeCoz(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut cikti: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'+' => { cikti.push(b' '); i += 1; }
+            b'%' if i + 2 < b.len() => {
+                let okt = std::str::from_utf8(&b[i + 1..i + 3])
+                    .ok()
+                    .and_then(|h| u8::from_str_radix(h, 16).ok());
+                match okt {
+                    Some(v) => { cikti.push(v); i += 3; }
+                    None => { cikti.push(b[i]); i += 1; }
+                }
+            }
+            c => { cikti.push(c); i += 1; }
+        }
+    }
+    String::from_utf8_lossy(&cikti).to_string()
+}
+
+/// Kapanış sayfasının ortak iskeleti.
+fn sayfa(govde: &str) -> String {
+    format!(
         "<!doctype html><meta charset=\"utf-8\"><title>Palet Zaman Asistanı</title>\
          <body style=\"font:16px/1.6 'Segoe UI',sans-serif;background:#0b1017;color:#e8f6ff;\
-         display:flex;align-items:center;justify-content:center;height:100vh;margin:0\">\
-         <div style=\"text-align:center\"><h2 style=\"margin:0 0 8px\">Bağlantı alındı &#10003;</h2>\
-         <p style=\"margin:0;color:#8fa3b8\">Bu sekmeyi kapatıp uygulamaya dönebilirsiniz.</p></div>"
-    } else {
-        "<!doctype html><meta charset=\"utf-8\"><title>Palet Zaman Asistanı</title>\
-         <body style=\"background:#0b1017\"></body>"
+         display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0\">\
+         <div style=\"text-align:center;max-width:640px;padding:24px\">{govde}</div></body>"
+    )
+}
+
+/// Tarayıcıya küçük bir kapanış sayfası gönder.
+fn cevapla(mut s: &TcpStream, durum: Durum, hedef: &str) {
+    let govde = match durum {
+        Durum::Yok => "<!doctype html><meta charset=\"utf-8\">\
+                       <title>Palet Zaman Asistanı</title><body style=\"background:#0b1017\"></body>"
+            .to_string(),
+        Durum::Tamam => sayfa(
+            "<h2 style=\"margin:0 0 8px\">Bağlantı alındı &#10003;</h2>\
+             <p style=\"margin:0;color:#8fa3b8\">Bu sekmeyi kapatıp uygulamaya dönebilirsiniz.</p>",
+        ),
+        Durum::Red => {
+            let hata = sorgu(hedef, "error").unwrap_or_else(|| "bilinmeyen".to_string());
+            let aciklama = sorgu(hedef, "error_description").unwrap_or_default();
+            let mut b = String::from(
+                "<h2 style=\"margin:0 0 8px\">Bağlantı kurulamadı &#10007;</h2>\
+                 <p style=\"margin:0 0 12px\">Google izin vermedi: <b>",
+            );
+            b.push_str(&kacis(&hata));
+            b.push_str("</b></p>");
+            if !aciklama.is_empty() {
+                b.push_str(&format!(
+                    "<p style=\"margin:0 0 12px;color:#8fa3b8\">{}</p>",
+                    kacis(&aciklama)
+                ));
+            }
+            b.push_str(
+                "<p style=\"margin:0 0 8px;color:#8fa3b8\">Uygulama Google'da <b>Test</b> \
+                 durumundaysa yalnızca test kullanıcısı listesindeki hesaplar izin verebilir. \
+                 Aşağıdaki sayfadan bu hesabı listeye ekleyin ya da uygulamayı yayımlayın \
+                 (test izinleri 7 günde dolar):</p>\
+                 <p style=\"margin:0 0 12px\"><a style=\"color:#67e8f9\" \
+                 href=\"https://console.cloud.google.com/auth/audience\">\
+                 console.cloud.google.com/auth/audience</a></p>\
+                 <p style=\"margin:0;color:#8fa3b8\">Bu sekmeyi kapatıp uygulamaya \
+                 dönebilirsiniz.</p>",
+            );
+            sayfa(&b)
+        }
     };
     let yanit = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
