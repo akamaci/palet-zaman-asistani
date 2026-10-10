@@ -280,19 +280,30 @@
       <button id="gcal-kopyala" class="btn-gcal ikincil">Adresi kopyala</button>
     </div>
 
-    <!-- Tek seferlik kurulum. Client ID girilene kadar açık kalır;
-         girildikten sonra kendiliğinden kapanır. İstemci SIRRI
-         İSTENMEZ: masaüstü akışı PKCE kullanır, böylece GPL
-         kaynağında hiçbir sır yayımlanmaz. -->
+    <!-- Tek seferlik kurulum. İKİ değer birden yerine oturunca kapanır.
+         TUR 14: burada eskiden "İstemci sırrı gerekmez; yalnızca Client ID
+         yeterlidir" yazıyordu — YANLIŞTI. Google'ın belgesi alanı "isteğe
+         bağlı" gösterse de uç nokta masaüstü istemcilerinde zorunlu tutuyor;
+         sır eksikken bağlanma "client_secret is missing" ile bitiyordu.
+         Kutu eskiden yalnız geçersiz Client ID'de açılırdı (tur 6 dersi),
+         yani sır alanı GÖRÜNMEZ bir kutuda kalırdı — alan, kullanıcının
+         bakmadığı yüzeyde olamaz (tur 9 dersi).
+
+         Sır alanı düz metin: kullanıcı yapıştırdığı değeri gözüyle
+         doğrulayabilmeli (bu değer Google bağlamında "sır" sayılmaz ve
+         yalnız bu makinede durur; hiçbir mesajda görünmez). -->
     <div id="gcal-kur" hidden>
       <p class="hint">
         Bağlantı için Google Cloud Console'da <b>tek seferlik</b> (≈5 dk,
-        ücretsiz) bir <b>OAuth masaüstü istemcisi</b> açmanız gerekir.
-        İstemci sırrı gerekmez; yalnızca aşağıdaki <b>Client ID</b> yeterlidir.
+        ücretsiz) bir <b>OAuth masaüstü istemcisi</b> gerekir. İstemcinin
+        <b>Client ID</b> ve <b>istemci sırrı</b> değerlerini aşağıya
+        yapıştırın. İkisi de yalnız sizin makinenizde saklanır.
       </p>
       <button id="gcal-console" class="btn-gcal ikincil">Konsolu aç</button>
       <input id="gcal-id" class="inp" type="text" spellcheck="false"
              autocomplete="off" placeholder="…apps.googleusercontent.com">
+      <input id="gcal-secret" class="inp" type="text" spellcheck="false"
+             autocomplete="off" placeholder="İstemci sırrı (GOCSPX-…)">
     </div>
     <button id="gcal-kes" class="lnk danger" hidden>Bağlantıyı kes</button>
 

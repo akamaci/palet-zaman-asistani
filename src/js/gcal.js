@@ -25,9 +25,23 @@
    istemcisi (reqwest) gerekmiyor; iki ilkel yeterli: tarayıcı açmak
    ve loopback dinlemek.
 
-   İSTEMCİ SIRRI YOK. Masaüstü istemcileri için PKCE yeterlidir; bu
-   yüzden GPL lisanslı bu kaynakta hiçbir sır yayımlanmaz. Kullanıcı
-   yalnızca herkese açık olan Client ID'yi girer (ayarlar paneli).
+   TUR 14 — İSTEMCİ SIRRI GEREKLİ (önceki varsayım YANLIŞTI).
+   Kullanıcı bildirimi: *"Anahtar alınamadı client_secret is missing"*.
+   Google'ın "iOS & Masaüstü Uygulamaları" belgesi `client_secret` alanını
+   tabloda **"Optional / isteğe bağlı"** yazar; ama uç nokta masaüstü
+   istemcilerinde varlığını ZORUNLU tutar. Ölçülen davranış: alan hiç
+   yoksa `client_secret is missing`, BOŞ gönderilirse aynı hata, yanlışsa
+   `invalid_client`. PKCE bunun yerini TUTMAZ — `code_verifier` kodu çalan
+   üçüncü kişiyi engeller, istemciyi tanımlamaz. v1.10.0'a kadar buradaki
+   yorum *"masaüstü istemcileri için PKCE yeterlidir"* diyordu; bu yüzden
+   jeton takası hiç tamamlanamadı ve hata kullanıcıya ham İngilizce
+   (`client_secret is missing`) olarak göründü.
+
+   GPL açısından sorun YOK: uygulama kendi sırrını taşımaz. Her kullanıcı
+   kendi Google projesinde kendi istemcisini açar (tur 5-11) ve sır yalnız
+   o kullanıcının makinesindeki localStorage'da durur; kaynakta yayımlanan
+   bir sır yoktur. Google'ın kendi ifadesiyle bu bağlamda *"client secret
+   is obviously not treated as a secret"*.
 
    KAPSAM: yalnızca `calendar.events`. Kişisel bilgi, kişi listesi veya
    başka takvim okunmaz; `primary` takvimin olayları okunur/yazılır. */
@@ -94,6 +108,33 @@ PZA.gcalKitleUrl = function () {
   const no = String(PZA.gcalClientId() || '').split('-')[0].trim();
   return /^\d{6,}$/.test(no) ? PZA.GCAL.KITLE + '?project=' + no : PZA.GCAL.KITLE;
 };
+
+/* TUR 14 — İstemci sırrı sayfası da istemcinin PROJESİNE sabitlenir
+   (tur 8 dersi: proje seçicisinde başka bir proje duruyorsa kullanıcı
+   yanlış istemcinin sırrını kopyalar ve hata "hiçbir şey yapmamışım
+   gibi" sürer). Adres `gcal_ac` beyaz listesine uyar. */
+PZA.gcalSirUrl = function () {
+  const no = String(PZA.gcalClientId() || '').split('-')[0].trim();
+  const yol = 'https://console.cloud.google.com/auth/clients';
+  return /^\d{6,}$/.test(no) ? yol + '?project=' + no : yol;
+};
+
+/* TUR 14 — sır eksikken durum satırına yazılan metin. Söylenmesi gereken
+   iki şey var: (1) Google alanı belgede "isteğe bağlı" gösterse de
+   masaüstü istemcisinde ZORUNLU tutuyor, (2) değerin nereden alınacağı. */
+PZA.GCAL.SIR_YOK = 'İstemci sırrı eksik — Google onaydan sonra anahtarı ' +
+  'vermiyor ("client_secret is missing"). Google\'ın belgesi bu alanı ' +
+  '"isteğe bağlı" yazsa da masaüstü istemcilerinde zorunlu tutuyor. ' +
+  'Aşağıdaki adresten istemci sırrını (GOCSPX-…) kopyalayıp "İstemci sırrı" ' +
+  'alanına yapıştırın, sonra yeniden deneyin.';
+
+/* Aynı işin uzun anlatımı: elle açma kutusunun notu (adım adım yer tarifi). */
+PZA.GCAL.SIR_NOT = 'Konsol → Google Auth Platform → İstemciler: kendi ' +
+  'masaüstü istemcinizin içinde "İstemci sırrı" değeri durur (GOCSPX-… ile ' +
+  'başlar). Eski arayüzde: APIs & Services → Kimlik Bilgileri → OAuth 2.0 ' +
+  'İstemci Kimlikleri → istemciniz. Kopyalayıp uygulamadaki "İstemci sırrı" ' +
+  'alanına yapıştırın. Değer yalnız sizin makinenizde saklanır; uygulama ' +
+  'kendi sırrını taşımaz ve bu değer hiçbir mesajda görünmez.';
 
 PZA.gcalYukle = function () {
   try { return JSON.parse(localStorage.getItem(GCALKEY)) || {}; }
@@ -195,24 +236,29 @@ PZA.gcalKodCoz = function (hedef) {
   };
 };
 
-/** Yetkilendirme kodunu token'a çevir. İstemci sırrı YOK — yerine
-    `code_verifier` gönderilir; kodu yakalayan biri jetonu kullanamaz. */
+/** Yetkilendirme kodunu token'a çevir.
+    TUR 14: istemci sırrı GÖNDERİLİR (ayarlarda varsa). v1.10.0'a kadar
+    "PKCE yeter" deniyordu; Google masaüstü istemcilerinde sırrın
+    varlığını zorunlu tutuyor, bu yüzden her deneme
+    `client_secret is missing` ile bitiyordu. Sır BOŞSA alan hiç
+    eklenmez: boş dize Google'da da "yok" sayılır, yalnız gövdeyi kirletir. */
 PZA.gcalTokenAl = async function (clientId, yonlendirme, kod, dogrulayici) {
+  const govde = {
+    client_id: clientId,
+    code: kod,
+    code_verifier: dogrulayici,
+    grant_type: 'authorization_code',
+    redirect_uri: yonlendirme
+  };
+  const sir = PZA.gcalClientSecret();
+  if (sir) govde.client_secret = sir;
   const r = await fetch(PZA.GCAL.TOKEN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      code: kod,
-      code_verifier: dogrulayici,
-      grant_type: 'authorization_code',
-      redirect_uri: yonlendirme
-    }).toString()
+    body: new URLSearchParams(govde).toString()
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.access_token) {
-    throw new Error(j.error_description || j.error || ('Google ' + r.status));
-  }
+  if (!r.ok || !j.access_token) throw new Error(gcalHataMetni(j, r));
   return j;
 };
 
@@ -220,14 +266,20 @@ PZA.gcalTokenAl = async function (clientId, yonlendirme, kod, dogrulayici) {
 PZA.gcalYenile = async function () {
   const g = PZA.gcal;
   if (!g.clientId || !g.refreshToken) throw new Error('Yenileme anahtarı yok.');
+  const govde = {
+    client_id: g.clientId,
+    refresh_token: g.refreshToken,
+    grant_type: 'refresh_token'
+  };
+  /* TUR 14: sır YENİLEMEDE de gerekir. Eklenmeseydi bağlantı ilk saat
+     sorunsuz çalışıp sonra sessizce `invalid_client` ile ölür ve hata
+     "bağlıyım" diyen bir panelin arkasında saklanırdı. */
+  const sr = PZA.gcalClientSecret();
+  if (sr) govde.client_secret = sr;
   const r = await fetch(PZA.GCAL.TOKEN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: g.clientId,
-      refresh_token: g.refreshToken,
-      grant_type: 'refresh_token'
-    }).toString()
+    body: new URLSearchParams(govde).toString()
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.access_token) {
@@ -246,7 +298,7 @@ PZA.gcalYenile = async function () {
       throw new Error('Google izni düşmüş — uygulama Test durumundayken ' +
         'verilen izinler 7 günde dolar. "Hesap Bağla" ile yeniden bağlanın.');
     }
-    throw new Error(j.error_description || j.error || ('Google ' + r.status));
+    throw new Error(gcalHataMetni(j, r));
   }
   g.accessToken = j.access_token;
   /* 60 sn emniyet payı: istek yoldayken süresi dolmasın. */
@@ -269,6 +321,38 @@ PZA.gcalBagliMi = function () {
 };
 
 PZA.gcalClientId = function () { return PZA.gcal.clientId || ''; };
+
+/* TUR 14 — istemci sırrı. Google masaüstü istemcilerinde bunu zorunlu
+   tutuyor (bkz. dosya başı); kullanıcı kendi istemcisinin sırrını girer
+   ve değer yalnız bu makinede saklanır. */
+PZA.gcalClientSecret = function () {
+  return String(PZA.gcal.clientSecret || '').trim();
+};
+
+/* TUR 14 — Google'ın ham hatası kullanıcıya YOL GÖSTERMEZ.
+   "client_secret is missing" ne yapılacağını söylemez; üstelik Google'ın
+   kendi belgesi alanı "isteğe bağlı" gösterdiği için kullanıcı yanlış
+   yerde çözüm arar. İstemciyi tanımlayan iki hata TANINIR, Türkçe ve adım
+   veren metne çevrilir; ayrıca panele "kimlik kutusunu yeniden aç" işareti
+   konur (tur 9 dersi: düzeltilecek alan görünmüyorsa kullanıcı çıkmazda
+   kalır). Dönen metin ASLA sırrın kendisini içermez. */
+function gcalHataMetni(j, r) {
+  /* Google hatayı İKİ alana böler: `error` kısa koddur (`invalid_client`),
+     `error_description` cümledir. Yalnız cümleye bakmak `invalid_client`ı
+     kaçırırdı — cümlede kod geçmez ("The provided client secret is
+     invalid."). İkisi ayrı ayrı sınanır. */
+  const kod = String((j && j.error) || '');
+  const ham = String((j && (j.error_description || j.error)) ||
+    ('Google ' + ((r && r.status) || '?')));
+  const sirSorunu = kod === 'invalid_client' || /client_secret is missing/i.test(ham);
+  if (sirSorunu) {
+    PZA.gcal.sirHatasi = 1;
+    PZA.gcalKaydet();
+    return PZA.GCAL.SIR_YOK + (kod === 'invalid_client'
+      ? ' (Google: istemci tanınmadı — sır ya da Client ID hatalı.)' : '');
+  }
+  return ham;
+}
 
 /* TUR 12 — BAĞLANTI ÖLÇÜLÜR, İDDİA EDİLMEZ.
    Kullanıcı bildirimi: "şu an google takvime bağlı ancak dün girdiğim
@@ -547,7 +631,13 @@ PZA.gcalVarsayilan = function (ozet, cid, gecerliMi) {
   /* Geçersiz değer (API anahtarı vb.) kayıtlıysa türetilmiş ipucu YAZMA:
      aksi hâlde "Client ID kaydedildi" diyerek kullanıcıyı yanıltır. */
   if (!gecerli) return null;
-  return 'Client ID kaydedildi — "Hesap Bağla" ile izin verin.';
+  /* TUR 14: Client ID tek başına yetmiyor — sır eksikse ipucu onu söyler
+     (yoksa kullanıcı "kaydedildi" yazısını görüp bağlanmayı dener ve
+     Google'dan ham bir İngilizce hata alırdı). */
+  if (!PZA.gcalClientSecret()) {
+    return 'Client ID kaydedildi — bir de "İstemci sırrı" alanını doldurun.';
+  }
+  return 'Client ID + istemci sırrı kaydedildi — "Hesap Bağla" ile izin verin.';
 };
 
 /** Yeni bir akış başlarken çağrılır: eski mesaj yeni denemeyi engellemesin. */
@@ -617,6 +707,18 @@ PZA.gcalBaglan = async function (bildir) {
     yaz('Client ID "…apps.googleusercontent.com" ile bitmeli. ' +
         'Cloud Console → Kimlik Bilgileri → "OAuth istemcisi oluştur" → ' +
         'uygulama türü **Masaüstü uygulaması** olmalı.', 'err');
+    return false;
+  }
+
+  /* TUR 14 — sır eksikse akış BURADA durur. Google onaydan sonra jetonu
+     vermeyeceği için kullanıcıyı üç onay ekranından geçirmenin anlamı yok:
+     bir dakikasını harcar, döner ve aynı hatayı görür. Üstelik kutu açık
+     bırakılır ki alan görünür olsun (tur 9 dersi). */
+  if (!PZA.gcalClientSecret()) {
+    PZA.gcal.sirHatasi = 1;
+    PZA.gcalKaydet();
+    PZA.gcalElle(PZA.gcalSirUrl(), PZA.GCAL.SIR_NOT);
+    yaz(PZA.GCAL.SIR_YOK, 'err');
     return false;
   }
 
@@ -725,6 +827,7 @@ PZA.gcalBaglan = async function (bildir) {
   g.accessToken = tok.access_token;
   g.refreshToken = tok.refresh_token || g.refreshToken || null;
   g.exp = Date.now() + (tok.expires_in || 3600) * 1000 - 60000;
+  g.sirHatasi = 0;      // sır tuttu: paneldeki uyarı işareti kalksın
   if (!g.refreshToken) {
     // prompt=consent'e rağmen gelmediyse bağlantı bir saat sonra ölür;
     // bunu sessizce yaşatmak yerine söyle.
@@ -786,7 +889,9 @@ PZA.gcalVazgec = async function () {
 };
 
 /** Bağlantıyı kes: jetonu Google tarafında da geçersiz kıl, yerel kopyayı sil.
-    Client ID kalır — yeniden bağlanmak için tekrar konsola gidilmesin. */
+    Client ID ve istemci sırrı KALIR — yeniden bağlanmak için konsola tekrar
+    gidilmesin. TUR 14: sır da zorunlu olduğu için silinseydi kullanıcı her
+    "Bağlantıyı kes"te konsola dönmek zorunda kalırdı. */
 PZA.gcalKes = async function () {
   const g = PZA.gcal;
   const t = g.refreshToken || g.accessToken;
@@ -799,7 +904,7 @@ PZA.gcalKes = async function () {
       });
     } catch (e) { /* ağ yoksa yerel silme yeterli */ }
   }
-  PZA.gcal = { clientId: g.clientId };
+  PZA.gcal = { clientId: g.clientId, clientSecret: g.clientSecret };
   PZA.gcalKaydet();
 };
 

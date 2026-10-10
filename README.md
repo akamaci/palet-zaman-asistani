@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.10.0`, ön sürüm). Kurulum testi kullanıcıda.
+> GitHub Actions'ta derleniyor (`v1.10.1`, ön sürüm). Kurulum testi kullanıcıda.
 
 ---
 
@@ -30,7 +30,7 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Boyut** | 1/2 · 1/3 · 1/4 ölçek. Genişlik kutuya değil **içeriğe** göre daraltılır — saat kenarlarda boşlukta kalmaz. 1/4'te mini hava göstergesi korunur |
 | **Ekran sığdırma** | Ayarlar paneli açılınca pencere büyür ve **görev çubuğunu aşmaz**: çalışma alanına (`screen.availHeight`) sığdırılır, gerekirse yukarı kaydırılır, panel kapanınca eski yerine döner |
 | **Panel yönü** | Saat masaüstünün **dibine** yerleştirilmişse notlar/hava paneli **yukarı doğru** açılır — aşağı açılsa görev çubuğunun altında kalır ve okunamaz. Pencere panelin eklediği yükseklik kadar yukarı kayar, böylece **saat ekranda olduğu yerde kalır** |
-| **Google Takvim** | "Hesap Bağla" tarayıcıda Google onay sayfasını açar; izin verilince notlar takvime gönderilir; **bütün günler** birden eşitlenir. Panel **"Bağlı"** yazarken bunu iddia etmez, **ölçer** (açılışta takvime sorar) ve reddi sebebiyle söyler — *"iptal ettiniz"* ile *"Google reddetti"* aynı mesaja düşmez. Eşitleme özeti sayıyla konuşur (*N gün tarandı · X yeni, Y güncellendi, Z silindi · takvimde K not*) ve **atlanan gün gizlenmez** — hangi günün neden atlandığı yazılır. İstemci **sırrı istemez** (PKCE), erişim yalnızca `calendar.events` kapsamındadır ve bağlantı konsoldan kesilebilir |
+| **Google Takvim** | "Hesap Bağla" tarayıcıda Google onay sayfasını açar; izin verilince notlar takvime gönderilir; **bütün günler** birden eşitlenir. Panel **"Bağlı"** yazarken bunu iddia etmez, **ölçer** (açılışta takvime sorar) ve reddi sebebiyle söyler — *"iptal ettiniz"* ile *"Google reddetti"* aynı mesaja düşmez. Eşitleme özeti sayıyla konuşur (*N gün tarandı · X yeni, Y güncellendi, Z silindi · takvimde K not*) ve **atlanan gün gizlenmez** — hangi günün neden atlandığı yazılır. Kurulum için kendi Google istemcinizin **Client ID** ve **istemci sırrı** değerleri gerekir (ikisi de yalnız sizin makinenizde saklanır; uygulama kendi sırrını taşımaz), erişim yalnızca `calendar.events` kapsamındadır ve bağlantı konsoldan kesilebilir |
 | **Görünürlük** | Hava durumu ve not başlıkları ayrı ayrı kapatılabilir (sade mod) |
 | **Her Zaman Üstte** | Açılıp kapatılır (**varsayılan kapalı**). Kapalıyken widget normal bir penceredir — tarayıcının ya da videonun önüne geçmez, masaüstünde görünür |
 | **Başlangıç** | Windows ile otomatik başlar (8 sn gecikmeli), ayarlardan kapatılır |
@@ -65,7 +65,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.10.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.10.1_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
@@ -140,7 +140,7 @@ taşınamaz.
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM, sahte bir `speechSynthesis`, sahte bir Tauri
 penceresi ve sahte bir `fetch` üzerinde çalıştırılır; ne tarayıcı ne de Rust gerekir.
-Toplam **509 kontrol**:
+Toplam **539 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
@@ -149,7 +149,7 @@ Toplam **509 kontrol**:
 | `araclar/anons-test.mjs` | **40 kontrol** — saat başı / yarım saat / **"Önemli"** kayıt anonsları. Statik tarama değil: sahte `speechSynthesis` **ne söylendiğini**, sahte `Date` **ne zaman söylendiğini** kaydeder, yani ölçülen şey kullanıcının **duyduğu**dur. Mandal (aynı saat başını iki kez okumama), eski `saniye === 0` şartının **kayboluşu**, gün değişiminde yeni kaydın okunması ve dünkü kaydın **tekrar edilmemesi** burada kilitli |
 | `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
 | `araclar/yukari-test.mjs` | **43 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
-| `araclar/gcal-test.mjs` | **259 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi**. Son bölümler tur 5'nın iki arızasını kilitler (**tarayıcı açılamazsa akış çıkmaza girmez**, **hata mesajı panel tazelemesi tarafından ezilmez**) ve tur 12'nin dördünü: **bütün günler eşitlenir**, **"Bağlı" iddia edilmez — ölçülür**, **tarayıcıdaki kapanış sayfası reddi de söyler** (`code=` ile `error=` ayrı sayfa) ve **reddin sebebi arayüze ulaşır** ("iptal" ile "reddedildi" aynı genel mesaja düşmez) |
+| `araclar/gcal-test.mjs` | **289 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve istemci sırrının **yalnız token isteğinde** gitmesi (boşken hiç gitmemesi, hiçbir mesaja sızmaması). Son bölümler tur 5'nın iki arızasını kilitler (**tarayıcı açılamazsa akış çıkmaza girmez**, **hata mesajı panel tazelemesi tarafından ezilmez**), tur 12'nin dördünü (**bütün günler eşitlenir**, **"Bağlı" iddia edilmez — ölçülür**, **tarayıcıdaki kapanış sayfası reddi de söyler**, **reddin sebebi arayüze ulaşır**) ve tur 14'ün ikisini: **sır eksikse akış tarayıcı hiç açılmadan durur** (kullanıcı üç onay ekranını boşuna dolaşmaz) ve **`client_secret is missing` gibi ham İngilizce hatalar nereye gidileceğini söyleyen Türkçe metne çevrilir** |
 
 Altısı da gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
@@ -264,8 +264,17 @@ Paylaşılabilir kullanıcı skinleri ise tam olmak zorundadır.
 
 Takvim entegrasyonu **kendi** Google projeniz üzerinden çalışır. Nedeni teknik
 değil ilkesel: program GPL-3.0 ve kaynak kodu herkese açık, dolayısıyla içine
-gömülü bir **istemci sırrı** koymak onu yayınlamak olurdu. Google'ın *Desktop
-app* istemcileri zaten sır istemez — akış **PKCE** ile korunur.
+gömülü bir **istemci sırrı** koymak onu yayınlamak olurdu. Bunun yerine her
+kullanıcı kendi istemcisini açar ve **kendi** sırrını girer; sır yalnız o
+kullanıcının makinesinde (`localStorage`) durur. Akış ayrıca **PKCE** ile
+korunur — kodu ele geçiren biri `code_verifier` olmadan jetonu kullanamaz.
+
+> **Neden sır gerekiyor?** Google'ın "iOS & Masaüstü Uygulamaları" belgesi
+> `client_secret` alanını *"isteğe bağlı"* yazar; ama uç nokta masaüstü
+> istemcilerinde varlığını **zorunlu** tutar. Alan hiç yoksa istek
+> `client_secret is missing` ile, yanlışsa `invalid_client` ile reddedilir.
+> PKCE bunun yerini tutmaz: `code_verifier` kodu çalan üçüncü kişiyi engeller,
+> istemciyi **tanımlamaz**.
 
 1. <https://console.cloud.google.com/> → yeni proje (ör. `Palet Zaman`)
 2. **APIs & Services → Library** → *Google Calendar API* → **Enable**
@@ -274,7 +283,9 @@ app* istemcileri zaten sır istemez — akış **PKCE** ile korunur.
    almanız gerekmez; test modu bunun için yeterlidir)
 4. **Credentials → Create credentials → OAuth client ID → Desktop app**
 5. Çıkan **Client ID**'yi kopyalayın (`…apps.googleusercontent.com` ile biter)
-6. Widget → **Ayarlar → GOOGLE TAKVİM** → alana yapıştırın → **Hesap Bağla**
+6. Aynı istemcinin **istemci sırrını** kopyalayın (`GOCSPX-…` ile başlar)
+7. Widget → **Ayarlar → GOOGLE TAKVİM** → iki değeri de yapıştırın →
+   **Hesap Bağla**
 
 Tarayıcıda Google onay sayfası açılır. İzin verince sekme kendini kapatır ve
 widget takvimle eşitlenir; bundan sonra her not değişikliği takvime yansır.
@@ -284,18 +295,24 @@ Bağlantı **Bağlantıyı kes** ile koparılır.
 > panelde görünür. Windows bir sebeple varsayılan tarayıcıyı açamazsa akış
 > durmaz: yanındaki **Adresi kopyala** düğmesiyle adresi kopyalayıp kendi
 > tarayıcınıza yapıştırın — dönüş yine `127.0.0.1` dinleyicisine düşer ve
-> bağlantı normal şekilde tamamlanır. Adres tek kullanımlıktır ve yalnızca
-> PKCE `code_challenge` taşır (istemci sırrı yok), yani kopyalanması güvenlidir.
+> bağlantı normal şekilde tamamlanır. Adres tek kullanımlıktır ve **istemci
+> sırrını taşımaz** (yalnız PKCE `code_challenge`), yani kopyalanması güvenlidir.
 
 > **Bağlantı yine kurulmuyorsa** paneldeki mesajı okuyun — hata metni artık
-> gizlenmez. En sık iki sebep: (1) Client ID `…apps.googleusercontent.com`
-> ile bitmiyor, (2) OAuth *consent screen* → *Test users* listesine kendi
-> Gmail adresiniz eklenmemiş (test modunda listede olmayan hesap reddedilir:
-> `access_denied`).
+> gizlenmez. En sık üç sebep: (1) Client ID `…apps.googleusercontent.com`
+> ile bitmiyor, (2) **istemci sırrı eksik** (*"client_secret is missing"* —
+> panel sizi doğrudan Konsol'un İstemciler sayfasına götürür), (3) OAuth
+> *consent screen* → *Test users* listesine kendi Gmail adresiniz
+> eklenmemiş (test modunda listede olmayan hesap reddedilir: `access_denied`).
 
-> **İstemci sırrı yok.** Client ID gizli bilgi değildir. Erişim jetonu cihazda
-> (`localStorage`) tutulur ve yalnızca `calendar.events` kapsamına sahiptir —
-> program takviminize yazabilir, ama başka hiçbir Google verinize erişemez.
+> **Sır kimin?** Gömülü bir sır yok. Client ID ve istemci sırrı **sizin kendi**
+> istemcinize aittir ve yalnızca bu makinede (`localStorage`) tutulur; hiçbir
+> yere gönderilmez ve hiçbir hata mesajında görünmez. Client ID gizli bilgi
+> değildir; istemci sırrı da bu bağlamda Google tarafından *"secret olarak
+> görülmez"* — yine de bu program onu asla kaynağına gömmez, her kullanıcı
+> kendisininki girer. Erişim jetonu yalnızca `calendar.events` kapsamına
+> sahiptir — program takviminize yazabilir, ama başka hiçbir Google verinize
+> erişemez.
 
 > **Eşitleme kapsamı:** "Gönder" düğmesi ve bağlanma anı, yalnızca baktığınız
 > günü değil **notu olan bütün günleri** gönderir. Tek bir gün hata verirse

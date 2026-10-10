@@ -16,7 +16,8 @@
      • eşitleme kararı: hangi not eklenir, hangisi güncellenir,
        hangi olay silinir
      • `state` tutmazsa akış DURUYOR mu (CSRF)
-     • istemci sırrı hiçbir istekte gitmiyor mu
+     • istemci sırrı DOĞRU yere gidiyor mu (yalnız token isteğinde, boşken hiç)
+     • istemci sırrı hiçbir MESAJDA görünmüyor mu
 
    Çalıştırma:  npm run test        */
 import fs from 'fs';
@@ -142,7 +143,7 @@ console.log('\n1 · Not saati → takvim saati (gece yarısı taşması)');
   esit(gcalGunKaydir('2026-10-09', 2), '2026-10-11', 'iki gün ileri');
 }
 
-console.log('\n2 · PKCE — istemci sırrı olmadan güvenlik');
+console.log('\n2 · PKCE — kodu yakalayan jetonu kullanamaz');
 await (async () => {
   kur();
   const { gcalPkce, gcalRastgele, gcalB64url } = g.__G;
@@ -178,7 +179,8 @@ console.log('\n3 · Yetki URL\'i — Google\'ın istediği alanlar');
   esit(q.get('access_type'), 'offline', 'access_type — refresh_token için');
   esit(q.get('prompt'), 'consent', 'prompt=consent — yeniden bağlanışta da refresh_token');
   esit(q.get('scope'), 'https://www.googleapis.com/auth/calendar.events', 'yalnızca olay kapsamı');
-  dogru(q.get('client_secret') === null, 'istemci SIRRI gönderilmiyor');
+  dogru(q.get('client_secret') === null,
+    'istemci sırrı YETKİ adresinde gitmiyor (yalnız token isteğinde gider)');
 }
 
 console.log('\n4 · Dönüş adresini çözme');
@@ -212,9 +214,15 @@ console.log('\n5 · Not → takvim olayı');
   esit(d.start.dateTime, '2026-10-09T12:00:00', 'saatsiz not öğlene düşer');
 }
 
-console.log('\n6 · Token isteği — gövde ve sır yokluğu');
+console.log('\n6 · Token isteği — gövde ve istemci sırrı (tur 14)');
 await (async () => {
-  const PZA = kur({ cevap: () => ({ json: { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 } }) });
+  /* TUR 14: sır ayarlarda varsa jeton isteğinde GİDER. v1.10.0'a kadar
+     hiç gönderilmiyordu ve Google `client_secret is missing` ile
+     reddediyordu — yani bağlanma hiçbir zaman tamamlanamıyordu. */
+  const PZA = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientSecret: 'GOCSPX-TEST' })]],
+    cevap: () => ({ json: { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 } })
+  });
   const j = await PZA.gcalTokenAl('CID', 'http://127.0.0.1:1', 'KOD', 'DOGRULAYICI');
   esit(j.access_token, 'AT', 'erişim jetonu döndü');
   const i = istekler[0];
@@ -222,15 +230,48 @@ await (async () => {
   esit(i.opt.method, 'POST', 'yöntem POST');
   dogru(/application\/x-www-form-urlencoded/.test(i.opt.headers['Content-Type']), 'basit içerik türü (CORS ön kontrolü gerekmez)');
   esit(i.govde.grant_type, 'authorization_code', 'grant_type');
+  esit(i.govde.client_id, 'CID', 'client_id');
   esit(i.govde.code, 'KOD', 'kod');
   esit(i.govde.code_verifier, 'DOGRULAYICI', 'PKCE doğrulayıcı');
   esit(i.govde.redirect_uri, 'http://127.0.0.1:1', 'yönlendirme (token isteğinde de şart)');
-  dogru(i.govde.client_secret === undefined, 'istemci sırrı YOK');
+  esit(i.govde.client_secret, 'GOCSPX-TEST', 'istemci sırrı gönderiliyor (masaüstünde ZORUNLU)');
 
-  kur({ cevap: () => ({ ok: false, status: 400, json: { error: 'invalid_grant', error_description: 'Kod süresi doldu' } }) });
+  /* Sır yoksa alan HİÇ eklenmez: boş dizeyi Google da "yok" sayar
+     (ölçülmüş davranış), göndermek yalnız gövdeyi kirletir. */
+  kur({ cevap: () => ({ json: { access_token: 'AT', refresh_token: 'RT' } }) });
+  await g.PZA.gcalTokenAl('CID', 'R', 'K', 'V');
+  dogru(istekler[0].govde.client_secret === undefined,
+    'sır boşken alan hiç eklenmiyor (boş dize de "yok" sayılır)');
+
+  /* Google'ın ham hatası kullanıcıya yol göstermiyor; çevrilmeli. */
+  kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientSecret: 'GOCSPX-GIZLI' })]],
+    cevap: () => ({ ok: false, status: 400, json: { error: 'invalid_request', error_description: 'client_secret is missing.' } })
+  });
   let hata = null;
   try { await g.PZA.gcalTokenAl('C', 'R', 'K', 'V'); } catch (e) { hata = e.message; }
-  esit(hata, 'Kod süresi doldu', 'Google hatası okunabilir metne çevriliyor');
+  dogru(/İstemci sırrı eksik/.test(hata), '"client_secret is missing" → eksiği adıyla söyleyen mesaj');
+  dogru(/client_secret is missing/.test(hata), 'Google\'ın kendi sebebi de yazılı (izlenebilirlik)');
+  dogru(/[Kk]opyalayıp/.test(hata), 'mesaj nereden alınacağını söylüyor');
+  dogru(!/GOCSPX-GIZLI/.test(hata), 'sırrın KENDİSİ mesaja sızmıyor');
+  esit(g.PZA.gcal.sirHatasi, 1, 'panel kutusunu yeniden açan işaret konuyor');
+  esit(JSON.parse(store.get('pza.gcal.v1')).sirHatasi, 1, 'işaret diske de yazıldı (yeniden açılışta kutu açık)');
+
+  /* invalid_client: istemci tanınmadı → aynı yolu göster (sır ya da ID hatalı). */
+  kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientSecret: 'YANLIS' })]],
+    cevap: () => ({ ok: false, status: 401, json: { error: 'invalid_client', error_description: 'The provided client secret is invalid.' } })
+  });
+  let hata2 = null;
+  try { await g.PZA.gcalTokenAl('C', 'R', 'K', 'V'); } catch (e) { hata2 = e.message; }
+  dogru(/istemci tanınmadı/.test(hata2), 'invalid_client da Türkçeleşiyor (ham İngilizce kalmıyor)');
+  dogru(!/YANLIS/.test(hata2), 'yanlış sır da mesaja sızmıyor');
+
+  /* Başka bir hata olduğu gibi geçer — her hata "istemci sırrı" sanılmasın. */
+  kur({ cevap: () => ({ ok: false, status: 400, json: { error: 'invalid_grant', error_description: 'Kod süresi doldu' } }) });
+  let hata3 = null;
+  try { await g.PZA.gcalTokenAl('C', 'R', 'K', 'V'); } catch (e) { hata3 = e.message; }
+  esit(hata3, 'Kod süresi doldu', 'Google hatası okunabilir metne çevriliyor');
 })();
 
 console.log('\n7 · Jeton yenileme');
@@ -241,7 +282,7 @@ await (async () => {
   esit(hata, 'Yenileme anahtarı yok.', 'refresh_token yokken yenileme denenmiyor');
 
   PZA = kur({
-    depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', refreshToken: 'RT' })]],
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', clientSecret: 'GOCSPX-R', refreshToken: 'RT' })]],
     cevap: () => ({ json: { access_token: 'YENI', expires_in: 3600 } })
   });
   await PZA.gcalYenile();
@@ -249,7 +290,8 @@ await (async () => {
   esit(PZA.gcal.refreshToken, 'RT', 'refresh_token korundu (yenisi gelmedi)');
   dogru(PZA.gcal.exp > Date.now(), 'son kullanma ileri bir tarihte');
   esit(istekler[0].govde.grant_type, 'refresh_token', 'grant_type');
-  dogru(istekler[0].govde.client_secret === undefined, 'istemci sırrı YOK');
+  esit(istekler[0].govde.client_secret, 'GOCSPX-R',
+    'sır YENİLEMEDE de gidiyor (yoksa bağlantı ilk saatten sonra ölür)');
   esit(JSON.parse(store.get('pza.gcal.v1')).accessToken, 'YENI', 'diske yazıldı (yeniden açılışta hazır)');
 
   // Geçerli jeton varken ağa çıkılmamalı
@@ -354,7 +396,13 @@ await (async () => {
   esit(PZA.gcalVarsayilan(null, 'AIzaSyA1b2C3d4E5f6G7h8I9j0KLMNOPQRSTUV', false), null,
     'geçersiz değerde türetilmiş ipucu YAZILMAZ (yanıltmaz)');
   esit(PZA.gcalVarsayilan(null, 'a.apps.googleusercontent.com', true),
-    'Client ID kaydedildi — "Hesap Bağla" ile izin verin.', 'geçerli değerde ipucu gelir');
+    'Client ID kaydedildi — bir de "İstemci sırrı" alanını doldurun.',
+    'geçerli değerde ipucu gelir (tur 14: sır da sorulur)');
+  PZA.gcal.clientSecret = 'SIR';
+  esit(PZA.gcalVarsayilan(null, 'a.apps.googleusercontent.com', true),
+    'Client ID + istemci sırrı kaydedildi — "Hesap Bağla" ile izin verin.',
+    'iki değer de yerindeyken bağlanmaya yönlendirir');
+  PZA.gcal.clientSecret = '';
 
   // Tarayıcı önizlemesi (Tauri yok)
   PZA = kur({ tauri: false, depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'a.apps.googleusercontent.com' })]] });
@@ -364,7 +412,9 @@ await (async () => {
 
   // `state` tutmazsa akış DURUR (CSRF)
   const cid = 'a.apps.googleusercontent.com';
-  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+  /* TUR 14: akışı çalıştıran bütün senaryolar sırrı da taşır — sırsız
+     akış akışın en başında durur (bkz. bölüm 20). */
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]];
   PZA = kur({
     depo, komutlar: { gcal_port: () => 51234, gcal_ac: () => true, gcal_bekle: () => '/?code=K&state=YANLIS' }
   });
@@ -426,7 +476,7 @@ await (async () => {
 console.log('\n10 · Bağlantıyı kesme (jeton iptali)');
 await (async () => {
   const PZA = kur({
-    depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', refreshToken: 'RT', accessToken: 'AT' })]],
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', clientSecret: 'SIR', refreshToken: 'RT', accessToken: 'AT' })]],
     cevap: () => ({ json: {} })
   });
   await PZA.gcalKes();
@@ -435,15 +485,18 @@ await (async () => {
   esit(PZA.gcal.refreshToken, undefined, 'yerel yenileme anahtarı silindi');
   esit(PZA.gcal.accessToken, undefined, 'yerel erişim jetonu silindi');
   esit(PZA.gcal.clientId, 'CID', 'Client ID kaldı — yeniden bağlanmak kolay');
+  esit(PZA.gcal.clientSecret, 'SIR',
+    'istemci sırrı da kaldı — her kesmede konsola dönülmesin (tur 14)');
   esit(PZA.gcalBagliMi(), false, 'artık bağlı değil');
   esit(JSON.parse(store.get('pza.gcal.v1')).refreshToken, undefined, 'diskten de silindi');
 })();
 
 console.log('\n11 · Kalıcılık — yeniden açılış');
 {
-  let PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', refreshToken: 'RT' })]] });
+  let PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: 'CID', clientSecret: 'SIR', refreshToken: 'RT' })]] });
   esit(PZA.gcalBagliMi(), true, 'depodan bağlı okundu');
   esit(PZA.gcalClientId(), 'CID', 'Client ID depodan geldi');
+  esit(PZA.gcalClientSecret(), 'SIR', 'istemci sırrı depodan geldi (yeniden açılışta yeniden girilmez)');
   PZA = kur({ depo: [['pza.gcal.v1', '{bozuk json']] });
   esit(PZA.gcalBagliMi(), false, 'bozuk kayıt çökertmiyor');
 }
@@ -457,7 +510,7 @@ await (async () => {
      akışı DURDURMAMASI: adres kullanıcıya gösterilir, kullanıcı
      kendi tarayıcısında açar, dönüş yine dinleyiciye düşer. */
   const cid = 'a.apps.googleusercontent.com';
-  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]];
 
   /* `gcal_ac` çağrıldığı ANDA kutunun durumu kaydedilir: akış
      bittiğinde kutu kapanacağı için sonradan bakılamaz, oysa
@@ -576,7 +629,7 @@ await (async () => {
      atılacak adım. Oysa bu, ilk kurulumda en sık karşılaşılan durum. */
   /* Kullanıcının GERÇEK istemcisi — proje numarası buradan çıkar. */
   const cid = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
-  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]];
 
   let notBeklerken = null;
   const PZA = kur({
@@ -723,7 +776,7 @@ await (async () => {
   dogru(/7 günde/.test(durum.textContent), 'paneldeki sebep, jeton ömrünü söylüyor');
 
   /* Bağlı değilken arka plan eşitlemesi hiç denenmemeli (boşuna ağ trafiği). */
-  const PZA5 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]] });
+  const PZA5 = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]] });
   istekler.length = 0;
   g.setTimeout = fn => { fn(); return 0; };
   try { PZA5.emit('notes:changed'); } finally { g.setTimeout = gercekZaman; }
@@ -746,7 +799,7 @@ await (async () => {
      açabilir. Kopyalama düğmesi KALIR (açma adımı da başarısız
      olabilir — tur 5-8 dersi). */
   const cid = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
-  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid })]];
+  const depo = [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]];
 
   /* ── (a) Açma, kutudaki adresi kullanır — uydurmaz ── */
   const PZA = kur({
@@ -929,7 +982,7 @@ await (async () => {
   const cid = 'a.apps.googleusercontent.com';
   const durumlar = [];
   PZA = kur({
-    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]],
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]],
     komutlar: {
       gcal_port: () => 51234,
       gcal_ac: a => { durumlar.push(a.url); return true; },
@@ -1071,7 +1124,7 @@ await (async () => {
   const reddet = async hedef => {
     const durumlar = [];
     const P = kur({
-      depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]],
+      depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]],
       komutlar: {
         gcal_port: () => 51234,
         gcal_ac: a => { durumlar.push(a.url); return true; },
@@ -1098,6 +1151,69 @@ await (async () => {
   dogru(/invalid_client/.test(b.son[0]), 'sebebin adı yazılıyor (genel metne düşmüyor)');
   dogru(!/test kullanıcısı/.test(b.son[0]),
     'test kullanıcısı tavsiyesi yalnız access_denied için (her hataya yapıştırılmıyor)');
+})();
+
+console.log('\n20 · İstemci sırrı ZORUNLU — sırsız akış hiç başlamaz (tur 14)');
+await (async () => {
+  /* Kullanıcı bildirimi (10 Ekim 2026): panel *"Anahtar alınamadı
+     client_secret is missing"* dedi. Üç onay ekranı geçilmiş, izin kodu
+     loopback'e ulaşmış, jeton takası Google tarafından reddedilmişti.
+     Kök neden: Google masaüstü istemcilerinde istemci sırrını ZORUNLU
+     tutuyor — kendi belgesinde alan "Optional / isteğe bağlı" yazsa da
+     uç nokta alan hiç yoksa reddediyor. v1.10.0'a kadar buradaki
+     varsayım "PKCE yeter" idi, yani bağlanma HİÇBİR ZAMAN tamamlanamadı.
+
+     Bu bölüm üç şeyi kilitler: (1) sır eksikse akış tarayıcı açılmadan
+     durur — kullanıcı üç ekranı boşuna dolaşmaz; (2) durduğunda nereye
+     gideceği gösterilir; (3) sır varsa akış normal başlar. */
+  const cid = '631177154665-abc.apps.googleusercontent.com';
+
+  let PZA = kur({ depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid })]] });
+  const mesaj = [];
+  const sonuc = await PZA.gcalBaglan((m, s) => mesaj.push([m, s]));
+  esit(sonuc, false, 'sır yokken bağlanmıyor');
+  const son = mesaj[mesaj.length - 1];
+  dogru(/İstemci sırrı eksik/.test(son[0]), 'mesaj eksiği ADIYLA söylüyor');
+  dogru(/client_secret is missing/.test(son[0]),
+    'Google\'ın kendi sebebi de yazılı (ham hata gizlenmiyor)');
+  dogru(/zorunlu tutuyor/.test(son[0]),
+    'belgenin "isteğe bağlı" dediği hâlde zorunlu olduğu söyleniyor (yanlış yerde çözüm aranmasın)');
+  esit(son[1], 'err', 'hata olarak işaretli (kırmızı)');
+  esit(komutlar.filter(k => k.cmd === 'gcal_ac').length, 0,
+    'tarayıcı HİÇ açılmıyor — üç onay ekranı boşuna dolaşılmaz');
+  esit(komutlar.filter(k => k.cmd === 'gcal_bekle').length, 0, 'bekleyişe hiç girilmiyor');
+  esit(istekler.length, 0, 'ağa hiç çıkılmıyor');
+
+  /* Nereye gidileceği: kutu, sırrın alındığı sayfayı taşır ve adres
+     istemcinin PROJESİNE sabitlidir (tur 8 dersi). */
+  esit(els.get('gcal-elle').hidden, false, 'yol gösteren kutu açılıyor');
+  esit(els.get('gcal-url').value, PZA.gcalSirUrl(), 'kutu doğru adresi taşıyor');
+  dogru(/project=631177154665$/.test(els.get('gcal-url').value),
+    'adres istemcinin projesine sabitli (başka projenin sırrı kopyalanmasın)');
+  dogru(/console\.cloud\.google\.com/.test(els.get('gcal-url').value),
+    'Rust beyaz listesindeki bir adres (açılabilir)');
+  esit(PZA.gcal.sirHatasi, 1, 'panel kutusunun açık kalması işaretlendi (alan görünür olsun)');
+
+  /* Sır yerindeyse akış normal başlar: tarayıcı açılır ve beklenir. */
+  const P2 = kur({
+    depo: [['pza.gcal.v1', JSON.stringify({ clientId: cid, clientSecret: 'SIR' })]],
+    komutlar: { gcal_port: () => 51234, gcal_ac: () => true, gcal_bekle: () => '/?error=access_denied' }
+  });
+  await P2.gcalBaglan(() => {});
+  esit(komutlar.filter(k => k.cmd === 'gcal_ac').length, 1, 'sır varken akış başlıyor');
+
+  /* Sır ve Client ID aynı kayıtta durur; yapıştırmadaki boşluk kırpılır. */
+  P2.gcal.clientSecret = '  GOCSPX-BOSLUK  ';
+  esit(P2.gcalClientSecret(), 'GOCSPX-BOSLUK', 'baştaki/sondaki boşluk kırpılıyor');
+  /* Akışın yazdığı mesaj duruyorsa türetilmiş ipucu yazılmaz (tur 5 dersi);
+     burada panelin normal hâlini ölçmek için o mesaj temizlenir. */
+  P2.gcalMesajTemizle();
+  esit(P2.gcalVarsayilan(null, cid, true),
+    'Client ID + istemci sırrı kaydedildi — "Hesap Bağla" ile izin verin.',
+    'iki değer de tamamken panel bağlanmaya yönlendiriyor');
+  P2.gcal.clientId = '';
+  esit(P2.gcalSirUrl(), 'https://console.cloud.google.com/auth/clients',
+    'proje numarası okunamıyorsa projesiz adres (uydurma project= yok)');
 })();
 
 console.log('\n' + (bad ? `SONUC: ${bad} hata, ${iyi} basarili` : `SONUC: temiz — ${iyi} kontrol`));

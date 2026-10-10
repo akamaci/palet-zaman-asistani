@@ -495,19 +495,30 @@
 
   const gcalPanel = () => {
     const cid = PZA.gcalClientId();
+    const sir = PZA.gcalClientSecret();
     const bagli = PZA.gcalBagliMi();
     /* TUR 6 HATASI: kullanıcı tur 5'te bir API anahtarı girdi; eski kod
        onu "Client ID var" sanıp kurulum kutusunu KALICI olarak gizledi
        (`kur.hidden = !!cid`). Bağlı olmadığı için "Bağlantıyı kes" de
        görünmüyordu → kullanıcının elinde kurtarma yolu kalmadı.
-       Artık kutu yalnızca **geçerli** bir Client ID varsa gizlenir. */
+       Artık kutu yalnızca **geçerli** bir Client ID varsa gizlenir.
+
+       TUR 14: kutu, Client ID **ve** istemci sırrı birlikte yerindeyken
+       kapanır. Sır eksikken açık kalır çünkü Google masaüstü
+       istemcilerinde sırrı zorunlu tutuyor (sırsız bağlanma
+       "client_secret is missing" ile bitiyordu). Ayrıca son deneme sır
+       yüzünden düştüyse (`sirHatasi`) kutu YİNE açık kalır: kullanıcı
+       yanlış/eski sırrı düzeltebilsin — düzeltilecek alan görünmüyorsa
+       kullanıcı çıkmazda kalır (tur 9 dersi). */
     const gecerli = PZA.gcalClientIdGecerliMi();
     const kur = $('gcal-kur');
-    if (kur) kur.hidden = gecerli;
+    if (kur) kur.hidden = gecerli && !!sir && !PZA.gcal.sirHatasi;
     /* Geçersiz/kalıntı değer alanda duruyorsa kullanıcı görsün ki
        düzeltebilsin — geçerliyse yine gösterilir (düzenlenebilir). */
     const idAlani = $('gcal-id');
     if (idAlani && document.activeElement !== idAlani) idAlani.value = cid;
+    const sirAlani = $('gcal-secret');
+    if (sirAlani && document.activeElement !== sirAlani) sirAlani.value = sir;
     const sync = $('btn-gcal-sync');
     if (sync) sync.hidden = !bagli;
     const kes = $('gcal-kes');
@@ -533,8 +544,20 @@
      kapanırsa yeniden yazmak zorunda kalmasın. */
   $('gcal-id')?.addEventListener('change', e => {
     PZA.gcal.clientId = e.target.value.trim();
+    PZA.gcal.sirHatasi = 0;          // değer değişti: eski hatanın izi kalmasın
     PZA.gcalKaydet();
     PZA.gcalMesajTemizle();          // yeni Client ID → türetilen ipucu geri gelsin
+    gcalPanel();
+  });
+
+  /* TUR 14 — istemci sırrı. Google masaüstü istemcilerinde bu alanı
+     zorunlu tutuyor; eksikken bağlanma "client_secret is missing" ile
+     bitiyordu. Değer yalnız bu makinede, takvim kaydının içinde durur. */
+  $('gcal-secret')?.addEventListener('change', e => {
+    PZA.gcal.clientSecret = e.target.value.trim();
+    PZA.gcal.sirHatasi = 0;
+    PZA.gcalKaydet();
+    PZA.gcalMesajTemizle();
     gcalPanel();
   });
 
@@ -554,6 +577,13 @@
 
     const cid = ($('gcal-id')?.value || '').trim();
     if (cid) { PZA.gcal.clientId = cid; PZA.gcalKaydet(); }
+    /* TUR 14: sır alanı da okunur. `change` olayı alandan çıkınca düşer;
+       düğmeye basmak alanı bulanıklaştırdığı için sıra normalde doğrudur —
+       ama kullanıcı yapıştırıp Enter'a basarsa ya da olay düşmezse değer
+       kaydedilmeden akışa girilirdi. Boş değer YAZILMAZ: kullanıcı alanı
+       temizlediyse silme işini `change` zaten yapmıştır. */
+    const sir = ($('gcal-secret')?.value || '').trim();
+    if (sir) { PZA.gcal.clientSecret = sir; PZA.gcal.sirHatasi = 0; PZA.gcalKaydet(); }
     if (b) { b.dataset.calisiyor = '1'; b.textContent = 'Vazgeç'; }
     PZA.gcalMesajTemizle();
     /* Gözlemci verilmez: akış mesajı doğrudan panele yazar ve
