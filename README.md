@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.4.0`, ön sürüm). Kurulum testi kullanıcıda.
+> GitHub Actions'ta derleniyor (`v1.10.0`, ön sürüm). Kurulum testi kullanıcıda.
 
 ---
 
@@ -20,6 +20,8 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Hava durumu** | `<` / sol kutucuk → 7 günlük tahmin, gün doğumu yayı, telemetri |
 | **Konum** | Manuel il seçimi (geocoding ile arama) + önbellek |
 | **Sesli okuma** | `15:00` → *"saat on beş"* · `17:30` → *"saat on yedi, otuz"* |
+| **Saat anonsu** | Ayarlar → üç ayrı anahtar: **Her saat başı oku** (varsayılan açık) · **Her yarım saatte oku (:30)** (kapalı) · **Önemli kayıtları oku**. Ölçüt artık `saniye === 0` değil **dakika 00 + mandal**: eski kod tam o saniyeyi arıyordu ve saat kaydığında (ya da pencere gizliyken saat durduğunda) anons **tamamen kayboluyordu**. Artık dakika 00 içindeki herhangi bir saniyede **bir kez** okunur; aynı saat başı ikinci kez okunmaz. Saat başı ile yarım saat **ayrı mandal** taşır — biri diğerini düşürmez |
+| **Önemli kayıt anonsu** | Yıldızla işaretlenen not/randevu, saati gelince *"**Önemli.** …"* diye okunur; gün değişince yeni kayıt okunur, dünkü kayıt **tekrar edilmez**. Anons saatiyle aynı saniyeye düşerse **tek cümlede** gider (ayrı iki çağrı birbirini keserdi) |
 | **Okuyucu sesi** | Sistemde **kurulu** sesler listelenir; kadın sesi otomatik seçilir ve adıyla hatırlanır. Tek (veya hiç) Türkçe ses varsa panel ses ekleme yolunu gösterir — *"Bayan sesi buradan ayarlanır"* |
 | **Yeri kilitle** | Sağ üstteki kilit ikonu pencereyi olduğu yere sabitler; yanlışlıkla sürüklenmez. Seçim kalıcıdır |
 | **Tema** | Aydınlık / karanlık — "Günün notları"nın altındaki anahtardan |
@@ -28,7 +30,7 @@ Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 | **Boyut** | 1/2 · 1/3 · 1/4 ölçek. Genişlik kutuya değil **içeriğe** göre daraltılır — saat kenarlarda boşlukta kalmaz. 1/4'te mini hava göstergesi korunur |
 | **Ekran sığdırma** | Ayarlar paneli açılınca pencere büyür ve **görev çubuğunu aşmaz**: çalışma alanına (`screen.availHeight`) sığdırılır, gerekirse yukarı kaydırılır, panel kapanınca eski yerine döner |
 | **Panel yönü** | Saat masaüstünün **dibine** yerleştirilmişse notlar/hava paneli **yukarı doğru** açılır — aşağı açılsa görev çubuğunun altında kalır ve okunamaz. Pencere panelin eklediği yükseklik kadar yukarı kayar, böylece **saat ekranda olduğu yerde kalır** |
-| **Google Takvim** | "Hesap Bağla" tarayıcıda Google onay sayfasını açar; izin verilince notlar takvime gönderilir. İstemci **sırrı istemez** (PKCE), erişim yalnızca `calendar.events` kapsamındadır ve bağlantı konsoldan kesilebilir |
+| **Google Takvim** | "Hesap Bağla" tarayıcıda Google onay sayfasını açar; izin verilince notlar takvime gönderilir; **bütün günler** birden eşitlenir. Panel **"Bağlı"** yazarken bunu iddia etmez, **ölçer** (açılışta takvime sorar) ve reddi sebebiyle söyler — *"iptal ettiniz"* ile *"Google reddetti"* aynı mesaja düşmez. Eşitleme özeti sayıyla konuşur (*N gün tarandı · X yeni, Y güncellendi, Z silindi · takvimde K not*) ve **atlanan gün gizlenmez** — hangi günün neden atlandığı yazılır. İstemci **sırrı istemez** (PKCE), erişim yalnızca `calendar.events` kapsamındadır ve bağlantı konsoldan kesilebilir |
 | **Görünürlük** | Hava durumu ve not başlıkları ayrı ayrı kapatılabilir (sade mod) |
 | **Her Zaman Üstte** | Açılıp kapatılır (**varsayılan kapalı**). Kapalıyken widget normal bir penceredir — tarayıcının ya da videonun önüne geçmez, masaüstünde görünür |
 | **Başlangıç** | Windows ile otomatik başlar (8 sn gecikmeli), ayarlardan kapatılır |
@@ -63,7 +65,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.4.0_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.10.0_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
@@ -90,7 +92,7 @@ npm run dev            # geliştirme modu (sıcak yenileme)
 npm run build          # NSIS kurulum paketi (bkz. MSI notu)
 npm run web            # yalnızca arayüz — tarayıcıda önizleme
 npm run dogrula        # kod bekçisi: 9 statik kontrol (aşağıya bakın)
-npm run test           # davranış testleri: notlar + ses + kilit + panel yönü + takvim (318 kontrol)
+npm run test           # davranış testleri: notlar + ses + anons + kilit + panel yönü + takvim (509 kontrol)
 ```
 
 > `npm run web` Rust kurmadan arayüzü test etmenizi sağlar. Yerel bir sunucu
@@ -138,23 +140,27 @@ taşınamaz.
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM, sahte bir `speechSynthesis`, sahte bir Tauri
 penceresi ve sahte bir `fetch` üzerinde çalıştırılır; ne tarayıcı ne de Rust gerekir.
-Toplam **318 kontrol**:
+Toplam **509 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
-| `araclar/notlar-test.mjs` | **65 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı**. "Başka gün" gerçek bugünden türetilir — sabit tarih yazılırsa test takvim o güne gelince kendi kendine bozuluyordu |
+| `araclar/notlar-test.mjs` | **70 kontrol** — takvim tarih matematiği (ay/yıl taşması, Pazartesi başlangıcı), ay gezinme, notun **seçili güne** yazılması, gece yarısı devri, saat başı okuma mandalı, **30 dakikalık zaman ızgarası** (48 dilim / 24 eşleştirilmiş satır, notun doğru dilime düşmesi) ve **gün+saat katmanı**. "Başka gün" gerçek bugünden türetilir — sabit tarih yazılırsa test takvim o güne gelince kendi kendine bozuluyordu. Tur 12: yıldızlı kaydın anons metni ayrıca ölçülür ve eski ayar yeni anahtarlara **yükseltilir** |
 | `araclar/ses-test.mjs` | **70 kontrol** — liste sistemde kurulu seslerden gelir (uydurma ad yok), kadın sesi otomatik seçilir ve **adıyla** saklanır, seçili ses silinirse otomatiğe düşer, tek Türkçe seste yönlendirme notu çıkar, Türkçe ses yokken yedeğe düşer, hiç ses yokken çökmeme, Türkçe sayı→kelime |
+| `araclar/anons-test.mjs` | **40 kontrol** — saat başı / yarım saat / **"Önemli"** kayıt anonsları. Statik tarama değil: sahte `speechSynthesis` **ne söylendiğini**, sahte `Date` **ne zaman söylendiğini** kaydeder, yani ölçülen şey kullanıcının **duyduğu**dur. Mandal (aynı saat başını iki kez okumama), eski `saniye === 0` şartının **kayboluşu**, gün değişiminde yeni kaydın okunması ve dünkü kaydın **tekrar edilmemesi** burada kilitli |
 | `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
-| `araclar/yukari-test.mjs` | **33 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
-| `araclar/gcal-test.mjs` | **123 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi**. Son iki bölüm tur 5'nın iki arızasını kilitler: **tarayıcı açılamazsa akış çıkmaza girmez** (adres, tarayıcı denenmeden *önce* gösterilir ve elle açılan adres üzerinden bağlanma tamamlanır) ve **hata mesajı panel tazelemesi tarafından ezilmez** (kullanıcı "hiçbir şey olmuyor" yerine gerçek hatayı görür) |
+| `araclar/yukari-test.mjs` | **43 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
+| `araclar/gcal-test.mjs` | **259 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve hiçbir istekte **istemci sırrı gitmemesi**. Son bölümler tur 5'nın iki arızasını kilitler (**tarayıcı açılamazsa akış çıkmaza girmez**, **hata mesajı panel tazelemesi tarafından ezilmez**) ve tur 12'nin dördünü: **bütün günler eşitlenir**, **"Bağlı" iddia edilmez — ölçülür**, **tarayıcıdaki kapanış sayfası reddi de söyler** (`code=` ile `error=` ayrı sayfa) ve **reddin sebebi arayüze ulaşır** ("iptal" ile "reddedildi" aynı genel mesaja düşmez) |
 
-Beşi de gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
+Altısı da gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız
 bakın **bugüne** yazılıyordu; tek Türkçe sesli bir makinede "Ece" ile "Emre"
 **aynı** sesi veriyordu; kilidin geri konmadığı bir tasarım widget'ı kalıcı
 olarak taşınamaz hâle getirirdi; ve **"Hesap Bağla" düğmesi hiçbir şey
 yapmıyordu — arkasında işlev yoktu**, üstelik çıkan hata panel tazelemesi
-tarafından anında eziliyordu, yani kullanıcı hatayı da göremiyordu.
+tarafından anında eziliyordu, yani kullanıcı hatayı da göremiyordu. Altıncısı
+kullanıcının *"saatimiz ayrıca saat başı saati söylemiyor"* bildirimiydi: anons
+kodu tamamen **zamana** bağlı olduğu için statik tarama yeterli değildi — sahte
+saat ile **gerçekten söylenip söylenmediği** ölçüldü.
 Yayın iş akışı, paket derlenmeden **önce** bu testleri çalıştırır.
 
 ---
@@ -170,6 +176,7 @@ PaletZamanAsistani/
 │  ├─ dogrula.mjs           ← statik kod bekçisi
 │  ├─ notlar-test.mjs       ← davranış testi: notlar/takvim
 │  ├─ ses-test.mjs          ← davranış testi: sesli okuma + okuyucu sesi
+│  ├─ anons-test.mjs        ← davranış testi: saat başı/yarım saat + önemli kayıt anonsu
 │  ├─ kilit-test.mjs        ← davranış testi: yeri kilitle + sürüm kaynağı
 │  ├─ yukari-test.mjs       ← davranış testi: panel yönü + pencere yerleşimi
 │  ├─ gcal-test.mjs         ← davranış testi: Google Takvim yetkilendirme + eşitleme
@@ -289,6 +296,16 @@ Bağlantı **Bağlantıyı kes** ile koparılır.
 > **İstemci sırrı yok.** Client ID gizli bilgi değildir. Erişim jetonu cihazda
 > (`localStorage`) tutulur ve yalnızca `calendar.events` kapsamına sahiptir —
 > program takviminize yazabilir, ama başka hiçbir Google verinize erişemez.
+
+> **Eşitleme kapsamı:** "Gönder" düğmesi ve bağlanma anı, yalnızca baktığınız
+> günü değil **notu olan bütün günleri** gönderir. Tek bir gün hata verirse
+> eşitleme **durmaz**; o gün "atlandı" olarak sayılır ve özet cümlesinde sebebiyle
+> görünür — sessizce yutulmaz.
+
+> **Bağlantı gerçekten kuruldu mu?** Panel bunu **iddia etmez, ölçer**: açılışta
+> takvime tek bir istek atar. Ölçüm başarısızsa *"Bağlı ✓"* **yazılmaz**; sebep ve
+> çıkış yolu (*"Bağlantıyı kes" deyip yeniden bağlanın*) gösterilir. Başarılıysa
+> saat damgası düşülür: *"Bağlı ✓ · doğrulandı 14:05 · son eşitleme 14:03"*.
 
 > **Notlar takvimde nasıl görünür?** Her not, yazdığınız saatte başlayan
 > **30 dakikalık** bir olay olur. Olaylar `pza` özel alanıyla işaretlenir, bu
