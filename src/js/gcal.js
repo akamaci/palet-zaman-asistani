@@ -417,18 +417,36 @@ async function gcalIstek(yontem, yol, govde, token) {
   return r.json().catch(() => null);
 }
 
+/** Cihazın saat dilimi (IANA adı, ör. `Europe/Istanbul`).
+    TUR 15: Google, `dateTime` alanı saat kaydırması (`+03:00`) içermiyorsa
+    `timeZone` alanını **zorunlu** tutar; gönderilmezse olay
+    *"Missing time zone definition for start time"* ile reddedilir.
+    Bu uç nokta davranışı belgede bu şekilde yazmıyor — ölçülerek bulundu
+    ([[Tasarım Kuralları]] §6: *belge "isteğe bağlı" diyorsa da davranış ölçülür*).
+    `Intl` yoksa (pratikte olmaz) İstanbul'a düşülür; bu bir **tahmin**
+    olduğu için dürüstlük notunda kayıtlıdır. */
+PZA.gcalDilim = function () {
+  try {
+    const z = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (z && /^[A-Za-z][A-Za-z0-9_+/-]*$/.test(z)) return z;
+  } catch (e) { /* aşağıdaki yedeğe düşülür */ }
+  return 'Europe/Istanbul';
+};
+
 /** Bir notu Google Takvim olayına çevir.
     Olay, hangi nottan doğduğunu `extendedProperties.private` içinde
     taşır: `<gün>|<saat>|<sıra>`. Böylece yerel bir kimlik tablosu
     tutmadan eşleşme bulunur — not silinince olay da bulunup silinir.
-    Saat dilimi belirtilmez; Google takvimin varsayılan dilimini uygular. */
+    Saat dilimi AÇIKÇA yazılır (tur 15): "takvimin varsayılanı uygulanır"
+    varsayımı ölçülmemişti ve yanlıştı — olay hiç oluşmuyordu. */
 PZA.gcalOlay = function (gun, not, sira) {
   const bas = gun + 'T' + String(not.t || '12:00') + ':00';
   const son = gcalSaatEkle(gun, not.t, PZA.GCAL.SURE);
+  const dilim = PZA.gcalDilim();
   return {
     summary: not.x,
-    start: { dateTime: bas },
-    end: { dateTime: son.gun + 'T' + son.saat + ':00' },
+    start: { dateTime: bas, timeZone: dilim },
+    end: { dateTime: son.gun + 'T' + son.saat + ':00', timeZone: dilim },
     extendedProperties: {
       private: { [PZA.GCAL.IZ]: gun + '|' + not.t + '|' + (sira || 1) }
     }

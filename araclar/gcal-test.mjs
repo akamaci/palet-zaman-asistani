@@ -13,6 +13,8 @@
      • yetki URL'i Google'ın istediği bütün alanları taşıyor mu
      • dönüş adresi doğru çözülüyor mu (kod / hata / state)
      • not → olay dönüşümü doğru mu (özellikle 23:45 → ertesi gün)
+     • olay gövdesi saat dilimini AÇIKÇA taşıyor mu (tur 15: yoksa Google
+       "Missing time zone definition for start time" ile reddediyor)
      • eşitleme kararı: hangi not eklenir, hangisi güncellenir,
        hangi olay silinir
      • `state` tutmazsa akış DURUYOR mu (CSRF)
@@ -197,21 +199,42 @@ console.log('\n4 · Dönüş adresini çözme');
   esit(PZA.gcalKodCoz('/?code=4%2F0AY0e%20x').kod, '4/0AY0e x', 'yüzde kodlaması çözülüyor');
 }
 
-console.log('\n5 · Not → takvim olayı');
+console.log('\n5 · Not → takvim olayı (saat dilimi dâhil — tur 15)');
 {
   const PZA = kur();
   const o = PZA.gcalOlay('2026-10-09', { t: '14:30', x: 'Toplantı' }, 1);
   esit(o.summary, 'Toplantı', 'başlık notun metni');
-  esit(o.start.dateTime, '2026-10-09T14:30:00', 'başlangıç');
+  esit(o.start.dateTime, '2026-10-09T14:30:00', 'başlangıç (yerel duvar saati)');
   esit(o.end.dateTime, '2026-10-09T15:00:00', 'bitiş = +30 dk');
   esit(o.extendedProperties.private.pza, '2026-10-09|14:30|1', 'köken işareti (eşleşme anahtarı)');
-  dogru(o.start.timeZone === undefined, 'saat dilimi yazılmıyor → takvimin varsayılanı');
+
+  /* TUR 15: `timeZone` AÇIKÇA gönderilir. Gönderilmediği için Google olayı
+     hiç oluşturmuyordu: "Missing time zone definition for start time".
+     "Takvimin varsayılanı uygulanır" varsayımı ölçülmemişti ve yanlıştı. */
+  dogru(typeof o.start.timeZone === 'string' && o.start.timeZone.length > 0,
+    'başlangıçta timeZone VAR (yoksa Google olayı reddeder)');
+  esit(o.end.timeZone, o.start.timeZone, 'bitiş aynı dilimi taşır');
+  esit(o.start.timeZone, PZA.gcalDilim(), 'dilim cihazdan okunur');
+  dogru(!/[+-]\d\d:\d\d$/.test(o.start.dateTime),
+    'dateTime kaydırma içermez → dilimi yalnız timeZone belirler (çift kaydırma yok)');
 
   const gec = PZA.gcalOlay('2026-10-09', { t: '23:45', x: 'Gece' }, 1);
   esit(gec.end.dateTime, '2026-10-10T00:15:00', '23:45 notu ertesi güne taşıyor');
+  esit(gec.end.timeZone, gec.start.timeZone, 'gün aşan olayda da tek dilim');
 
   const d = PZA.gcalOlay('2026-10-09', { x: 'Saatsiz' }, 1);
   esit(d.start.dateTime, '2026-10-09T12:00:00', 'saatsiz not öğlene düşer');
+  esit(d.start.timeZone, o.start.timeZone, 'saatsiz notta da dilim yazılır');
+
+  /* Cihaz dilimi okunamazsa uydurulmaz; kayıtlı yedeğe düşülür. */
+  const gercek = g.Intl;
+  g.Intl = { DateTimeFormat: () => ({ resolvedOptions: () => ({}) }) };
+  esit(PZA.gcalDilim(), 'Europe/Istanbul', 'Intl boş dönerse yedek dilim');
+  g.Intl = undefined;
+  esit(PZA.gcalDilim(), 'Europe/Istanbul', 'Intl hiç yoksa da yedek dilim (çökmüyor)');
+  g.Intl = gercek;
+  esit(PZA.gcalDilim(), gercek.DateTimeFormat().resolvedOptions().timeZone,
+    'gerçek Intl geri takıldı → cihazın kendi dilimi');
 }
 
 console.log('\n6 · Token isteği — gövde ve istemci sırrı (tur 14)');

@@ -4,7 +4,7 @@ Windows masaüstünde **her zaman görünen** flip clock + günün notları + ha
 Halo/uzay estetiği, çoklu skin desteği, sesli saat okuma.
 
 > Durum: **§4 Yazılım · §7 Yayın** — arayüz ve yayın hattı çalışıyor. Kurulum paketi
-> GitHub Actions'ta derleniyor (`v1.10.1`, ön sürüm). Kurulum testi kullanıcıda.
+> GitHub Actions'ta derleniyor (`v1.10.2`, ön sürüm). Kurulum testi kullanıcıda.
 
 ---
 
@@ -65,7 +65,7 @@ Arayüz **bağımlılıksız** vanilla HTML/CSS/JS'tir; Tailwind CDN veya framew
 
 ## Kurulum (kullanıcı)
 
-`Palet.Zaman.Asistani_1.10.1_x64-setup.exe` dosyasını çalıştırın.
+`Palet.Zaman.Asistani_1.10.2_x64-setup.exe` dosyasını çalıştırın.
 Yönetici izni gerekmez, yalnızca sizin hesabınıza kurulur.
 
 > Tauri, dosya adındaki boşluk ve Türkçe karakterleri noktaya çevirir:
@@ -140,7 +140,7 @@ taşınamaz.
 `dogrula` koda bakar ("çağrı var mı"), `test` çalıştırır ("işe yarıyor mu").
 Gerçek kaynak dosyalar sahte bir DOM, sahte bir `speechSynthesis`, sahte bir Tauri
 penceresi ve sahte bir `fetch` üzerinde çalıştırılır; ne tarayıcı ne de Rust gerekir.
-Toplam **539 kontrol**:
+Toplam **547 kontrol**:
 
 | Dosya | Kapsam |
 |-------|--------|
@@ -149,7 +149,7 @@ Toplam **539 kontrol**:
 | `araclar/anons-test.mjs` | **40 kontrol** — saat başı / yarım saat / **"Önemli"** kayıt anonsları. Statik tarama değil: sahte `speechSynthesis` **ne söylendiğini**, sahte `Date` **ne zaman söylendiğini** kaydeder, yani ölçülen şey kullanıcının **duyduğu**dur. Mandal (aynı saat başını iki kez okumama), eski `saniye === 0` şartının **kayboluşu**, gün değişiminde yeni kaydın okunması ve dünkü kaydın **tekrar edilmemesi** burada kilitli |
 | `araclar/kilit-test.mjs` | **27 kontrol** — kilit kapatınca `data-tauri-drag-region` üç öğeden de kalkar, **açılınca geri konur** (konmazsa widget bir daha taşınamaz), aç/kapa turları özniteliği yıpratmaz, seçim yeniden açılışta kalıcı, sürüm panel alt yazısına tek kaynaktan gider |
 | `araclar/yukari-test.mjs` | **43 kontrol** — sahte bir Tauri penceresi (konum, boyut, iş alanı) üzerinde `fit()` gerçekten çalıştırılır; ölçülen şey kullanıcının şikâyetiyle aynı: **saatin ekrandaki yeri değişiyor mu?** Aşağıda yer varsa panel aşağı açılır ve pencere hiç oynamaz; saat dibe yerleştirilmişse panel yukarı alınır ve pencere tam panel yüksekliği kadar yukarı kayar; panel kapanınca her şey eski yerine döner. Ayarlar paneli iş alanına kırpılır; hiçbir yere sığmayan panelde bile saat görünür kalır |
-| `araclar/gcal-test.mjs` | **289 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve istemci sırrının **yalnız token isteğinde** gitmesi (boşken hiç gitmemesi, hiçbir mesaja sızmaması). Son bölümler tur 5'nın iki arızasını kilitler (**tarayıcı açılamazsa akış çıkmaza girmez**, **hata mesajı panel tazelemesi tarafından ezilmez**), tur 12'nin dördünü (**bütün günler eşitlenir**, **"Bağlı" iddia edilmez — ölçülür**, **tarayıcıdaki kapanış sayfası reddi de söyler**, **reddin sebebi arayüze ulaşır**) ve tur 14'ün ikisini: **sır eksikse akış tarayıcı hiç açılmadan durur** (kullanıcı üç onay ekranını boşuna dolaşmaz) ve **`client_secret is missing` gibi ham İngilizce hatalar nereye gidileceğini söyleyen Türkçe metne çevrilir** |
+| `araclar/gcal-test.mjs` | **297 kontrol** — PKCE çifti (gerçekten `base64url(SHA-256(verifier))` mi, bağımsız olarak doğrulanır), yetki URL'inin Google'ın istediği bütün alanları taşıması, dönüş adresinin çözülmesi, not → olay dönüşümü (**23:45 + 30 dk = ertesi gün 00:15**), eşitleme kararı (hangi not eklenir / güncellenir / silinir), `state` tutmazsa akışın **durması**, ve istemci sırrının **yalnız token isteğinde** gitmesi (boşken hiç gitmemesi, hiçbir mesaja sızmaması). Son bölümler tur 5'nın iki arızasını kilitler (**tarayıcı açılamazsa akış çıkmaza girmez**, **hata mesajı panel tazelemesi tarafından ezilmez**), tur 12'nin dördünü (**bütün günler eşitlenir**, **"Bağlı" iddia edilmez — ölçülür**, **tarayıcıdaki kapanış sayfası reddi de söyler**, **reddin sebebi arayüze ulaşır**), tur 14'ün ikisini (**sır eksikse akış tarayıcı hiç açılmadan durur** — kullanıcı üç onay ekranını boşuna dolaşmaz; **`client_secret is missing` gibi ham İngilizce hatalar nereye gidileceğini söyleyen Türkçe metne çevrilir**) ve tur 15'i: olay gövdesi **saat dilimini açıkça taşır** (`timeZone` yoksa Google olayı *"Missing time zone definition for start time"* ile reddediyor; `dateTime` kaydırma içermediği için dilimi yalnız bu alan belirler, cihaz dilimi okunamazsa kayıtlı yedeğe düşülür) |
 
 Altısı da gerçek hatalardan doğdu — saat başı okuma mandalı `seconds === 0` iken
 pencere gizlendiğinde o tek saniyeyi kaçırıyordu; notlar hangi güne bakarsanız

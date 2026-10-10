@@ -1,6 +1,6 @@
 [package]
 name = "palet-zaman-asistani"
-version = "1.10.1"
+version = "1.10.2"
 description = "Palet Zaman Asistanı — masaüstü flip clock + notlar + hava durumu"
 authors = ["Paletweb Bilişim"]
 license = "GPL-3.0-or-later"
