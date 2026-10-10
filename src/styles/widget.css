@@ -237,11 +237,27 @@ body.tauri { background: transparent; padding: 0; min-height: 0; align-items: fl
 .bar { display: flex; align-items: center; }
 .bar-top { padding: calc(var(--pad) * .8) var(--pad) calc(var(--pad) * .65); gap: 12px; }
 
-/* Yan gruplar EŞİT pay alır → saat kutuya göre tam ortalanır.
-   (margin:auto ile ortalama, grup genişlikleri farklı olunca kayıyordu.) */
-.group-left  { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; }
+/* Yerleşim: SAATİ DEĞİL İÇERİK KÜMESİNİ ortala.
+   Eski kural yan gruplara `flex: 1 1 0` verip saati kutunun tam
+   ortasına kilitliyordu. Matematiksel olarak simetrikti ama GÖRSEL
+   olarak değil: sol grup boş (kutucuk içeriği kadar, 89px), sağ grup
+   iki düğmeyle sağ kenara yaslanıyor ve taşan pay saatin İKİ YANINDA
+   birikiyordu. Kullanıcı bildirimi (hata 4): "hava durumu ve saat
+   solda birleşmişken sağda baya boşluk var, ortalayalım."
+
+   Ölçüm (1/4 · 430px kutu): iki yanda da 95px ölü boşluk, saatMerkez
+   = kutuMerkez. Yani ölü boşluk kenarlarda değil saatin yanında.
+
+   Çözüm: gruplar `flex: 0 1 auto` — yalnız İÇERİK kadar yer kaplar;
+   ortalamayı flexbox yapar. Artık boşluk saatin yanında değil, üç
+   öğenin DIŞINDA eşit olarak toplanır → görsel küme gerçekten
+   ortalanır ve aradaki boşluklar eşitlenir. Dar pencerede öğeler
+   yine de küçülebilir (`flex-shrink: 1` + `min-width: 0`), yani
+   taşma olmaz. */
+.bar-top { justify-content: center; }
+.group-left  { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .group-center{ flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
-.group-right { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
+.group-right { flex: 0 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
 
 /* ── HAVA KUTUCUĞU ──────────────────────────────────────── */
 .tile {

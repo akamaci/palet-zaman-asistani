@@ -248,6 +248,33 @@ head('10 · Saat basi takvim supurmesi saate BAGLI mi (tur 16)');
   else ok('mandal var: is saatte bir, cagri saniyede bir');
 }
 
+/* ── 11. Üst bar ortalama kuralı ─────────────────────────
+   Tur 17 (kullanici bildirimi, hata 4): "hava durumu ve saat solda
+   birlesmisken sagda baya bosluk var, ortalayalim." Kok neden, yan
+   gruplara `flex: 1 1 0` verilmesiydi: matematiksel olarak simetrik
+   ama GORSEL olarak degil — sol grup bos kalirken sag grup sag kenara
+   yaslaniyor, tasan pay saatin IKI YANINDA birikiyordu.
+
+   Bu kural geri gelirse hata da geri gelir ve gozle gorulur. Statik
+   test duzeni olcemez, ama YANLIS KURALI yakalar. */
+head('11 · Ust bar ortalamasi (tur 17)');
+{
+  const top = css.slice(css.indexOf('.bar-top {'), css.indexOf('.tile {'));
+  const gl = (top.match(/\.group-left\s*\{[^}]*\}/) || [''])[0];
+  const gr = (top.match(/\.group-right\s*\{[^}]*\}/) || [''])[0];
+  const bt = (top.match(/\.bar-top\s*\{[^}]*\}/g) || []).join(' ');
+  if (!/justify-content:\s*center/.test(bt))
+    fail('.bar-top justify-content:center degil — icerik kumesi ortalanmaz');
+  else ok('.bar-top icerik kumesini ortalıyor');
+  for (const [ad, blok] of [['group-left', gl], ['group-right', gr]]) {
+    if (/flex:\s*1\s+1\s+0/.test(blok))
+      fail('.' + ad + ': flex 1 1 0 geri gelmis — olu bosluk saatin yanina birikir (hata 4)');
+    else if (!/flex:\s*0\s+1\s+auto/.test(blok))
+      fail('.' + ad + ': flex 0 1 auto degil — icerik kadar yer kaplamali');
+    else ok('.' + ad + ': icerik kadar yer kapliyor (flex 0 1 auto)');
+  }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
