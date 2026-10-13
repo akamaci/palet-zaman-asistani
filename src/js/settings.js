@@ -67,9 +67,7 @@ PZA.DEFAULTS = {
   log: true,
   /* v1.12.0 — arayüz dili. 'auto' = sistem dili (tr/en gömülü; diğerleri
      GitHub'dan otomatik indirilir). Kullanıcı Ayarlar'dan seçebilir. */
-  dil: 'auto',
-  /* v1.13.0 — ses motoru */
-  voice_engine: 'tolga' /* tolga | emel */;
+  dil: 'auto'
 };
 
 const KEY = 'pza.settings.v1';
