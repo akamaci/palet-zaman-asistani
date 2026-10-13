@@ -68,7 +68,7 @@ PZA.GCAL = {
 
    Google bu durumda YÖNLENDİRME YAPMAZ: kullanıcıya kendi hata sayfasını
    gösterir ve loopback dinleyicisine hiçbir istek düşmez. Yani uygulama
-   reddi ÖĞRENEMEZ — öğrenebildiği tek şey 180 saniyelik zaman aşımıdır.
+   reddi ÖĞRENEMEZ — öğrenebildiği tek şey zaman aşımıdır (v1.10.5: 600 sn).
    Bu yüzden sebep ve atılacak adım, akış boyunca ve zaman aşımında
    gösterilir: öğrenilemeyen bir reddi kullanıcıya açıklamanın tek yolu,
    olasılığı ÖNCEDEN yazmaktır. */
@@ -88,6 +88,12 @@ PZA.GCAL.TEST_NOT = 'Google onay sayfası yerine "erişim engellendi (403)" ya d
 PZA.GCAL.TEST_KISA = 'Sayfada "erişim engellendi (403)" yazıyorsa hesabınız ' +
   'test kullanıcısı listesinde değil — aşağıdaki adresi "Tarayıcıda aç" ile ' +
   'açıp hesabınızı ekleyin, sonra yeniden deneyin.';
+
+/* v1.10.5 — Google onay akışının SON ekranındaki düğme adı.
+   Kullanıcı vurgulu (mavi) düğmeye basıp akıştan çıkıyordu; doğrusu düz
+   olan "Devam Et"tir. Mesaj düğmeyi ADIYLA söyler (tur 13 dersi). */
+PZA.GCAL.ADIM = 'Google onay ekranında son adımda vurgulu (mavi) düğme yanlış olabilir; ' +
+  'doğrusu "Devam Et"tir.';
 
 /* TUR 8 — Tarayıcının açıldığını İDDİA ETMEYEN çıkış yolu.
    Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
@@ -760,14 +766,21 @@ PZA.gcalBaglan = async function (bildir) {
      "onun yerine belgelerim açılıyor" dedi) ya da hiçbir şey açmaz.
      Süreç başlatma başarısı ≠ tarayıcı açıldı — tur 5'in dersi, tur 8'de
      arayüzde tekrar ihlal edilmişti. */
+  /* v1.10.5: tarayıcı açılamadıysa bu bilgi, sonradan gelen zaman aşımı
+     mesajında KORUNUR (aşağıda önüne eklenir) — üzerine yazılmaz. */
+  let tarayiciAcilmadi = false;
   try {
     await gcalCagir('gcal_ac', { url: yetkiUrl });
     yaz('Google onay sayfası tarayıcınızda açılmalı. Açılmadıysa ya da ' +
         'beklediğinizden başka bir pencere (ör. Belgeler) açıldıysa: ' +
-        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA);
+        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA + ' ' + PZA.GCAL.ADIM);
   } catch (e) {
     /* Burada DÖNMÜYORUZ: tarayıcı açılamaması, kullanıcının adresi
-       elle açmasına engel değil. */
+       elle açmasına engel değil. v1.10.5: bu uyarı, SONRADAN gelen
+       zaman aşımı mesajıyla EZİLMEMELİ (kural: sonradan gelen mesaj
+       öncekini silmez). Bayrak + günlük izi bu yüzden tutulur. */
+    tarayiciAcilmadi = true;
+    PZA.logYaz?.('uyari', 'Tarayıcı açılamadı', { hata: String(e).slice(0, 120) });
     yaz('Tarayıcı açılamadı (' + e + '). ' +
         PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA, 'err');
   }
@@ -786,7 +799,10 @@ PZA.gcalBaglan = async function (bildir) {
       /* TUR 9: adım, "adresi kopyala" değil "aşağıdaki adresi AÇ"tır —
          kutudaki düğme o adresi doğrudan açar. Kopyalama, açma
          başarısız olursa diye yedek olarak yanında duruyor. */
-      yaz('Google yanıtı gelmedi. Tarayıcıda "erişim engellendi (403)" ya da ' +
+      yaz((tarayiciAcilmadi
+            ? '"Tarayıcı açılamadı" uyarısı hâlâ geçerli — tarayıcı hiç açılmadıysa önce onu açın. '
+            : '') +
+          'Google yanıtı gelmedi. Tarayıcıda "erişim engellendi (403)" ya da ' +
           '"uygulama test edilmektedir" yazısı gördüyseniz hesabınız test ' +
           'kullanıcısı listesinde değil — aşağıdaki adresi "Tarayıcıda aç" ' +
           'ile açıp hesabınızı ekleyin, sonra yeniden deneyin.', 'err');

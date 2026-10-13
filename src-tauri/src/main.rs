@@ -220,7 +220,11 @@ enum Durum {
 /// (favicon, ön bağlantı) gönderebilir; yalnızca `code=`/`error=`
 /// taşıyan istek gerçek yönlendirmedir, ötekiler yok sayılır.
 fn dinle(l: TcpListener, iptal: Arc<AtomicBool>) -> Result<String, String> {
-    let bitis = Instant::now() + Duration::from_secs(180);
+    /* v1.10.5: 180 → 600 sn. Kullanıcı Google izin ekranında 3 dakikayı
+       aşarsa dinleyici düşüyor, sonra gelen yönlendirme kapalı porta
+       gidiyordu ve uygulama yalnız "süre doldu" diyordu (sebepsiz).
+       10 dakika, ilk kurulumdaki olağan yavaşlığı rahatça kapsar. */
+    let bitis = Instant::now() + Duration::from_secs(600);
     l.set_nonblocking(true).map_err(|e| e.to_string())?;
     loop {
         match l.accept() {

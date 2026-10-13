@@ -346,6 +346,20 @@
   /* Kayıtlı "her zaman üstte" değerini pencereye uygula */
   if (TAURI) invoke('set_always_on_top', { enabled: !!PZA.settings.alwaysOnTop });
 
+  /* v1.10.5 — Autostart açılışta GÜVENCEYE ALINIR.
+     Kullanıcı bildirimi: "Windows açılışta açılması gerekiyordu, açılmıyor."
+     İki kök neden: (1) varsayılan kapalıydı; (2) uygulama güncellenince
+     Run kaydı eski exe yoluna bakabiliyordu ve hiç tazelenmiyordu.
+     Açılışta `set_autostart(true)` çağrısı İDEMPOTENTTİR: kaydı doğru
+     exe yoluna tazeler. Ardından gerçek durum kutucuğa yansıtılır. */
+  if (TAURI) (async () => {
+    const istenen = PZA.settings.autostart !== false;   // varsayılan AÇIK
+    if (istenen) await invoke('set_autostart', { enabled: true });
+    const gercek = await invoke('get_autostart');
+    const box = $('opt-autostart');
+    if (box && gercek !== null) box.checked = gercek;
+  })();
+
   document.querySelectorAll('input[name="size"]').forEach(r =>
     r.addEventListener('change', () => { if (r.checked) PZA.set('size', r.value); }));
 

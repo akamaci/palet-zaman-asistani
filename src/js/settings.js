@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.10.4';
+PZA.SURUM = '1.10.5';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -54,7 +54,11 @@ PZA.DEFAULTS = {
      bırakılsaydı hata varsayılan davranış olarak kalırdı. Widget masaüstünde
      görünür, ama normal pencerelerin önüne geçmez; isteyen ayardan açar. */
   alwaysOnTop: false,
-  autostart: false,
+  /* v1.10.5 — kullanıcı bildirimi: "Windows açılışta açılması gerekiyordu.
+     Açılmıyor." Kök neden: varsayılan KAPALI'ydı ve açılışta kayıt hiç
+     güvenceye alınmıyordu (HKCU\...\Run kaydı yok). Artık varsayılan AÇIK
+     ve app.js açılışta set_autostart(true) ile kaydı tazeler. */
+  autostart: true,
   city: null,         // { name, lat, lon }
   gcal: false,
   /* Günlük (log.js): varsayılan AÇIK — yalnızca bellekte döner,
