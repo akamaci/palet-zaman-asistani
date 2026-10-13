@@ -556,9 +556,13 @@
     /* Geçersiz/kalıntı değer alanda duruyorsa kullanıcı görsün ki
        düzeltebilsin — geçerliyse yine gösterilir (düzenlenebilir). */
     const idAlani = $('gcal-id');
-    if (idAlani && document.activeElement !== idAlani) idAlani.value = cid;
+    /* v1.11.1 — gömülü (paylaşılan) istemci kullanılıyorsa alanlar BOŞ
+       görünür (sır ekranda belirmesin); kullanıcı kendi değerini girerse
+       o görünür ve gömülüyü geçersiz kılar. */
+    const gomulu = PZA.gcal.clientId === PZA.GCAL.VARSAYILAN_ID;
+    if (idAlani && document.activeElement !== idAlani) idAlani.value = gomulu ? '' : (PZA.gcal.clientId || '');
     const sirAlani = $('gcal-secret');
-    if (sirAlani && document.activeElement !== sirAlani) sirAlani.value = sir;
+    if (sirAlani && document.activeElement !== sirAlani) sirAlani.value = gomulu ? '' : (PZA.gcal.clientSecret || '');
     const sync = $('btn-gcal-sync');
     if (sync) sync.hidden = !bagli;
     const kes = $('gcal-kes');
@@ -566,6 +570,9 @@
     const m = PZA.gcalVarsayilan(PZA.gcalOzet(), cid, gecerli);
     if (m !== null) gcalYaz(m);              // akış yazdıysa DOKUNMA
   };
+  /* v1.11.1 — paylaşılan (gömülü) istemciyi ilk kez uygula → son kullanıcı
+     Client ID/sır girmez, "Hesap Bağla" tek tıkla çalışır. */
+  PZA.gcalGomuluyuUygula?.();
   gcalPanel();
 
   /* TUR 12 — Açılışta bağlantı ÖLÇÜLÜR. Kullanıcı bildirimi: takvim

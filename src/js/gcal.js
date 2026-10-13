@@ -95,6 +95,34 @@ PZA.GCAL.TEST_KISA = 'Sayfada "erişim engellendi (403)" yazıyorsa hesabınız 
 PZA.GCAL.ADIM = 'Google onay ekranında son adımda vurgulu (mavi) düğme yanlış olabilir; ' +
   'doğrusu "Devam Et"tir.';
 
+/* v1.11.1 — "Google bu uygulamayı doğrulamadı" ekranı.
+   KULLANICI BİLDİRİMİ + ekran görüntüsü (2026-10-13): "hesap bağla"
+   dendiğinde Google, doğrulanmamış uygulama uyarısını gösteriyor ve
+   kullanıcı MAVİ "GÜVENLİĞE GERİ DÖN"e basıp akıştan çıkıyor
+   ("bu işlem kullanıcı kaybetmemize neden olur"). Bu ekranda doğru yol
+   soldaki KÜÇÜK "Gelişmiş Ayarlar" → "Paletsaat uygulamasına git
+   (güvenli değil)". Mesaj bu adımı ADIYLA söyler. */
+PZA.GCAL.DOGRULANMADI = 'Sayfada "Google bu uygulamayı doğrulamadı" yazıyorsa: soldaki ' +
+  'küçük "Gelişmiş Ayarlar" bağlantısına basın, açılan yerden ' +
+  '"Paletsaat uygulamasına git (güvenli değil)"i seçin. ' +
+  'Mavi "GÜVENLİĞE GERİ DÖN" düğmesi YANLIŞ — sizi akıştan çıkarır.';
+
+/* v1.11.1 — PAYLAŞILAN (gömülü) OAuth istemcisi.
+   KULLANICI İSTEĞİ: son kullanıcı Client ID/sır girmek zorunda kalmasın
+   ("bunu son kullanıcıya anlatmak kolay değil"). Böylece "Hesap Bağla"
+   tek tıkla çalışır. Gerekçe: Google'a göre **installed/desktop**
+   uygulamalarda OAuth istemci SIRRI gizli değildir (kendi dokümanı),
+   dolayısıyla gömülmesi GPL "sır gömme" kuralını çiğnemez. İsteyen
+   kullanıcı Ayarlar'daki alanı doldurup bunu GEÇERSİZ KILABİLİR.
+
+   ⚠ SIR GİTHUB'A KONMAZ: GitHub push-koruması `GOCSPX-…` dizisini sır
+   sayıp push'u reddeder. Bu yüzden sır, aşağıdaki YER TUTUCU'nun yerine
+   **derleme anında** (CI'da `PZA_GCAL_SECRET` secret'ından) konur —
+   bkz. `.github/workflows/yayin.yml`. Yerelde/derlemede eksikse paylaşılan
+   istemci devre dışı kalır ve kullanıcı kendi istemcisini girer. */
+PZA.GCAL.VARSAYILAN_ID = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
+PZA.GCAL.VARSAYILAN_SIR = '__PZA_GCAL_SECRET__';
+
 /* TUR 8 — Tarayıcının açıldığını İDDİA ETMEYEN çıkış yolu.
    Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
    *"onun yerine belgelerim açılıyor"*. Sebep Rust tarafında bulundu
@@ -333,6 +361,28 @@ PZA.gcalClientId = function () { return PZA.gcal.clientId || ''; };
    ve değer yalnız bu makinede saklanır. */
 PZA.gcalClientSecret = function () {
   return String(PZA.gcal.clientSecret || '').trim();
+};
+
+/* v1.11.1 — PAYLAŞILAN (gömülü) istemciyi, kullanıcı KENDİ istemcisini
+   girmediyse bir kez uygula. Böylece "Hesap Bağla" tek tıkla çalışır
+   (son kullanıcı Client ID/sır girmez). Getter'lar BİLEREK saf bırakıldı:
+   gömülü değer, kullanıcı alanına bir kez YAZILIR (o da `PZA.gcal.clientId`
+   olur) — böylece akış/doğrulama mantığı ve davranış testleri aynı kalır.
+   Kullanıcı sonradan kendi değerini girerse bunu geçersiz kılar. */
+PZA.gcalGomuluyuUygula = function () {
+  /* Yer tutucu DEĞİŞTİRİLMEDİYSE (yerel/derleme sırrı yok) paylaşılan
+     istemci devreye girmez; kullanıcı kendi istemcisini girer. */
+  const sirGercek = /^GOCSPX-/.test(String(PZA.GCAL.VARSAYILAN_SIR || ''));
+  const idGercek = /\.apps\.googleusercontent\.com$/.test(String(PZA.GCAL.VARSAYILAN_ID || ''));
+  let degisti = false;
+  if (idGercek && sirGercek && !PZA.gcal.clientId) {
+    PZA.gcal.clientId = PZA.GCAL.VARSAYILAN_ID; degisti = true;
+  }
+  if (idGercek && sirGercek && !PZA.gcal.clientSecret) {
+    PZA.gcal.clientSecret = PZA.GCAL.VARSAYILAN_SIR; degisti = true;
+  }
+  if (degisti) PZA.gcalKaydet?.();
+  return degisti;
 };
 
 /* TUR 14 — Google'ın ham hatası kullanıcıya YOL GÖSTERMEZ.
@@ -773,7 +823,8 @@ PZA.gcalBaglan = async function (bildir) {
     await gcalCagir('gcal_ac', { url: yetkiUrl });
     yaz('Google onay sayfası tarayıcınızda açılmalı. Açılmadıysa ya da ' +
         'beklediğinizden başka bir pencere (ör. Belgeler) açıldıysa: ' +
-        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.TEST_KISA + ' ' + PZA.GCAL.ADIM);
+        PZA.GCAL.ACILMADI + ' ' + PZA.GCAL.DOGRULANMADI + ' ' +
+        PZA.GCAL.TEST_KISA + ' ' + PZA.GCAL.ADIM);
   } catch (e) {
     /* Burada DÖNMÜYORUZ: tarayıcı açılamaması, kullanıcının adresi
        elle açmasına engel değil. v1.10.5: bu uyarı, SONRADAN gelen
