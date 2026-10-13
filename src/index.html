@@ -185,33 +185,42 @@
 <div id="settings" class="settings" hidden>
   <div class="set-head">
     <svg viewBox="0 0 24 24" class="ico"><path d="M10.3 4.3c.4-1.8 2.9-1.8 3.3 0a1.7 1.7 0 0 0 2.6 1.1c1.5-.9 3.3.8 2.4 2.4a1.7 1.7 0 0 0 1 2.6c1.8.4 1.8 2.9 0 3.3a1.7 1.7 0 0 0-1 2.6c.9 1.5-.8 3.3-2.4 2.4a1.7 1.7 0 0 0-2.6 1c-.4 1.8-2.9 1.8-3.3 0a1.7 1.7 0 0 0-2.6-1c-1.5.9-3.3-.8-2.4-2.4a1.7 1.7 0 0 0-1-2.6c-1.8-.4-1.8-2.9 0-3.3a1.7 1.7 0 0 0 1-2.6c-.9-1.5.8-3.3 2.4-2.4.9.5 2.2.1 2.6-1.1z"/><circle cx="12" cy="12" r="3"/></svg>
-    <b>AYARLAR</b>
+    <b data-i18n="settings_title">AYARLAR</b>
     <button id="set-close" class="x">✕</button>
   </div>
 
   <div class="set-body">
 
-    <h4>GÖRÜNÜM / SKİN</h4>
+    <h4 data-i18n="h_lang">DİL</h4>
+    <label class="row"><span data-i18n="lang_lbl">Arayüz dili</span>
+      <select id="lang-select" class="inp" aria-label="Arayüz dili">
+        <option value="auto" data-i18n="lang_auto">Otomatik (sistem dili)</option>
+        <option value="tr" data-i18n="lang_tr">Türkçe</option>
+        <option value="en" data-i18n="lang_en">English</option>
+      </select>
+    </label>
+
+    <h4 data-i18n="h_skin">GÖRÜNÜM / SKİN</h4>
     <div class="skins" id="skin-list"></div>
     <div class="skin-bar" id="skin-bar" hidden>
       <span id="skin-bar-name">—</span>
-      <button id="skin-edit" class="lnk">Düzenle</button>
-      <button id="skin-del" class="lnk danger">Sil</button>
+      <button id="skin-edit" class="lnk" data-i18n="btn_edit">Düzenle</button>
+      <button id="skin-del" class="lnk danger" data-i18n="btn_del">Sil</button>
     </div>
 
-    <h4>GÖRÜNÜRLÜK</h4>
-    <label class="row"><span>Hava Durumu Göster</span><input type="checkbox" id="opt-weather" class="sw"></label>
-    <label class="row"><span>Not Başlıklarını Göster</span><input type="checkbox" id="opt-preview" class="sw"></label>
-    <label class="row"><span>Saniyeyi Göster</span><input type="checkbox" id="opt-seconds" class="sw"></label>
-    <label class="row"><span>Her Zaman Üstte <i>(kapatınca diğer pencereler önüne geçebilir)</i></span><input type="checkbox" id="opt-ontop" class="sw"></label>
+    <h4 data-i18n="h_vis">GÖRÜNÜRLÜK</h4>
+    <label class="row"><span data-i18n="opt_weather">Hava Durumu Göster</span><input type="checkbox" id="opt-weather" class="sw"></label>
+    <label class="row"><span data-i18n="opt_preview">Not Başlıklarını Göster</span><input type="checkbox" id="opt-preview" class="sw"></label>
+    <label class="row"><span data-i18n="opt_seconds">Saniyeyi Göster</span><input type="checkbox" id="opt-seconds" class="sw"></label>
+    <label class="row"><span data-i18n-html="opt_ontop_html">Her Zaman Üstte <i>(kapatınca diğer pencereler önüne geçebilir)</i></span><input type="checkbox" id="opt-ontop" class="sw"></label>
 
-    <h4>TEMA</h4>
+    <h4 data-i18n="h_theme">TEMA</h4>
     <div class="seg">
-      <button data-theme-set="light">Aydınlık</button>
-      <button data-theme-set="dark">Karanlık</button>
+      <button data-theme-set="light" data-i18n="theme_light">Aydınlık</button>
+      <button data-theme-set="dark" data-i18n="theme_dark">Karanlık</button>
     </div>
 
-    <h4>SESLİ OKUMA</h4>
+    <h4 data-i18n="h_speech">SESLİ OKUMA</h4>
     <!-- TUR 12 — KULLANICI İSTEĞİ: "saatimiz ayrıca saat başı saati
          söylemiyor. Bunun için 2. eklenti olmalı; ayarlarda saat başı
          uyarı, her yarım saatte uyarı olsun."
@@ -220,17 +229,17 @@
          yıldızlı bir kaydın saati geldiğinde metni "Önemli …" diye
          okunur ve saat anonsu kapalıyken de çalışır (kullanıcı yalnız
          hatırlatma isteyebilir). -->
-    <label class="row"><span>Saat anonsu <i>(sesli okuma)</i></span><input type="checkbox" id="opt-speech" class="sw"></label>
-    <label class="row"><span>Her saat başı oku</span><input type="checkbox" id="opt-saatbasi" class="sw"></label>
-    <label class="row"><span>Her yarım saatte oku <i>(:30)</i></span><input type="checkbox" id="opt-yarimsaat" class="sw"></label>
-    <label class="row"><span>Önemli kayıtları oku <i>(yıldızlı notun saati gelince)</i></span><input type="checkbox" id="opt-onemli" class="sw"></label>
+    <label class="row"><span data-i18n-html="opt_speech_html">Saat anonsu <i>(sesli okuma)</i></span><input type="checkbox" id="opt-speech" class="sw"></label>
+    <label class="row"><span data-i18n="opt_saatbasi">Her saat başı oku</span><input type="checkbox" id="opt-saatbasi" class="sw"></label>
+    <label class="row"><span data-i18n-html="opt_yarimsaat_html">Her yarım saatte oku <i>(:30)</i></span><input type="checkbox" id="opt-yarimsaat" class="sw"></label>
+    <label class="row"><span data-i18n-html="opt_onemli_html">Önemli kayıtları oku <i>(yıldızlı notun saati gelince)</i></span><input type="checkbox" id="opt-onemli" class="sw"></label>
     <!-- Okuyucu seçimi = Windows'ta KURULU seslerin listesi.
          "Ece/Emre" kaldırıldı: sistemde tek Türkçe ses (Microsoft
          Tolga) varken ikisi de aynı sesi veriyordu, seçim hiçbir
          şeyi değiştirmiyordu. Liste boşsa/tek sesliyse kullanıcı
          sesi kuracağı yere yönlendirilir (aşağıdaki not). -->
     <div class="voice-row">
-      <span class="voice-lbl">Okuyucu sesi</span>
+      <span class="voice-lbl" data-i18n="voice_lbl">Okuyucu sesi</span>
       <select id="voice-select" class="inp voice-sel" aria-label="Okuyucu sesi"></select>
     </div>
     <div class="voice-row">
@@ -239,11 +248,11 @@
     </div>
     <p class="voice-hint" id="voice-hint" hidden></p>
 
-    <h4>KONUM</h4>
-    <input id="opt-city" class="inp" type="text" placeholder="Şehir ara… (örn. Ankara)">
+    <h4 data-i18n="h_loc">KONUM</h4>
+    <input id="opt-city" class="inp" type="text" data-i18n-ph="city_ph" placeholder="Şehir ara… (örn. Ankara)">
     <div class="chips" id="city-chips"></div>
 
-    <h4>GOOGLE TAKVİM</h4>
+    <h4 data-i18n="h_gcal">GOOGLE TAKVİM</h4>
     <!-- KULLANICI BİLDİRİMİ (tur 4): "hesap bağla düğmesine tıklanmasına
          rağmen açılmıyor; browserdan Google bağlantı isteği gönderip
          kullanıcı onaylarsa takvimle senkronize olmalı."
@@ -251,7 +260,7 @@
          Artık tarayıcıda Google onay sayfası açılır, dönüş adresi
          uygulama tarafından yakalanır ve notlar takvime gönderilir. -->
     <button id="btn-gcal" class="btn-gcal"><b>G</b> Hesap Bağla</button>
-    <button id="btn-gcal-sync" class="btn-gcal ikincil" hidden>↻ Notları takvime gönder</button>
+    <button id="btn-gcal-sync" class="btn-gcal ikincil" hidden data-i18n-html="btn_sync_html">↻ Notları takvime gönder</button>
     <p class="hint" id="gcal-state">Notlarınız telefonunuzda da görünsün.</p>
 
     <!-- TUR 5: kullanıcı "bağlan düğmesi URL'i açmadı" dedi. Tarayıcıyı
@@ -276,8 +285,8 @@
            tam adres var. Kopyalama düğmesi KALIR: açma adımı da
            başarısız olabilir (tur 5-8 dersi) ve o zaman tek çıkış
            kopyalamaktır. -->
-      <button id="gcal-url-ac" class="btn-gcal ikincil">Tarayıcıda aç</button>
-      <button id="gcal-kopyala" class="btn-gcal ikincil">Adresi kopyala</button>
+      <button id="gcal-url-ac" class="btn-gcal ikincil" data-i18n="btn_url_ac">Tarayıcıda aç</button>
+      <button id="gcal-kopyala" class="btn-gcal ikincil" data-i18n="btn_copy">Adresi kopyala</button>
     </div>
 
     <!-- Tek seferlik kurulum. İKİ değer birden yerine oturunca kapanır.
@@ -303,30 +312,30 @@
         yapıştır. İkisi de yalnız sizin makinenizde saklanır; uygulama hiçbir
         kimlik taşımaz.
       </p>
-      <button id="gcal-console" class="btn-gcal ikincil">Konsolu aç</button>
-      <button id="gcal-wiki" class="btn-gcal ikincil">Ayrıntılı anlatım (wiki)</button>
+      <button id="gcal-console" class="btn-gcal ikincil" data-i18n="btn_console">Konsolu aç</button>
+      <button id="gcal-wiki" class="btn-gcal ikincil" data-i18n="btn_wiki">Ayrıntılı anlatım (wiki)</button>
       <input id="gcal-id" class="inp" type="text" spellcheck="false"
              autocomplete="off" placeholder="…apps.googleusercontent.com">
       <input id="gcal-secret" class="inp" type="text" spellcheck="false"
              autocomplete="off" placeholder="İstemci sırrı (GOCSPX-…)">
     </div>
-    <button id="gcal-kes" class="lnk danger" hidden>Bağlantıyı kes</button>
+    <button id="gcal-kes" class="lnk danger" hidden data-i18n="btn_disconnect">Bağlantıyı kes</button>
 
-    <h4>WİDGET BOYUTU</h4>
+    <h4 data-i18n="h_size">WİDGET BOYUTU</h4>
     <label class="row radio"><input type="radio" name="size" value="2"><span>1/2 Genişlik <i>(en geniş)</i></span></label>
     <label class="row radio"><input type="radio" name="size" value="3"><span>1/3 Genişlik <i>(orta)</i></span></label>
     <label class="row radio"><input type="radio" name="size" value="4"><span>1/4 Genişlik <i>(kompakt)</i></span></label>
 
-    <h4>BAŞLANGIÇ</h4>
-    <label class="row"><span>Windows ile Başlat <i class="hint-i">(önerilir — otomatik açılır)</i></span><input type="checkbox" id="opt-autostart" class="sw"></label>
+    <h4 data-i18n="h_start">BAŞLANGIÇ</h4>
+    <label class="row"><span data-i18n-html="opt_autostart_html">Windows ile Başlat <i class="hint-i">(önerilir — otomatik açılır)</i></span><input type="checkbox" id="opt-autostart" class="sw"></label>
 
     <!-- TUR 6: kullanıcı isteği — "programın bir yerine log ve hataları
          otomatik almasını sağlayalım". Günlük yalnız BELLEKTE döner
          (200 kayıt); diske yazmaz, zamanlayıcı kurmaz → eski makinelerde
          de yük getirmez. Bir sorun bildirirken bu düğmeyle kopyalanır. -->
-    <h4>GÜNLÜK</h4>
-    <label class="row"><span>Günlüğü tut <i class="hint-i">(bellekte, diske yazmaz)</i></span><input type="checkbox" id="opt-log" class="sw"></label>
-    <button id="btn-log-kopyala" class="btn-gcal ikincil">Günlüğü kopyala</button>
+    <h4 data-i18n="h_log">GÜNLÜK</h4>
+    <label class="row"><span data-i18n-html="opt_log_html">Günlüğü tut <i class="hint-i">(bellekte, diske yazmaz)</i></span><input type="checkbox" id="opt-log" class="sw"></label>
+    <button id="btn-log-kopyala" class="btn-gcal ikincil" data-i18n="btn_log_copy">Günlüğü kopyala</button>
 
   </div>
 
@@ -334,7 +343,7 @@
        indirsin"). Yeni sürüm varsa bu kutu görünür ve metin PARLAR. -->
   <div id="gunc-kutu" class="set-foot" hidden>
     <span id="gunc-metin" class="gunc-parla">Yeni sürüm hazır</span>
-    <button id="btn-guncelle" class="btn-gcal">Güncelle</button>
+    <button id="btn-guncelle" class="btn-gcal" data-i18n="btn_update">Güncelle</button>
   </div>
 
   <!-- Sürüm elle yazılmaz: `PZA.SURUM` tek kaynak (js/settings.js),
@@ -452,6 +461,7 @@
 
 <script src="js/log.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/skins.js"></script>
 <script src="js/clock.js"></script>
 <script src="js/notes.js"></script>

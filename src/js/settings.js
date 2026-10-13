@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.11.2';
+PZA.SURUM = '1.12.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -64,7 +64,10 @@ PZA.DEFAULTS = {
   /* Günlük (log.js): varsayılan AÇIK — yalnızca bellekte döner,
      diske yazmaz, zamanlayıcı kurmaz; yani eski makinelerde de sıfır
      yük. Kullanıcı isterse KAPATABİLİR (bkz. tur 6). */
-  log: true
+  log: true,
+  /* v1.12.0 — arayüz dili. 'auto' = sistem dili (tr/en gömülü; diğerleri
+     GitHub'dan otomatik indirilir). Kullanıcı Ayarlar'dan seçebilir. */
+  dil: 'auto'
 };
 
 const KEY = 'pza.settings.v1';

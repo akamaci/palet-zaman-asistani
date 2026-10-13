@@ -7,6 +7,14 @@
   const TAURI = !!(window.__TAURI__ || window.__TAURI_INTERNALS__);
   if (TAURI) document.body.classList.add('tauri');
 
+  /* v1.12.0 — Arayüz dili. Gömmülü tr/en çevrimdışı çalışır; sistem dili
+     başkaysa o dil GitHub'dan OTOMATİK indirilir. Dil seçici burada bağlanır.
+     (Savunmacı: i18n.js yüklenmemişse sessizce atlanır.) */
+  if (PZA.i18n && typeof PZA.i18n.hazir === 'function') PZA.i18n.hazir();
+  $('lang-select')?.addEventListener('change', e => {
+    if (PZA.i18n && typeof PZA.i18n.sec === 'function') PZA.i18n.sec(e.target.value);
+  });
+
   async function invoke(cmd, args) {
     if (!TAURI) return null;
     try {
