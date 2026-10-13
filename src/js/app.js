@@ -507,9 +507,12 @@
       ? ('Sürüm ve güncelleme — yeni sürüm hazır: v' + surum.son)
       : 'Sürüm ve güncelleme';
 
-    /* Ayarlardaki kutu artık hep görünür; yalnız metin değişir. */
+    /* Ayarlardaki kutu artık hep görünür; yalnız metin değişir.
+       Kullanıcı: "güncelleme yoksa buton pasif dursun, olabilirse ya da
+       görünmesin" → düğme YALNIZ gerçekten yeni sürüm varken açılır.
+       Elle denetim için ayrı yol var: PA düğmesi (her zaman görünür). */
     const kutu = $('gunc-kutu'), metin = $('gunc-metin'), gb = $('btn-guncelle');
-    if (kutu) kutu.hidden = false;
+    if (kutu) { kutu.hidden = false; kutu.classList.toggle('yeni', yeni); }
     if (metin) {
       metin.textContent =
         surum.durum === 'yeni'      ? ('Yeni sürüm hazır: v' + surum.son + '  →  Güncelle') :
@@ -517,7 +520,7 @@
         surum.durum === 'denetleniyor' ? 'Güncelleme denetleniyor…' :
         ('Sürüm: v' + PZA.SURUM + ' · denetlenemedi');
     }
-    if (gb) gb.hidden = false;
+    if (gb) { gb.hidden = !yeni; gb.disabled = false; }
 
     /* Popup içindeki alanlar */
     if ($('pa-mevcut')) $('pa-mevcut').textContent = 'v' + PZA.SURUM;
