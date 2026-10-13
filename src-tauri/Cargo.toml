@@ -1,6 +1,6 @@
 [package]
 name = "palet-zaman-asistani"
-version = "1.10.5"
+version = "1.11.0"
 description = "Palet Zaman Asistanı — masaüstü flip clock + notlar + hava durumu"
 authors = ["Paletweb Bilişim"]
 license = "GPL-3.0-or-later"
@@ -13,6 +13,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

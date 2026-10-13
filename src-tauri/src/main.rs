@@ -13,6 +13,7 @@ use tauri::{
     Manager, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_updater::UpdaterExt;
 
 /// Ayarlardan "Windows ile Başlat" toggle'ı bu komutu çağırır.
 #[tauri::command]
@@ -399,9 +400,45 @@ fn set_always_on_top(app: tauri::AppHandle, enabled: bool) -> Result<bool, Strin
         .map_err(|e| e.to_string())
 }
 
+/* ── Otomatik güncelleme (v1.11.0) ────────────────────────────────
+   KULLANICI: *"kurulu olan kişi yeni versiyon çıkınca neden yeniden
+   indirsin ki? Update uyarısı veya 'güncelle' butonu … bu işi otomatik
+   çözecektir."* Bu yüzden `tauri-plugin-updater` eklendi.
+
+   Akış: arayüz `guncelleme_kontrol` ile yeni sürüm olup olmadığını
+   sorar → varsa ayarlarda PARLAYAN bir uyarı + "Güncelle" düğmesi
+   görünür → `guncelleme_yap` indirir, kurar ve uygulamayı yeniden
+   başlatır. İndirme/kurma Rust'ta yapılır (WebView değil), imza
+   anahtarıyla doğrulanır; sır yalnız GitHub secret'ında durur. */
+#[tauri::command]
+async fn guncelleme_kontrol(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(s)) => Ok(Some(s.version.clone())),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Yeni sürümü indir + kur + yeniden başlat.
+/// Güncelleme kurulduysa uygulama yeniden başlar (dönüş olmaz);
+/// güncelleme yoksa `false` döner (arayüz "yok" diyebilsin).
+#[tauri::command]
+async fn guncelleme_yap(app: tauri::AppHandle) -> Result<bool, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    if let Some(s) = updater.check().await.map_err(|e| e.to_string())? {
+        s.download_and_install(|_chunk, _total| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    Ok(false)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(OauthKapi::default())
         .invoke_handler(tauri::generate_handler![
             set_autostart,
@@ -411,7 +448,9 @@ fn main() {
             gcal_bekle,
             gcal_kapat,
             hide_window,
-            set_always_on_top
+            set_always_on_top,
+            guncelleme_kontrol,
+            guncelleme_yap
         ])
         .setup(|app| {
             // ── Sistem tepsisi ──

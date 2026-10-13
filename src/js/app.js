@@ -360,6 +360,32 @@
     if (box && gercek !== null) box.checked = gercek;
   })();
 
+  /* v1.11.0 — Otomatik güncelleme denetimi (açılışta bir kez).
+     Kullanıcı: "kurulu olan kişi yeni versiyon çıkınca neden yeniden
+     indirsin ki? … 'güncelle' butonu bu işi otomatik çözecektir."
+     Yeni sürüm varsa ayarların altındaki metin PARLAR ve "Güncelle"
+     düğmesi görünür. Denetim başarısız olursa (ağ yok) günlüğe yazılır
+     — sessiz başarısızlık yok. */
+  const guncKutu = $('gunc-kutu'), guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
+  if (TAURI && guncKutu) (async () => {
+    let v = null;
+    try { v = await invoke('guncelleme_kontrol'); }
+    catch (e) { PZA.logYaz?.('uyari', 'Güncelleme denetlenemedi', { hata: String(e).slice(0, 120) }); }
+    if (v) {
+      guncMetin.textContent = 'Yeni sürüm hazır: v' + v;
+      guncKutu.hidden = false;
+    }
+  })();
+  guncBtn?.addEventListener('click', async () => {
+    guncBtn.disabled = true;
+    guncMetin.textContent = 'Güncelleniyor… uygulama birazdan yeniden başlayacak.';
+    const ok = await invoke('guncelleme_yap');
+    if (ok !== true) {                       // kurulduysa zaten yeniden başlar
+      guncMetin.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
+      guncBtn.disabled = false;
+    }
+  });
+
   document.querySelectorAll('input[name="size"]').forEach(r =>
     r.addEventListener('change', () => { if (r.checked) PZA.set('size', r.value); }));
 

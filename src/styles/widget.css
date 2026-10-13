@@ -1145,3 +1145,8 @@ input { user-select: text; }
 .widget.hide-preview .bar-preview { display: none; }
 .widget.hide-seconds .flip[data-unit="s"],
 .widget.hide-seconds .colon-live { display: none; }
+
+/* v1.11.0 — güncelleme uyarısı: ayarların altında PARLAYAN metin.
+   Kullanıcı isteği: "ayarların altında parlayan bir metin". */
+.gunc-parla { color: var(--accent); font-weight: 600; animation: guncParla 1.6s ease-in-out infinite; }
+@keyframes guncParla { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
