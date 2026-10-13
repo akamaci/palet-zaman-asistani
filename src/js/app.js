@@ -374,6 +374,66 @@
      Yeni sürüm varsa ayarların altındaki metin PARLAR ve "Güncelle"
      düğmesi görünür. Denetim başarısız olursa (ağ yok) günlüğe yazılır
      — sessiz başarısızlık yok. */
+  /* ── Ses motoru: Tolga (çevrimdışı) / Emel (kadın, internet) ──
+       Kullanıcı: bayan sesinin nereden yükleneceğini ayarlarda
+       dropdown + "Yükle" uyarısıyla görmek istedi. Emel kurulumu
+       isteğe bağlıdır: seçilince AÇIKLAMA çıkar, "Kur" düğmesi
+       Python + edge-tts kurar; internet/gizlilik uyarısı asla atlanmaz. */
+  const sesSec = $('voice-engine'), sesNot = $('voice-not'), sesKur = $('btn-ses-kur');
+  const EMEL_UYARI = 'Emel kadın sesi Microsoft’un çevrimiçi servisini kullanır: ' +
+    'okunan SAAT metni Microsoft’a gönderilir (not başlıkları gönderilmez). ' +
+    'İnternet bağlantısı gerekir. Devam edilsin mi?';
+
+  function sesNotYaz(anahtar) {
+    if (sesNot) sesNot.textContent = PZA.i18n.t(anahtar);
+  }
+
+  async function sesDurumTara() {
+    if (!TAURI || !sesSec || sesSec.value !== 'emel') { if (sesKur) sesKur.hidden = true; return; }
+    try {
+      const d = await invoke('ses_durum');
+      if (!d.kurulu) {
+        sesNotYaz(d.python ? 'voice_kur_gerek' : 'voice_python_yok');
+        if (sesKur) { sesKur.hidden = false; sesKur.disabled = !d.python; }
+      } else {
+        sesNotYaz('voice_hazir');
+        if (sesKur) sesKur.hidden = true;
+      }
+    } catch (e) {
+      sesNotYaz('voice_hata');
+      if (sesKur) sesKur.hidden = true;
+    }
+  }
+
+  sesSec?.addEventListener('change', async e => {
+    const v = e.target.value;
+    if (v === 'emel') {
+      /* Uyarı şart — kullanıcı bilgisi olmadan çevrimiçi moda geçilmez. */
+      if (!window.confirm(EMEL_UYARI)) { e.target.value = 'tolga'; PZA.set('ses', 'tolga'); return; }
+    }
+    PZA.set('ses', v);
+    sesNotYaz(v === 'emel' ? 'voice_kontrol' : 'voice_tolga_not');
+    await sesDurumTara();
+  });
+
+  sesKur?.addEventListener('click', async () => {
+    sesKur.disabled = true;
+    sesNotYaz('voice_kuruluyor');           /* "Kuruluyor…" — bekle */
+    try {
+      await invoke('ses_kur');
+      sesNotYaz('voice_hazir');
+      sesKur.hidden = true;
+      PZA.logYaz?.('bilgi', 'Emel ses motoru kuruldu (edge-tts)');
+    } catch (e) {
+      sesNotYaz('voice_kur_hata');
+      sesKur.disabled = false;
+      PZA.logYaz?.('uyari', 'Emel kurulamadı', { hata: String(e).slice(0, 140) });
+    }
+  });
+
+  sesSec && (sesSec.value = PZA.settings.ses || 'tolga');
+  sesDurumTara();
+
   /* ── Sürüm durumu + güncelleme (v1.14.0) ──────────────────
      KULLANICI (v1.11.0): *"kurulu olan kişi yeni versiyon çıkınca neden
      yeniden indirsin ki? Update uyarısı veya güncelle butonu …"*

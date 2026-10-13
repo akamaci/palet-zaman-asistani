@@ -254,6 +254,20 @@
     </div>
     <p class="voice-hint" id="voice-hint" hidden></p>
 
+    <h4 data-i18n="h_voice">SES MOTORU</h4>
+    <label class="row"><span data-i18n="voice_engine_lbl">Okuyucu sesi</span>
+      <select id="voice-engine" class="inp" aria-label="Okuyucu sesi">
+        <option value="tolga" data-i18n="voice_tolga">Tolga (çevrimdışı)</option>
+        <option value="emel"  data-i18n="voice_emel">Emel (kadın ses, internet)</option>
+      </select>
+    </label>
+    <div id="voice-not" class="hint" data-i18n="voice_tolga_not">
+      Tolga: Windows'un kendi sesi — hiçbir metin dışarı çıkmaz, internet gerekmez.
+    </div>
+    <button id="btn-ses-kur" class="btn-gcal" type="button" hidden>
+      <span data-i18n="voice_kur">Emel'i kur (internet gerekir)</span>
+    </button>
+
     <h4 data-i18n="h_loc">KONUM</h4>
     <input id="opt-city" class="inp" type="text" data-i18n-ph="city_ph" placeholder="Şehir ara… (örn. Ankara)">
     <div class="chips" id="city-chips"></div>

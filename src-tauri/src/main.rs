@@ -436,6 +436,119 @@ async fn guncelleme_yap(app: tauri::AppHandle) -> Result<bool, String> {
     Ok(false)
 }
 
+/* ── Kadın ses "Emel" (Edge TTS) — İSTEĞE BAĞLI KURULUM ───────
+   KULLANICI: *"kadın sesi yapılabiliyormu? widget için yoksa ezan sesi için
+   githublara bakalım ya da API"* → Windows'ta Türkçe kadın sistem sesi YOK
+   (ölçüldü: yalnız "Microsoft Tolga"). Edge'in sinir sesleri bunu veriyor
+   (`tr-TR-EmelNeural`) ve **anahtar istemiyor**.
+
+   Neden Rust tarafında? Edge ucu el sıkmasında `Sec-MS-GEC` başlığı ister;
+   tarayıcı WebSocket'ine özel başlık konulamaz. Rust `std::process` ile
+   kurulu Python'u çağırır → `python -m edge_tts` → MP3 → base64 data URL.
+
+   GİZLİLİK KURALI (kullanıcı kararı): *yalnız saat anonsu* çevrimiçiye
+   gider; **not başlıkları her zaman çevrimdışı kalır** (bkz. speech.js →
+   `PZA.sesMotoru`). Ses geçici dosyadan okunup silinir, diske bırakılmaz. */
+
+/// Bu makinede çalışan Python yorumlayıcısını bul (sırasıyla dener).
+fn python_yolu() -> Option<String> {
+    for ad in ["python", "python3", "py"] {
+        let calisti = std::process::Command::new(ad)
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if calisti {
+            return Some(ad.to_string());
+        }
+    }
+    None
+}
+
+/// `edge-tts` modülü kurulu mu?
+fn edge_tts_var() -> bool {
+    python_yolu()
+        .and_then(|py| {
+            std::process::Command::new(py)
+                .args(["-m", "edge_tts", "--list-voices"])
+                .output()
+                .ok()
+                .map(|o| o.status.success())
+        })
+        .unwrap_or(false)
+}
+
+/// Ses motoru durumu: Python var mı, edge-tts kurulu mu?
+#[tauri::command]
+fn ses_durum() -> serde_json::Value {
+    serde_json::json!({
+        "python": python_yolu().is_some(),
+        "kurulu": edge_tts_var(),
+    })
+}
+
+/// `pip install edge-tts` — ayarlardaki "Emel'i kur" düğmesi bunu çağırır.
+/// Kurulum birkaç saniye sürer; arayüz "Kuruluyor…" gösterir.
+#[tauri::command]
+fn ses_kur() -> Result<bool, String> {
+    let py = python_yolu().ok_or_else(|| {
+        "Bu bilgisayarda Python bulunamadı. python.org adresinden Python 3 \
+         kurup tekrar deneyin."
+            .to_string()
+    })?;
+    let cikti = std::process::Command::new(py)
+        .args(["-m", "pip", "install", "--quiet", "--disable-pip-version-check", "edge-tts"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !cikti.status.success() {
+        let hata = String::from_utf8_lossy(&cikti.stderr);
+        return Err(hata.trim().chars().take(200).collect::<String>());
+    }
+    Ok(edge_tts_var())
+}
+
+/// Metni Edge `tr-TR-EmelNeural` sesiyle MP3'e çevirip **data URL** döndür.
+/// Data URL seçildi çünkü WebView2 yerel dosyayı `file://` ile açmıyor;
+/// ~70 KB'lık MP3'yi base64'e çevirmek bu işi herhangi bir dosya izni
+/// vermeden çözüyor. Dosya okunduktan hemen sonra silinir.
+#[tauri::command]
+fn ses_oku(metin: String) -> Result<String, String> {
+    let py = python_yolu().ok_or_else(|| "Python yok".to_string())?;
+    if !edge_tts_var() {
+        return Err("edge-tts kurulu değil".to_string());
+    }
+    let gecici = std::env::temp_dir().join(format!("pza-ses-{}.mp3", std::process::id()));
+    let cikti = std::process::Command::new(py)
+        .args(["-m", "edge_tts", "--voice", "tr-TR-EmelNeural", "--text", &metin])
+        .arg("--write-media")
+        .arg(&gecici)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !cikti.status.success() {
+        let _ = std::fs::remove_file(&gecici);
+        let hata = String::from_utf8_lossy(&cikti.stderr);
+        return Err(hata.trim().chars().take(200).collect::<String>());
+    }
+    let bayt = std::fs::read(&gecici).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&gecici);   // ses diske bırakılmaz
+    Ok(format!("data:audio/mpeg;base64,{}", b64(&bayt)))
+}
+
+/// Minik base64 kodlayıcı (harici bağımlılık eklememek için).
+fn b64(girdi: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut c = String::with_capacity((girdi.len() + 2) / 3 * 4);
+    for takim in girdi.chunks(3) {
+        let b = [takim[0], *takim.get(1).unwrap_or(&0), *takim.get(2).unwrap_or(&0)];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        c.push(T[(n >> 18) as usize & 63] as char);
+        c.push(T[(n >> 12) as usize & 63] as char);
+        c.push(if takim.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        c.push(if takim.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    c
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
@@ -451,7 +564,10 @@ fn main() {
             hide_window,
             set_always_on_top,
             guncelleme_kontrol,
-            guncelleme_yap
+            guncelleme_yap,
+            ses_durum,
+            ses_kur,
+            ses_oku
         ])
         .setup(|app| {
             // ── Sistem tepsisi ──

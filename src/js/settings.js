@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.14.0';
+PZA.SURUM = '1.15.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -67,7 +67,12 @@ PZA.DEFAULTS = {
   log: true,
   /* v1.12.0 — arayüz dili. 'auto' = sistem dili (tr/en gömülü; diğerleri
      GitHub'dan otomatik indirilir). Kullanıcı Ayarlar'dan seçebilir. */
-  dil: 'auto'
+  dil: 'auto',
+  /* v1.15.0 — ses motoru. 'tolga' = Windows'un kendi Türkçe sesi
+     (çevrimdışı, varsayılan). 'emel' = Edge TTS kadın sesi; internet
+     gerektirir, ilk kullanımda kurulur ve yalnız saat anonsu çevrimiçi
+     gider — not başlıkları daima çevrimdışı kalır (bkz. speech.js). */
+  ses: 'tolga'
 };
 
 const KEY = 'pza.settings.v1';

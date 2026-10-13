@@ -191,9 +191,40 @@ if ('speechSynthesis' in window) {
     Konuşmadan önce `cancel()` çağrılır — üst üste binen anonslar
     birbirini kesmesin diye, aynı saniyeye düşen metinleri ÇAĞIRAN
     taraf tek cümlede birleştirir (bkz. clock.js → `saatAnonsu`). */
+/* ── Kadın ses "Emel" (Edge TTS) ───────────────────────────────
+   KULLANICI: *"kadın sesi yapılabiliyormu?"* → Ayarlar'daki
+   "SES MOTORU" seçicisi bu fonksiyonları besler.
+
+   GİZLİLİK KURALI (kullanıcı kararı): çevrimiçi motora **yalnız saat
+   anonsu** gider. Metin `not` işaretliyse (not başlığı / önemli kayıt)
+   ya da internet yoksa **her zaman Tolga**'ya düşülür — not başlıkları
+   Microsoft'a gönderilmez. */
+PZA.sesMotoru = function (baglam) {
+  if ((PZA.settings && PZA.settings.ses) !== 'emel') return 'tolga';
+  if (baglam && baglam.not) return 'tolga';          // not başlığı → çevrimdışı
+  if (!navigator.onLine) return 'tolga';              // internet yok → çevrimdışı
+  return 'emel';
+};
+
+/** Metni çevrimiçi kadın sesle oku. Başarısız olursa `false` döner —
+    çağıran taraf Tolga'ya düşer (sessiz susmaz, günlüğe yazar). */
+PZA.emelOku = async function (metin) {
+  try {
+    const url = await invoke('ses_oku', { metin });
+    const ses = new Audio(url);
+    await ses.play();
+    PZA.logYaz?.('bilgi', 'Emel ile okundu (çevrimiçi)');
+    return true;
+  } catch (e) {
+    PZA.logYaz?.('uyari', 'Emel okuyamadı — Tolga kullanılıyor', { hata: String(e).slice(0, 120) });
+    return false;
+  }
+};
+
 PZA.sayMetin = function (metin, baglam) {
   const m = String(metin == null ? '' : metin).trim();
   if (!m) return false;
+  if (PZA.sesMotoru(baglam) === 'emel') return PZA.emelOku(m);   // çevrimiçi
   if (!('speechSynthesis' in window)) {
     console.warn('Bu ortamda speechSynthesis yok.');
     return false;
@@ -220,11 +251,14 @@ PZA.sayMetin = function (metin, baglam) {
     düşerse tek ses olsun — iki ayrı çağrı birbirini keserdi. */
 PZA.say = function (h, m, ekler) {
   const parcalar = [PZA.trClock(h, m)];
+  let notVar = false;
   for (const e of (ekler || [])) {
     const t = String(e == null ? '' : e).trim();
-    if (t) parcalar.push(t);
+    if (t) { parcalar.push(t); notVar = true; }
   }
-  return PZA.sayMetin(parcalar.join('. '), { h, m });
+  /* `not:true` → not başlığı karışmış demektir → çevrimiçi kadın sese
+     GÖNDERİLMEZ, Tolga ile okunur (gizlilik kuralı). */
+  return PZA.sayMetin(parcalar.join('. '), { h, m, not: notVar });
 };
 
 /** Şu anki saati oku (ayarlar önizlemesi için) */
