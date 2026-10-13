@@ -374,16 +374,133 @@
      Yeni sürüm varsa ayarların altındaki metin PARLAR ve "Güncelle"
      düğmesi görünür. Denetim başarısız olursa (ağ yok) günlüğe yazılır
      — sessiz başarısızlık yok. */
-  const guncKutu = $('gunc-kutu'), guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
-  if (TAURI && guncKutu) (async () => {
-    let v = null;
-    try { v = await invoke('guncelleme_kontrol'); }
-    catch (e) { PZA.logYaz?.('uyari', 'Güncelleme denetlenemedi', { hata: String(e).slice(0, 120) }); }
-    if (v) {
-      guncMetin.textContent = 'Yeni sürüm hazır: v' + v;
-      guncKutu.hidden = false;
+  /* ── Sürüm durumu + güncelleme (v1.14.0) ──────────────────
+     KULLANICI (v1.11.0): *"kurulu olan kişi yeni versiyon çıkınca neden
+     yeniden indirsin ki? Update uyarısı veya güncelle butonu …"*
+     KULLANICI (v1.14.0): *"tasarımda PA yazısı var bunu butona çevirelim.
+     Basıldığında 'sürümünüz güncel yada yeni sürüme güncellensin mi?' gibi
+     bir popup olabilir. Yeni sürüm olunca parlayıp sönerek bir ışık efekti
+     olabilir. Açılışta güncelleme sorabilir."*
+
+     ÖNCEKİ TASARIMIN SORUNU: denetim yalnız açılışta bir kez çalışıyordu ve
+     "Güncelle" düğmesi gizli kutunun içindeydi → kullanıcı "güncelleme uyarısı
+     gelmedi, nereye bakmalıyım?" diye sordu. Şimdi:
+       • PA düğmesi HER ZAMAN var, elle denetim tetikler.
+       • Ayarlardaki güncelleme kutusu hep görünür (durumu yazar).
+       • Denetim açılışta yapılır; yeni sürüm varsa PA ışık efektiyle parlar
+         ve açılışta popup ile sorulur. */
+  const surum = {
+    durum: 'bilinmiyor',   /* bilinmiyor | guncel | yeni | hata */
+    son: null,            /* sunucudaki sürüm */
+    hata: null
+  };
+
+  /* "1.13.0" > "1.9.0" → metin karşılaştırması YANLIŞ ("1" > "9" string'de
+     true). Sayısal parça karşılaştırması şart.
+     DİKKAT: `.split(/[.+-]/)[0]` burada BUG çıkarır — nokta da bölücü olduğu
+     için "1.14.0" → "1" kalır ve sadece ana sürüm karşılaştırılır. Doğrusu:
+     ön ek `v` ve sürüm sonu eki (-beta / +build) atılır, noktalar KORUNUR. */
+  function surumKarsil(a, b) {
+    const parca = s => String(s || '').replace(/^v/i, '')
+                       .replace(/[-+].*$/, '')
+                       .split('.').map(n => parseInt(n, 10) || 0);
+    const A = parca(a), B = parca(b);
+    for (let i = 0; i < Math.max(A.length, B.length); i++) {
+      const x = A[i] || 0, y = B[i] || 0;
+      if (x !== y) return x > y ? 1 : -1;
     }
-  })();
+    return 0;
+  }
+
+  /* Denetimi yap ve arayüzü tara — `sessiz` çağrıda hata olursa da
+     ekrana yansıt (eskiden yalnız günlüğe yazılıyordu, kullanıcı hiçbir
+     şey görmüyordu; bu, "uyarı gelmedi" şikâyetinin ikinci sebebiydi). */
+  async function surumKontrol() {
+    const dur = PZA.surumDurumu = surum;
+    if (!TAURI) { dur.durum = 'hata'; dur.hata = 'Tauri dışında'; return dur; }
+    dur.durum = 'denetleniyor';
+    surumGoster();
+    try {
+      const v = await invoke('guncelleme_kontrol');
+      dur.son = v || null;
+      dur.durum = (v && surumKarsil(v, PZA.SURUM) > 0) ? 'yeni' : 'guncel';
+      if (dur.durum === 'yeni') {
+        PZA.logYaz?.('bilgi', 'Yeni sürüm hazır: v' + v + ' (kurulu: v' + PZA.SURUM + ')');
+        /* Açılışta sor — kullanıcı isteği: "Açılışta güncelleme sorabilir" */
+        setTimeout(() => { if (!paModal.hidden) return; paAc(); }, 900);
+      }
+    } catch (e) {
+      dur.durum = 'hata';
+      dur.hata = String(e).slice(0, 120);
+      PZA.logYaz?.('uyari', 'Güncelleme denetlenemedi', { hata: dur.hata });
+    }
+    surumGoster();
+    return dur;
+  }
+
+  /* Durumu PA düğmesine + ayarlardaki kutuya yazar. */
+  function surumGoster() {
+    const yeni = surum.durum === 'yeni';
+    const btn = $('pa-btn');
+    if (btn) btn.classList.toggle('pa-yeni', yeni);
+    if (btn) btn.title = yeni
+      ? ('Sürüm ve güncelleme — yeni sürüm hazır: v' + surum.son)
+      : 'Sürüm ve güncelleme';
+
+    /* Ayarlardaki kutu artık hep görünür; yalnız metin değişir. */
+    const kutu = $('gunc-kutu'), metin = $('gunc-metin'), gb = $('btn-guncelle');
+    if (kutu) kutu.hidden = false;
+    if (metin) {
+      metin.textContent =
+        surum.durum === 'yeni'      ? ('Yeni sürüm hazır: v' + surum.son + '  →  Güncelle') :
+        surum.durum === 'guncel'    ? ('v' + PZA.SURUM + ' · güncel') :
+        surum.durum === 'denetleniyor' ? 'Güncelleme denetleniyor…' :
+        ('Sürüm: v' + PZA.SURUM + ' · denetlenemedi');
+    }
+    if (gb) gb.hidden = false;
+
+    /* Popup içindeki alanlar */
+    if ($('pa-mevcut')) $('pa-mevcut').textContent = 'v' + PZA.SURUM;
+    const sonEl = $('pa-son'), sonKutu = $('pa-son-kutu');
+    if (sonEl) sonEl.textContent = surum.son ? ('v' + surum.son) : '—';
+    if (sonKutu) sonKutu.classList.toggle('yeni', yeni);
+    const notEl = $('pa-not'), yenile = $('pa-yenile');
+    if (notEl) {
+      notEl.textContent =
+        surum.durum === 'yeni'   ? ('v' + surum.son + ' yayımlandı. Şimdi güncelleyebilirsiniz.') :
+        surum.durum === 'guncel' ? 'Uygulamanız güncel. Yeni bir sürüm çıktığında burada bildirilecek.' :
+        surum.durum === 'denetleniyor' ? 'Denetleniyor…' :
+        ('Denetim yapılamadı' + (surum.hata ? ' (' + surum.hata + ')' : '') +
+         '. İnternet bağlantısını kontrol edip tekrar deneyebilirsiniz.');
+    }
+    if (yenile) yenile.hidden = !yeni;
+  }
+
+  /* ── Popup aç/kapa ── */
+  const paModal = $('pa-modal');
+  function paAc() {
+    if (!paModal) return;
+    surumGoster();
+    paModal.hidden = false;
+    $('pa-kapat')?.focus();
+  }
+  function paKapa() { if (paModal) paModal.hidden = true; }
+
+  $('pa-btn')?.addEventListener('click', () => {
+    paAc();
+    surumKontrol();          /* elle basınca ANINDA tazele (açılıştan bağımsız) */
+  });
+  $('pa-kapat')?.addEventListener('click', paKapa);
+  $('pa-x')?.addEventListener('click', paKapa);
+  paModal?.addEventListener('click', e => { if (e.target === paModal) paKapa(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && paModal && !paModal.hidden) paKapa();
+  });
+
+  /* Açılışta bir kez denetle (PA'yı ilk anda doğru göstermek için) */
+  surumKontrol();
+
+  const guncKutu = $('gunc-kutu'), guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
   guncBtn?.addEventListener('click', async () => {
     guncBtn.disabled = true;
     guncMetin.textContent = 'Güncelleniyor… uygulama birazdan yeniden başlayacak.';

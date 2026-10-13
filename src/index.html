@@ -176,7 +176,13 @@
     </div>
 
     <div class="status"><span class="dot"></span>Tema: <b id="theme-label">Karanlık</b></div>
-    <div class="brand" title="Palet Zaman Asistanı"><span>PA</span></div>
+    <!-- v1.14.0 — kullanıcı: "tasarımda PA yazısı var bunu butona çevirelim."
+         Ayarlar sol altta → PA sağ altta (zıt istikamet). Basınca sürüm
+         durumu popup'ı açılır; yeni sürüm varsa ışık efektiyle parlar. -->
+    <button id="pa-btn" class="brand" type="button"
+            title="Sürüm ve güncelleme" aria-haspopup="dialog" aria-controls="pa-modal">
+      <span>PA</span>
+    </button>
   </div>
 
 </div>
@@ -456,6 +462,32 @@
 
   <div class="set-foot">
     <span id="st-foot">Yeni skin</span>
+  </div>
+</div>
+
+<!-- ══ SÜRÜM DURUMU POPUP'ı (v1.14.0) ══
+     Kullanıcı: "basıldığında 'sürümünüz güncel yada yeni sürüme
+     güncellensin mi?' gibi bir popup olabilir. Yeni sürüm olunca
+     parlayıp sönerek bir ışık efekti olabilir. Açılışta güncelleme
+     sorabilir." → PA düğmesi bu kutuyu açar. -->
+<div id="pa-modal" class="pa-modal" hidden>
+  <div class="pa-box" role="dialog" aria-modal="true" aria-labelledby="pa-bas">
+    <div class="pa-box-head">
+      <b id="pa-bas" data-i18n="pa_baslik">Sürüm Durumu</b>
+      <button id="pa-x" class="x" type="button" aria-label="Kapat">✕</button>
+    </div>
+
+    <div class="pa-surum">
+      <div class="pa-kutu"><span data-i18n="pa_kurulu">Kurulu sürüm</span><b id="pa-mevcut">—</b></div>
+      <div class="pa-kutu" id="pa-son-kutu"><span data-i18n="pa_son_surum">Son sürüm</span><b id="pa-son">—</b></div>
+    </div>
+
+    <p id="pa-not" class="hint" data-i18n="pa_kontrol">Denetleniyor…</p>
+
+    <div class="pa-eylem">
+      <button id="pa-kapat" class="btn-gcal ikincil" data-i18n="pa_kapat">Kapat</button>
+      <button id="pa-yenile" class="btn-gcal" data-i18n="btn_update" hidden>Güncelle</button>
+    </div>
   </div>
 </div>
 
