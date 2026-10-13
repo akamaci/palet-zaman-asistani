@@ -55,20 +55,6 @@ jobs:
       - name: İkonları üret (assets/logo.png → src-tauri/icons)
         run: npm run icon
 
-      # v1.11.1 — Paylaşılan OAuth istemci sırrı repoda DURMAZ (GitHub
-      # push-koruması GOCSPX-… dizisini sır sayar). Yer tutucu, derlemeden
-      # ÖNCE CI secret'ından doldurulur; böylece yalnız DERLENMİŞ uygulama
-      # paylaşılan istemciyi taşır, kaynak ağacı temiz kalır.
-      - name: Gömülü OAuth sırrını enjekte et
-        if: ${{ secrets.PZA_GCAL_SECRET != '' }}
-        shell: pwsh
-        run: |
-          $f = "src/js/gcal.js"
-          $c = Get-Content $f -Raw
-          $c = $c.Replace("__PZA_GCAL_SECRET__", "${{ secrets.PZA_GCAL_SECRET }}")
-          Set-Content -Path $f -Value $c -NoNewline -Encoding utf8
-          if ($c -match "__PZA_GCAL_SECRET__") { Write-Error "Yer tutucu degismedi"; exit 1 }
-
       - name: Derle ve yayınla
         uses: tauri-apps/tauri-action@v1
         env:

@@ -143,9 +143,10 @@ mod kabuk {
 fn gcal_ac(url: String) -> Result<bool, String> {
     // Yalnızca listedeki adresler açılır: arayüzden gelen bir dize
     // doğrudan kabuğa/tarayıcıya verildiği için beyaz liste şart.
-    const IZINLI: [&str; 2] = [
+    const IZINLI: [&str; 3] = [
         "https://accounts.google.com/",
         "https://console.cloud.google.com/",
+        "https://github.com/",
     ];
     if !IZINLI.iter().any(|p| url.starts_with(p)) {
         return Err("Beklenmeyen adres reddedildi.".into());

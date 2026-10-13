@@ -19,6 +19,7 @@ Widget'ta **Ayarlar**'ı açın ve **GOOGLE TAKVİM** başlığına inin. Burada
 |---|---|
 | **Hesap Bağla** | Tarayıcıda Google onay sayfasını açar; izin verince bağlantı kurulur |
 | **Konsolu aç** | Google Cloud Console'u doğrudan bu sayfadan açar (adım 2–4) |
+| **Ayrıntılı anlatım (wiki)** | Bu sayfayı uygulamadan açar — adres ezberlemenize gerek yok |
 | **Client ID alanı** | `…apps.googleusercontent.com` ile biten **açık** değer |
 | **İstemci sırrı alanı** | `GOCSPX-…` ile başlayan değer — yalnızca bu makinede saklanır |
 
@@ -102,16 +103,32 @@ tekrar görebilirsiniz.
 1. İki değeri ilgili alanlara yapıştırın.
 2. **Hesap Bağla** düğmesine basın.
 3. Varsayılan tarayıcınızda Google onay sayfası açılır.
-4. Hesabınızı seçin → *"Bu uygulama doğrulanmadı"* uyarısı çıkarsa
-   **Gelişmiş** → *«Palet Zaman» sayfasına git (güvenli değil)* ile devam edin.
-   *(Bu uyarı normaldir: uygulama kendi Google projenizde test modunda çalışıyor.)*
-5. **İzin ver** → **Devam** deyin.
+4. Hesabınızı seçin. *"Google bu uygulamayı doğrulamadı"* uyarısı çıkarsa
+   **§4.1**'e bakın (düğme adları orada, birebir).
+5. Açılan izin ekranında **"Devam Et"**e basın. *(Ekranda vurgulu/mavi düğme
+   varsa dikkat — doğru olan düz **"Devam Et"** olabilir.)*
 
 Sekme kendini kapatmayı dener; kapanmazsa **"Bağlandı"** yazan sayfayı görüp
 elle kapatabilirsiniz. Birkaç saniye içinde panelde **"Bağlı"** yazısını görürsünüz.
 
 > Panel "Bağlı" yazarken bunu **iddia etmez, ölçer** — açılışta takvime sorar.
 > Yani gördüğünüz yazı gerçek durumdur.
+
+### 4.1 "Google bu uygulamayı doğrulamadı" ekranı
+
+Bu ekran **normaldir**: uygulama kendi Google projenizde çalıştığı için Google
+onu "doğrulanmamış" sayar. Ekranda **iki** yon var; yanlış olan **vurgulu**
+düğmedir — çoğu kullanıcı burada akıştan çıkıyor.
+
+| Ekranda görünen | Basılacak mı? |
+|---|---|
+| **"GÜVENLİĞE GERİ DÖN"** (mavi, vurgulu, sağda) | ❌ **HAYIR** — akıştan çıkarır |
+| **"Gelişmiş Ayarlar"** (solda, küçük, altı çizili) | ✅ **EVET** — buna basın |
+| Açılan yerden **"<uygulama adı> uygulamasına git (güvenli değil)"** | ✅ **EVET** — buna basın |
+| Sonraki izin ekranında **"Devam Et"** | ✅ **EVET** |
+
+> **Kısaca:** *Gelişmiş Ayarlar → … uygulamasına git → Devam Et.*
+> Mavi **"Güvenliğe geri dön"**e basmayın.
 
 ---
 
@@ -153,7 +170,7 @@ Bağlantıyı kesmek takviminizdeki etkinlikleri **silmez**.
 | `client_secret is missing` | İstemci sırrı alanı boş. Konsol → **Credentials** → istemciyi açıp **Client secret**'ı kopyalayın. Paneldeki **Konsolu aç** düğmesi sizi doğrudan oraya götürür. |
 | `invalid_client` | Client ID veya sır yanlış kopyalanmış. Baştan sona tekrar kopyalayın (baş/son boşluk olmasın). |
 | `access_denied` | OAuth *consent screen* → **Test users** listesine kendi Gmail adresiniz eklenmemiş. Ekleyin. |
-| *"Bu uygulama doğrulanmadı"* uyarısı | Normal — uygulama test modunda. **Gelişmiş → git** ile devam edin. |
+| *"Google bu uygulamayı doğrulamadı"* ekranı | Normaldir (kendi projeniz, doğrulanmamış). **Gelişmiş Ayarlar → "… uygulamasına git (güvenli değil)" → Devam Et.** Mavi **"Güvenliğe geri dön"**e basmayın. Ayrıntı: bölüm 4.1. |
 | Bir hafta sonra tekrar bağlanmam gerekiyor | *Testing* modunda yenileme jetonu 7 günde dolar. Uygulamayı **Production**'a alın (bkz. adım 3c notu). |
 | Tarayıcı hiç açılmıyor | Akış durmaz. Panelde görünen **Adresi kopyala** düğmesiyle adresi kopyalayıp kendi tarayıcınıza yapıştırın — dönüş yine `127.0.0.1` dinleyicisine düşer. Adres tek kullanımlıktır ve istemci sırrını **taşımaz**, kopyalanması güvenlidir. |
 | Not yazdım ama takvimde görünmüyor | Sağ üstteki eşitleme durumuna bakın. Bağlantı kopmuşsa panel bunu söyler. Bağlıyken not değişikliği **kendiliğinden** gönderilir; ayrıca saat başı bir güvenlik süpürmesi kaçan kaydı yakalar. |

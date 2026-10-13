@@ -294,12 +294,17 @@
          yalnız bu makinede durur; hiçbir mesajda görünmez). -->
     <div id="gcal-kur" hidden>
       <p class="hint">
-        Bağlantı için Google Cloud Console'da <b>tek seferlik</b> (≈5 dk,
-        ücretsiz) bir <b>OAuth masaüstü istemcisi</b> gerekir. İstemcinin
-        <b>Client ID</b> ve <b>istemci sırrı</b> değerlerini aşağıya
-        yapıştırın. İkisi de yalnız sizin makinenizde saklanır.
+        Bağlantı için bir defalık (≈5 dk, ücretsiz) Google <b>OAuth masaüstü
+        istemcisi</b> gerekir. Adımlar: <b>1)</b> "Konsolu aç" → yeni proje ·
+        <b>2)</b> Google Takvim API'yi etkinleştir · <b>3)</b> İzin ekranı
+        (External) → kendini test kullanıcısı ekle · <b>4)</b> Kimlik
+        Bilgileri → OAuth istemcisi, tür <b>Masaüstü uygulaması</b> ·
+        <b>5)</b> çıkan <b>Client ID</b> ve <b>istemci sırrı</b>'nı aşağıya
+        yapıştır. İkisi de yalnız sizin makinenizde saklanır; uygulama hiçbir
+        kimlik taşımaz.
       </p>
       <button id="gcal-console" class="btn-gcal ikincil">Konsolu aç</button>
+      <button id="gcal-wiki" class="btn-gcal ikincil">Ayrıntılı anlatım (wiki)</button>
       <input id="gcal-id" class="inp" type="text" spellcheck="false"
              autocomplete="off" placeholder="…apps.googleusercontent.com">
       <input id="gcal-secret" class="inp" type="text" spellcheck="false"

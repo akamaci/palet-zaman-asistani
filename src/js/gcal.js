@@ -107,21 +107,13 @@ PZA.GCAL.DOGRULANMADI = 'Sayfada "Google bu uygulamayı doğrulamadı" yazıyors
   '"Paletsaat uygulamasına git (güvenli değil)"i seçin. ' +
   'Mavi "GÜVENLİĞE GERİ DÖN" düğmesi YANLIŞ — sizi akıştan çıkarır.';
 
-/* v1.11.1 — PAYLAŞILAN (gömülü) OAuth istemcisi.
-   KULLANICI İSTEĞİ: son kullanıcı Client ID/sır girmek zorunda kalmasın
-   ("bunu son kullanıcıya anlatmak kolay değil"). Böylece "Hesap Bağla"
-   tek tıkla çalışır. Gerekçe: Google'a göre **installed/desktop**
-   uygulamalarda OAuth istemci SIRRI gizli değildir (kendi dokümanı),
-   dolayısıyla gömülmesi GPL "sır gömme" kuralını çiğnemez. İsteyen
-   kullanıcı Ayarlar'daki alanı doldurup bunu GEÇERSİZ KILABİLİR.
-
-   ⚠ SIR GİTHUB'A KONMAZ: GitHub push-koruması `GOCSPX-…` dizisini sır
-   sayıp push'u reddeder. Bu yüzden sır, aşağıdaki YER TUTUCU'nun yerine
-   **derleme anında** (CI'da `PZA_GCAL_SECRET` secret'ından) konur —
-   bkz. `.github/workflows/yayin.yml`. Yerelde/derlemede eksikse paylaşılan
-   istemci devre dışı kalır ve kullanıcı kendi istemcisini girer. */
-PZA.GCAL.VARSAYILAN_ID = '631177154665-llbtq0jo7ve4n5v9db7u8is5tr4md4kh.apps.googleusercontent.com';
-PZA.GCAL.VARSAYILAN_SIR = '__PZA_GCAL_SECRET__';
+/* v1.11.1 KARARI — PAYLAŞILAN/GÖMÜLÜ istemci YOK (kullanıcı, 2026-10-13):
+   "her kullanıcı kendi idsini girsin". Böylece uygulama HİÇBİR kimlik
+   bilgisi taşımaz; kişisel/proje sırrı GÖMÜLMEZ. Kurulumu kolaylaştırmak
+   için adımlar arayüzde ve ayrıntılı olarak wiki sayfasında anlatılır.
+   (Önceki gömülü-istemci denemesi geri alındı; sebep: kullanıcının kişisel
+   Google projesini dağıtmak istememesi.) */
+PZA.GCAL.WIKI = 'https://github.com/akamaci/palet-zaman-asistani/wiki/Google-Takvim';
 
 /* TUR 8 — Tarayıcının açıldığını İDDİA ETMEYEN çıkış yolu.
    Kullanıcı bildirimi: *"browserda açılan bişi yok"*, ardından
@@ -361,28 +353,6 @@ PZA.gcalClientId = function () { return PZA.gcal.clientId || ''; };
    ve değer yalnız bu makinede saklanır. */
 PZA.gcalClientSecret = function () {
   return String(PZA.gcal.clientSecret || '').trim();
-};
-
-/* v1.11.1 — PAYLAŞILAN (gömülü) istemciyi, kullanıcı KENDİ istemcisini
-   girmediyse bir kez uygula. Böylece "Hesap Bağla" tek tıkla çalışır
-   (son kullanıcı Client ID/sır girmez). Getter'lar BİLEREK saf bırakıldı:
-   gömülü değer, kullanıcı alanına bir kez YAZILIR (o da `PZA.gcal.clientId`
-   olur) — böylece akış/doğrulama mantığı ve davranış testleri aynı kalır.
-   Kullanıcı sonradan kendi değerini girerse bunu geçersiz kılar. */
-PZA.gcalGomuluyuUygula = function () {
-  /* Yer tutucu DEĞİŞTİRİLMEDİYSE (yerel/derleme sırrı yok) paylaşılan
-     istemci devreye girmez; kullanıcı kendi istemcisini girer. */
-  const sirGercek = /^GOCSPX-/.test(String(PZA.GCAL.VARSAYILAN_SIR || ''));
-  const idGercek = /\.apps\.googleusercontent\.com$/.test(String(PZA.GCAL.VARSAYILAN_ID || ''));
-  let degisti = false;
-  if (idGercek && sirGercek && !PZA.gcal.clientId) {
-    PZA.gcal.clientId = PZA.GCAL.VARSAYILAN_ID; degisti = true;
-  }
-  if (idGercek && sirGercek && !PZA.gcal.clientSecret) {
-    PZA.gcal.clientSecret = PZA.GCAL.VARSAYILAN_SIR; degisti = true;
-  }
-  if (degisti) PZA.gcalKaydet?.();
-  return degisti;
 };
 
 /* TUR 14 — Google'ın ham hatası kullanıcıya YOL GÖSTERMEZ.
@@ -945,6 +915,16 @@ PZA.gcalKonsolAc = async function () {
   const url = 'https://console.cloud.google.com/apis/credentials';
   if (!GCAL_TAURI) { window.open(url, '_blank', 'noopener'); return true; }
   return await gcalCagir('gcal_ac', { url });
+};
+
+/** Ayrıntılı kurulum anlatımını (wiki) aç. Rust yalnızca izinli adresleri
+    açar; github.com beyaz listeye eklendi. Açma başarısız olursa çağıran
+    taraf adresi gösterir (kopyalanabilir olsun). */
+PZA.gcalWikiAc = async function () {
+  const url = PZA.GCAL.WIKI;
+  if (!GCAL_TAURI) { window.open(url, '_blank', 'noopener'); return true; }
+  try { return await gcalCagir('gcal_ac', { url }); }
+  catch (e) { return false; }
 };
 
 /** Kutuda gösterilen adresi tarayıcıda aç ("Tarayıcıda aç" düğmesi).
