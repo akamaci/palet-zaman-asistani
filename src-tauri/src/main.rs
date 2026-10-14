@@ -439,7 +439,7 @@ async fn guncelleme_yap(app: tauri::AppHandle) -> Result<bool, String> {
 /* ── Ses: tamamen YEREL (v1.16.0) ─────────────────────────────
    Bulut "Emel" (Edge TTS + Python) KALDIRILDI — KVKK gereği hiçbir
    metin dışarı çıkmaz ve internet/Python gerekmez. Kadın ses "Ece",
-   EMA Lightning ile üretilmiş `ses/*.wav` kliplerinden arayüzde
+   EMA Lightning ile üretilmiş `ses` klasöründeki .wav kliplerinden arayüzde
    çalınır (bkz. speech.js → PZA.eceSaat); Rust'ta ses komutu yok. */
 
 fn main() {
