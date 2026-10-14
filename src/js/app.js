@@ -23,6 +23,15 @@
     } catch (e) { console.warn('invoke ' + cmd, e); return null; }
   }
 
+  /* Hatayı YUTMAYAN çağrı. Güncelleme akışı yutan `invoke` yüzünden
+     "çalışmıyor" deyip SEBEBİNİ gösteremiyordu — bu çağrı hatayı
+     çağırana yükseltir, arayüz gerçek mesajı yazabilir. */
+  async function hamInvoke(cmd, args) {
+    if (!TAURI) throw new Error('Tauri dışında çalışıyor');
+    const core = window.__TAURI__.core || window.__TAURI__;
+    return await core.invoke(cmd, args);
+  }
+
   /* ── Tauri: pencereyi içeriğe uydur ────────────────────
      Notlar/hava paneli açılınca widget uzar. Sabit pencere
      yüksekliği paneli kırpardı.
@@ -509,31 +518,53 @@
   surumKontrol();
 
   const guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
-  const paYenile = $('pa-yenile'), paNot = $('pa-not');
+  const paYenile = $('pa-yenile');
+  const paIlerleme = $('pa-ilerleme'), paBar = $('pa-bar'),
+        paDolgu = $('pa-bar-dolgu'), paIlMetin = $('pa-ilerleme-metin');
 
-  /* Güncellemeyi uygula — hem ayarlardaki kutu hem PA popup'ı bunu kullanır.
-     Başarılıysa uygulama yeniden başlar (dönüş olmaz); hata olursa metin
-     sebebi söyler ve düğme yeniden etkinleşir (sessiz başarısızlık yok). */
+  /* Rust `guncelleme-ilerleme` olayı → PA çubuğu + metin (yüzde). */
+  (function ilerlemeDinle() {
+    const ev = window.__TAURI__ && window.__TAURI__.event;
+    if (!ev || typeof ev.listen !== 'function') return;
+    ev.listen('guncelleme-ilerleme', e => {
+      const p = (e && e.payload) || {};
+      if (paBar) paBar.classList.remove('belirsiz');
+      if (paDolgu && typeof p.yuzde === 'number') paDolgu.style.width = p.yuzde + '%';
+      const t = (typeof p.yuzde === 'number') ? ('Güncelleniyor… %' + p.yuzde) : 'Güncelleniyor…';
+      if (paIlMetin) paIlMetin.textContent = t;
+      if (guncMetin) guncMetin.textContent = t;
+    });
+  })();
+
+  /* Güncellemeyi uygula — hem ayarlardaki kutu hem PA popup'ı kullanır.
+     Başarılıysa uygulama yeniden başlar (dönüş olmaz). Hata olursa GERÇEK
+     sebep yazılır (hamInvoke; yutan invoke değil). İndirirken ilerleme
+     çubuğu + yüzde gösterilir. */
   async function guncelleUygula(metinEl, btnEl) {
     if (btnEl) btnEl.disabled = true;
-    if (metinEl) metinEl.textContent = 'Güncelleniyor… uygulama birazdan yeniden başlayacak.';
+    if (paIlerleme) { paIlerleme.hidden = false; }
+    if (paBar) paBar.classList.add('belirsiz');
+    if (paDolgu) paDolgu.style.width = '0%';
+    const yaz = t => { if (metinEl) metinEl.textContent = t; if (paIlMetin) paIlMetin.textContent = t; };
+    yaz('Güncelleniyor… uygulama birazdan yeniden başlayacak.');
     try {
-      const ok = await invoke('guncelleme_yap');
+      const ok = await hamInvoke('guncelleme_yap');
       if (ok !== true) {                       // kurulduysa zaten yeniden başlar
-        if (metinEl) metinEl.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
+        yaz('Yeni sürüm bulunamadı ya da güncelleme uygulanamadı.');
         if (btnEl) btnEl.disabled = false;
       }
     } catch (e) {
-      if (metinEl) metinEl.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
+      const hata = String(e && e.message ? e.message : e).slice(0, 200);
+      yaz('Güncelleme başarısız: ' + hata);
       if (btnEl) btnEl.disabled = false;
-      PZA.logYaz?.('uyari', 'Güncelleme başarısız', { hata: String(e).slice(0, 120) });
+      PZA.logYaz?.('uyari', 'Güncelleme başarısız', { hata });
     }
   }
 
   guncBtn?.addEventListener('click', () => guncelleUygula(guncMetin, guncBtn));
-  /* PA popup'taki "Güncelle" (id="pa-yenile"). ÖNCE BU DÜĞME BAĞLANMAMIŞTI:
-     görünüyordu ama tıklanınca hiçbir şey olmuyordu (kullanıcı bildirimi). */
-  paYenile?.addEventListener('click', () => guncelleUygula(paNot, paYenile));
+  /* PA popup'taki "Güncelle" (id="pa-yenile"). v1.16.1'de bağlandı;
+     v1.16.2'de ilerleme + gerçek hata mesajı eklendi. */
+  paYenile?.addEventListener('click', () => guncelleUygula(null, paYenile));
 
   document.querySelectorAll('input[name="size"]').forEach(r =>
     r.addEventListener('change', () => { if (r.checked) PZA.set('size', r.value); }));

@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_updater::UpdaterExt;
@@ -421,19 +421,41 @@ async fn guncelleme_kontrol(app: tauri::AppHandle) -> Result<Option<String>, Str
     }
 }
 
-/// Yeni sürümü indir + kur + yeniden başlat.
-/// Güncelleme kurulduysa uygulama yeniden başlar (dönüş olmaz);
-/// güncelleme yoksa `false` döner (arayüz "yok" diyebilsin).
+/// Yeni sürümü indir + kur + yeniden başlat. İndirme sırasında arayüze
+/// `guncelleme-ilerleme` olayı yayar (yüzde) — kullanıcı ilerlemeyi GÖRSÜN
+/// (kullanıcı isteği: *"yürüyen ışık gibi ya da ilerleme barı … en kötü
+/// güncelleniyor yazar"*). Yeni sürüm yoksa `false` döner; hata olursa
+/// anlaşılır sebep (String) döner — arayüz onu gösterir.
 #[tauri::command]
 async fn guncelleme_yap(app: tauri::AppHandle) -> Result<bool, String> {
+    use std::sync::atomic::AtomicI32;
     let updater = app.updater().map_err(|e| e.to_string())?;
-    if let Some(s) = updater.check().await.map_err(|e| e.to_string())? {
-        s.download_and_install(|_chunk, _total| {}, || {})
-            .await
-            .map_err(|e| e.to_string())?;
-        app.restart();
-    }
-    Ok(false)
+    let yeni = updater.check().await.map_err(|e| e.to_string())?;
+    let Some(s) = yeni else {
+        return Ok(false);                    // yeni sürüm yok
+    };
+    /* İlerlemeyi yüzde değiştikçe yay (her parça için spam yapma). */
+    let son = std::sync::Arc::new(AtomicI32::new(-1));
+    let (app_i, son_i) = (app.clone(), son.clone());
+    s.download_and_install(
+        move |indirilen, toplam| {
+            if let Some(t) = toplam {
+                if t > 0 {
+                    let yuzde = (indirilen as u64 * 100 / t).min(100) as i32;
+                    if son_i.swap(yuzde, Ordering::Relaxed) != yuzde {
+                        let _ = app_i.emit("guncelleme-ilerleme", serde_json::json!({
+                            "indirilen": indirilen, "toplam": t, "yuzde": yuzde
+                        }));
+                    }
+                }
+            }
+        },
+        || {},
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    app.restart();
+    Ok(true)
 }
 
 /* ── Ses: tamamen YEREL (v1.16.0) ─────────────────────────────
