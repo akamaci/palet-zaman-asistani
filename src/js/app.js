@@ -337,7 +337,7 @@
        kayıtlar). Kullanıcı isteği: "ayarlarda saat başı uyarı, her yarım
        saatte uyarı olsun". */
     'opt-saatbasi': 'saatBasi', 'opt-yarimsaat': 'yarimSaat', 'opt-onemli': 'onemliOku',
-    'opt-log': 'log'
+    'opt-log': 'log', 'opt-ezan': 'ezan'
   };
   Object.entries(toggles).forEach(([id, key]) => {
     $(id)?.addEventListener('change', async e => {
@@ -677,6 +677,85 @@
     PZA.sayNow?.();                    // seçimi hemen duyur — karşılaştırmak için
   });
   $('btn-say-test')?.addEventListener('click', () => PZA.sayNow?.());
+
+  /* ── EZAN (v1.17.0) ─────────────────────────────────────────
+     TEK ana anahtar (`opt-ezan`) → hepsini açar/kapatır (vakit bazlı ayrı
+     anahtar yok). Konum hava durumu şehriyle paylaşılır; burada yalnız
+     emushaf il/ilçe ID'si seçilir (ön-seçili gelir). */
+  PZA.__ezanIlDolu = false;
+
+  PZA.ezanIlceDoldur = async function (sehirId) {
+    const ilce = $('ezan-ilce'); if (!ilce || !sehirId) return;
+    try {
+      const ilceler = await PZA.ezanIlceler(sehirId);
+      ilce.innerHTML = ilceler.map(x =>
+        '<option value="' + x.IlceID + '">' + PZA.escHtml(x.IlceAdi) + '</option>').join('');
+    } catch (e) { /* ağ yok — sessiz geç, vakit tick'i zaten bekler */ }
+  };
+
+  /* Ayarlar çizilince (settings.js → apply) çağrılır: il listesini bir kez
+     doldurur, seçili il/ilçeyi geri yükler, gerekirse vakitleri yükler. */
+  PZA.ezanAyarCiz = async function () {
+    const s = PZA.settings;
+    if (!s.ezan) return;                        // kapalıyken liste çekme
+    const il = $('ezan-il'), ilce = $('ezan-ilce'), ses = $('ezan-ses');
+    if (ses && document.activeElement !== ses) {
+      ses.value = (typeof s.ezanSes === 'number') ? s.ezanSes : 0.8;
+    }
+    if (!il) return;
+    if (!PZA.__ezanIlDolu) {
+      try {
+        const sehirler = await PZA.ezanSehirler(2);   // Türkiye
+        il.innerHTML = sehirler.map(x =>
+          '<option value="' + x.SehirID + '">' + PZA.escHtml(x.SehirAdi) + '</option>').join('');
+        PZA.__ezanIlDolu = true;
+      } catch (e) { return; }                   // internet yok
+    }
+    if (s.ezanSehir) il.value = s.ezanSehir;
+    if (ilce && !ilce.options.length) await PZA.ezanIlceDoldur(il.value);
+    if (s.ezanIlce && ilce) ilce.value = s.ezanIlce;
+    /* İlk açılışta il/ilçe boşsa ilkini seç ve kaydet (kutudan çıksın çalışsın). */
+    if (!s.ezanSehir && il.value) {
+      s.ezanSehir = il.value; s.ezanSehirAd = il.options[il.selectedIndex]?.textContent || null; PZA.save();
+    }
+    if (!s.ezanIlce && ilce && ilce.value) {
+      s.ezanIlce = ilce.value; s.ezanIlceAd = ilce.options[ilce.selectedIndex]?.textContent || null; PZA.save();
+    }
+    if (s.ezanIlce && (!PZA.__ezanListe || PZA.__ezanYuklenenIlce !== s.ezanIlce)) {
+      PZA.__ezanYuklenenIlce = s.ezanIlce;
+      PZA.ezanYukle();
+    }
+  };
+
+  $('ezan-il')?.addEventListener('change', async e => {
+    PZA.settings.ezanSehir = e.target.value;
+    PZA.settings.ezanSehirAd = e.target.options[e.target.selectedIndex]?.textContent || null;
+    PZA.settings.ezanIlce = null; PZA.settings.ezanIlceAd = null;
+    PZA.save();
+    await PZA.ezanIlceDoldur(e.target.value);
+    const ilce = $('ezan-ilce');
+    if (ilce && ilce.value) {
+      PZA.settings.ezanIlce = ilce.value;
+      PZA.settings.ezanIlceAd = ilce.options[ilce.selectedIndex]?.textContent || null;
+      PZA.save();
+      PZA.__ezanYuklenenIlce = null;
+      PZA.ezanYukle();
+    }
+  });
+  $('ezan-ilce')?.addEventListener('change', e => {
+    PZA.settings.ezanIlce = e.target.value;
+    PZA.settings.ezanIlceAd = e.target.options[e.target.selectedIndex]?.textContent || null;
+    PZA.save();
+    PZA.__ezanYuklenenIlce = null;
+    PZA.ezanYukle();
+  });
+  let ezanSesZaman = null;
+  $('ezan-ses')?.addEventListener('input', e => {
+    clearTimeout(ezanSesZaman);
+    const v = parseFloat(e.target.value);
+    ezanSesZaman = setTimeout(() => { PZA.settings.ezanSes = v; PZA.save(); }, 200);
+  });
+  $('ezan-test')?.addEventListener('click', () => PZA.ezanTest?.());
 
   /* Uyarı bloğundaki "yolunu kopyala" düğmesi — blok dinamik
      yazıldığı için delege edilir (düğme HTML'de yok). */

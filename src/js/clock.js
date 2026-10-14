@@ -125,6 +125,9 @@ PZA.tick = function () {
   // bir yapılır. `?.` ile çağrılır — takvim modülü yoksa saat çalışmaya
   // devam etsin (aynı desen: `PZA.checkRollover?.()`).
   PZA.gcalSaatBasi?.(d);
+
+  // Namaz vakti → ezan (v1.17.0). Mandal ezan.js içinde (aynı vakit iki kez çalmasın).
+  PZA.ezanTick?.(d);
 };
 
 PZA.startClock = function () {

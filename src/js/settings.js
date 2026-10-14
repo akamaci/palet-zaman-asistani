@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.16.2';
+PZA.SURUM = '1.17.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -73,7 +73,17 @@ PZA.DEFAULTS = {
      üretilmiş klipler, `ses/*.wav`) — internet/Python gerekmez, hiçbir
      metin dışarı çıkmaz; yalnız saat anonsu Ece ile, not başlıkları daima
      Tolga ile okunur (bkz. speech.js). */
-  ses: 'tolga'
+  ses: 'tolga',
+  /* v1.17.0 — Ezan (namaz vakitleri). TEK ana anahtar (`ezan`); vakit bazlı
+     ayrı aç/kapa YOK (kullanıcı kararı). Konum hava durumu şehriyle
+     paylaşılır; emushaf il/ilçe ID ile çalışır. Ses dosyaları GitHub'dan
+     (`assets/ezan/`) indirilir — pakete gömülmez. */
+  ezan: false,
+  ezanSehir: null,     // emushaf SehirID
+  ezanIlce: null,      // emushaf IlceID
+  ezanSehirAd: null,
+  ezanIlceAd: null,
+  ezanSes: 0.8         // 0..1
 };
 
 const KEY = 'pza.settings.v1';
@@ -163,6 +173,11 @@ PZA.apply = function () {
   bind('opt-autostart', s.autostart);
   bind('opt-log', s.log !== false);
   if (PZA.LOG) PZA.LOG.acik = s.log !== false;
+
+  /* v1.17.0 — Ezan: tek anahtar + (açıkken) il/ilçe/ses bölümü. */
+  bind('opt-ezan', s.ezan === true);
+  { const ea = document.getElementById('ezan-ayar'); if (ea) ea.hidden = s.ezan !== true; }
+  if (PZA.ezanAyarCiz) PZA.ezanAyarCiz();
 
   // Okuyucu sesi: sistemde kurulu seslerin listesi (speech.js).
   // Ayrı bir çizim fonksiyonu çünkü liste ancak sesler yüklendikten
