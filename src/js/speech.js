@@ -191,40 +191,53 @@ if ('speechSynthesis' in window) {
     Konuşmadan önce `cancel()` çağrılır — üst üste binen anonslar
     birbirini kesmesin diye, aynı saniyeye düşen metinleri ÇAĞIRAN
     taraf tek cümlede birleştirir (bkz. clock.js → `saatAnonsu`). */
-/* ── Kadın ses "Emel" (Edge TTS) ───────────────────────────────
-   KULLANICI: *"kadın sesi yapılabiliyormu?"* → Ayarlar'daki
-   "SES MOTORU" seçicisi bu fonksiyonları besler.
+/* ── Kadın ses "Ece" (EMA Lightning · YEREL, internet gerekmez) ──
+   KULLANICI: *"lokale kurulabilecek bayan sesi"* + bulutun KVKK'ya
+   aykırı olduğu kararı → bulut (Edge "Emel" + Python) TAMAMEN kaldırıldı.
+   Kadın ses artık **EMA Lightning** (8.6M param, Apache-2.0) ile yerelde
+   üretilmiş kliplerden çalınır: `ses/saat-HH.wav` (24 saat) +
+   `ses/dk-MM.wav` (59 dakika). Hiçbir metin dışarı çıkmaz; Python/espeak/
+   internet gerekmez.
 
-   GİZLİLİK KURALI (kullanıcı kararı): çevrimiçi motora **yalnız saat
-   anonsu** gider. Metin `not` işaretliyse (not başlığı / önemli kayıt)
-   ya da internet yoksa **her zaman Tolga**'ya düşülür — not başlıkları
-   Microsoft'a gönderilmez. */
-PZA.sesMotoru = function (baglam) {
-  if ((PZA.settings && PZA.settings.ses) !== 'emel') return 'tolga';
-  if (baglam && baglam.not) return 'tolga';          // not başlığı → çevrimdışı
-  if (!navigator.onLine) return 'tolga';              // internet yok → çevrimdışı
-  return 'emel';
-};
+   GİZLİLİK (değişmedi, ama artık çevrimiçi motor yok): not başlıkları
+   her zaman **Tolga** (Windows) ile okunur. */
+const SES_KLIP = 'ses/';                        // index.html'e göreli yol
+const iki = n => String(n).padStart(2, '0');
 
-/** Metni çevrimiçi kadın sesle oku. Başarısız olursa `false` döner —
-    çağıran taraf Tolga'ya düşer (sessiz susmaz, günlüğe yazar). */
-PZA.emelOku = async function (metin) {
+PZA.__eceAudio = null;                          // üst üste binmesin
+
+/** Bir klibi çal; bitince `sonra` çağrılır (klip zinciri için).
+    Klip yoksa/çalınamazsa zincir KIRILMAZ — sonraki adıma geçilir. */
+function eceCal(yol, sonra) {
   try {
-    const url = await invoke('ses_oku', { metin });
-    const ses = new Audio(url);
-    await ses.play();
-    PZA.logYaz?.('bilgi', 'Emel ile okundu (çevrimiçi)');
-    return true;
-  } catch (e) {
-    PZA.logYaz?.('uyari', 'Emel okuyamadı — Tolga kullanılıyor', { hata: String(e).slice(0, 120) });
-    return false;
-  }
+    if (PZA.__eceAudio) { try { PZA.__eceAudio.pause(); } catch (e) {} PZA.__eceAudio = null; }
+    const a = new Audio(yol);
+    PZA.__eceAudio = a;
+    let bitti = false;
+    const bitir = () => { if (bitti) return; bitti = true; PZA.__eceAudio = null; if (sonra) sonra(); };
+    a.onended = bitir;
+    a.onerror = bitir;
+    const p = a.play();
+    if (p && p.catch) p.catch(bitir);           // otomatik oynatma reddi → devam
+  } catch (e) { if (sonra) sonra(); }
+}
+
+/** Saati Ece ile oku: "saat HH" (+ :MM) klipleri, sonra varsa notlar
+    (notlar Tolga ile — gizlilik). */
+PZA.eceSaat = function (h, m, ekMetin) {
+  const son = ekMetin ? () => PZA.sayMetin(ekMetin, { not: true }) : null;
+  const saatYol = SES_KLIP + 'saat-' + iki(h) + '.wav';
+  if (m > 0) eceCal(saatYol, () => eceCal(SES_KLIP + 'dk-' + iki(m) + '.wav', son));
+  else eceCal(saatYol, son);
+  PZA.emit('speech:said', { metin: PZA.trClock(h, m), voice: 'ece' });
+  return true;
 };
 
+/** Metni konuş — Windows sesi (Tolga). Not başlıkları / önemli kayıtlar
+    buradan okunur (çevrimdışı; hiçbir metin dışarı çıkmaz). */
 PZA.sayMetin = function (metin, baglam) {
   const m = String(metin == null ? '' : metin).trim();
   if (!m) return false;
-  if (PZA.sesMotoru(baglam) === 'emel') return PZA.emelOku(m);   // çevrimiçi
   if (!('speechSynthesis' in window)) {
     console.warn('Bu ortamda speechSynthesis yok.');
     return false;
@@ -250,15 +263,19 @@ PZA.sayMetin = function (metin, baglam) {
     saat başı / yarım saat anonsu ile "Önemli …" kaydı aynı saniyeye
     düşerse tek ses olsun — iki ayrı çağrı birbirini keserdi. */
 PZA.say = function (h, m, ekler) {
-  const parcalar = [PZA.trClock(h, m)];
+  const parcalar = [];
   let notVar = false;
   for (const e of (ekler || [])) {
     const t = String(e == null ? '' : e).trim();
     if (t) { parcalar.push(t); notVar = true; }
   }
-  /* `not:true` → not başlığı karışmış demektir → çevrimiçi kadın sese
-     GÖNDERİLMEZ, Tolga ile okunur (gizlilik kuralı). */
-  return PZA.sayMetin(parcalar.join('. '), { h, m, not: notVar });
+  /* Ece (yerel kadın ses): saat anonsunu KLİPTEN çal. Not karışmışsa
+     notlar klipten SONRA Tolga ile okunur (gizlilik: notlar dışarı gitmez). */
+  if ((PZA.settings && PZA.settings.ses) === 'ece') {
+    return PZA.eceSaat(h, m, notVar ? parcalar.join('. ') : null);
+  }
+  /* Tolga: tek cümlede (üst üste binmesin diye tek konuşma). */
+  return PZA.sayMetin([PZA.trClock(h, m), ...parcalar].join('. '), { h, m, not: notVar });
 };
 
 /** Şu anki saati oku (ayarlar önizlemesi için) */

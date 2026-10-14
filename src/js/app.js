@@ -374,65 +374,29 @@
      Yeni sürüm varsa ayarların altındaki metin PARLAR ve "Güncelle"
      düğmesi görünür. Denetim başarısız olursa (ağ yok) günlüğe yazılır
      — sessiz başarısızlık yok. */
-  /* ── Ses motoru: Tolga (çevrimdışı) / Emel (kadın, internet) ──
-       Kullanıcı: bayan sesinin nereden yükleneceğini ayarlarda
-       dropdown + "Yükle" uyarısıyla görmek istedi. Emel kurulumu
-       isteğe bağlıdır: seçilince AÇIKLAMA çıkar, "Kur" düğmesi
-       Python + edge-tts kurar; internet/gizlilik uyarısı asla atlanmaz. */
-  const sesSec = $('voice-engine'), sesNot = $('voice-not'), sesKur = $('btn-ses-kur');
-  const EMEL_UYARI = 'Emel kadın sesi Microsoft’un çevrimiçi servisini kullanır: ' +
-    'okunan SAAT metni Microsoft’a gönderilir (not başlıkları gönderilmez). ' +
-    'İnternet bağlantısı gerekir. Devam edilsin mi?';
+  /* ── Ses motoru: Tolga (Windows) / Ece (YEREL kadın ses) ──
+       v1.16.0: bulut "Emel" (Edge TTS + Python) TAMAMEN kaldırıldı —
+       KVKK gereği hiçbir metin dışarı çıkmaz. Ece, EMA Lightning ile
+       yerelde üretilmiş kliplerdir (`ses/*.wav`). Seçim yalnız saat
+       anonsunu etkiler; not başlıkları daima Tolga ile okunur
+       (bkz. speech.js → PZA.eceSaat / PZA.sayMetin). */
+  const sesSec = $('voice-engine'), sesNot = $('voice-not');
 
   function sesNotYaz(anahtar) {
-    if (sesNot) sesNot.textContent = PZA.i18n.t(anahtar);
+    if (!sesNot) return;
+    /* i18n her ortamda yüklü olmayabilir (testler app.js'i tek başına
+       yükler): erişim savunmalı olmalı — yoksa panel yönü testi düşer. */
+    const t = (PZA.i18n && typeof PZA.i18n.t === 'function') ? PZA.i18n.t(anahtar) : null;
+    if (t != null) sesNot.textContent = t;
   }
 
-  async function sesDurumTara() {
-    if (!TAURI || !sesSec || sesSec.value !== 'emel') { if (sesKur) sesKur.hidden = true; return; }
-    try {
-      const d = await invoke('ses_durum');
-      if (!d.kurulu) {
-        sesNotYaz(d.python ? 'voice_kur_gerek' : 'voice_python_yok');
-        if (sesKur) { sesKur.hidden = false; sesKur.disabled = !d.python; }
-      } else {
-        sesNotYaz('voice_hazir');
-        if (sesKur) sesKur.hidden = true;
-      }
-    } catch (e) {
-      sesNotYaz('voice_hata');
-      if (sesKur) sesKur.hidden = true;
-    }
-  }
-
-  sesSec?.addEventListener('change', async e => {
-    const v = e.target.value;
-    if (v === 'emel') {
-      /* Uyarı şart — kullanıcı bilgisi olmadan çevrimiçi moda geçilmez. */
-      if (!window.confirm(EMEL_UYARI)) { e.target.value = 'tolga'; PZA.set('ses', 'tolga'); return; }
-    }
-    PZA.set('ses', v);
-    sesNotYaz(v === 'emel' ? 'voice_kontrol' : 'voice_tolga_not');
-    await sesDurumTara();
+  sesSec?.addEventListener('change', e => {
+    PZA.set('ses', e.target.value);
+    sesNotYaz(e.target.value === 'ece' ? 'voice_ece_not' : 'voice_tolga_not');
   });
 
-  sesKur?.addEventListener('click', async () => {
-    sesKur.disabled = true;
-    sesNotYaz('voice_kuruluyor');           /* "Kuruluyor…" — bekle */
-    try {
-      await invoke('ses_kur');
-      sesNotYaz('voice_hazir');
-      sesKur.hidden = true;
-      PZA.logYaz?.('bilgi', 'Emel ses motoru kuruldu (edge-tts)');
-    } catch (e) {
-      sesNotYaz('voice_kur_hata');
-      sesKur.disabled = false;
-      PZA.logYaz?.('uyari', 'Emel kurulamadı', { hata: String(e).slice(0, 140) });
-    }
-  });
-
-  sesSec && (sesSec.value = PZA.settings.ses || 'tolga');
-  sesDurumTara();
+  if (sesSec) sesSec.value = PZA.settings.ses || 'tolga';
+  sesNotYaz((PZA.settings.ses || 'tolga') === 'ece' ? 'voice_ece_not' : 'voice_tolga_not');
 
   /* ── Sürüm durumu + güncelleme (v1.14.0) ──────────────────
      KULLANICI (v1.11.0): *"kurulu olan kişi yeni versiyon çıkınca neden

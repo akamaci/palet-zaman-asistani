@@ -16,8 +16,15 @@ name: Yayın
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]      # main'e her push: DERLE + TEST (sürüm AÇMAZ) →
+                          # "iş hiç çalışmadı" yanılgısını ve kırık kodu erken yakalar
+    tags: ['v*']          # etiket push'u: DERLE + TASLAK GitHub sürümü açar
   workflow_dispatch:
+
+# Aynı ref üst üste tetiklenirse eskisini iptal et — çift derleme/sürüm olmasın.
+concurrency:
+  group: yayin-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   derle:
@@ -43,7 +50,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: npm bağımlılıkları
-        run: npm install
+        run: npm ci
 
       - name: Kod bekçisi (9 statik kontrol)
         run: npm run dogrula

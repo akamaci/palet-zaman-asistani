@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.15.1';
+PZA.SURUM = '1.16.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -68,10 +68,11 @@ PZA.DEFAULTS = {
   /* v1.12.0 — arayüz dili. 'auto' = sistem dili (tr/en gömülü; diğerleri
      GitHub'dan otomatik indirilir). Kullanıcı Ayarlar'dan seçebilir. */
   dil: 'auto',
-  /* v1.15.0 — ses motoru. 'tolga' = Windows'un kendi Türkçe sesi
-     (çevrimdışı, varsayılan). 'emel' = Edge TTS kadın sesi; internet
-     gerektirir, ilk kullanımda kurulur ve yalnız saat anonsu çevrimiçi
-     gider — not başlıkları daima çevrimdışı kalır (bkz. speech.js). */
+  /* v1.16.0 — ses motoru. 'tolga' = Windows'un kendi Türkçe sesi
+     (çevrimdışı, varsayılan). 'ece' = YEREL kadın ses (EMA Lightning ile
+     üretilmiş klipler, `ses/*.wav`) — internet/Python gerekmez, hiçbir
+     metin dışarı çıkmaz; yalnız saat anonsu Ece ile, not başlıkları daima
+     Tolga ile okunur (bkz. speech.js). */
   ses: 'tolga'
 };
 
@@ -90,6 +91,11 @@ function load() {
     if (raw) ham = JSON.parse(raw);
   } catch (e) { console.warn('ayar okunamadı', e); }
   const s = Object.assign({}, PZA.DEFAULTS, ham || {});
+
+  /* v1.16.0 — bulut "Emel" (Edge TTS) kaldırıldı; yerine YEREL "Ece"
+     geldi. Kayıtlı seçim "emel" ise "ece"ye taşınır (kullanıcı yeniden
+     seçmek zorunda kalmaz; davranış: kadın ses korunur, ama artık yerel). */
+  if (s.ses === 'emel') s.ses = 'ece';
 
   /* TUR 12 — ESKİ AYARI BİR KEZ YÜKSELT.
      `saatBasi`/`yarimSaat`/`onemliOku` anahtarları tur 12'de geldi.
