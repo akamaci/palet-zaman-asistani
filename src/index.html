@@ -239,11 +239,10 @@
     <label class="row"><span data-i18n="opt_saatbasi">Her saat başı oku</span><input type="checkbox" id="opt-saatbasi" class="sw"></label>
     <label class="row"><span data-i18n-html="opt_yarimsaat_html">Her yarım saatte oku <i>(:30)</i></span><input type="checkbox" id="opt-yarimsaat" class="sw"></label>
     <label class="row"><span data-i18n-html="opt_onemli_html">Önemli kayıtları oku <i>(yıldızlı notun saati gelince)</i></span><input type="checkbox" id="opt-onemli" class="sw"></label>
-    <!-- Okuyucu seçimi = Windows'ta KURULU seslerin listesi.
-         "Ece/Emre" kaldırıldı: sistemde tek Türkçe ses (Microsoft
-         Tolga) varken ikisi de aynı sesi veriyordu, seçim hiçbir
-         şeyi değiştirmiyordu. Liste boşsa/tek sesliyse kullanıcı
-         sesi kuracağı yere yönlendirilir (aşağıdaki not). -->
+    <!-- TEK okuyucu seçici (v1.16.1): "Ece (yerel kadın ses)" + sistemde
+         kurulu Windows sesleri TEK listede. Eskiden üstte ve altta İKİ ayrı
+         seçici vardı — kafa karıştırıyordu (kullanıcı bildirimi) → birleştirildi.
+         Liste JS ile doldurulur: speech.js → renderVoiceUi. -->
     <div class="voice-row">
       <span class="voice-lbl" data-i18n="voice_lbl">Okuyucu sesi</span>
       <select id="voice-select" class="inp voice-sel" aria-label="Okuyucu sesi"></select>
@@ -253,17 +252,6 @@
       <button type="button" class="lnk" id="btn-say-test">▶ Şimdi oku</button>
     </div>
     <p class="voice-hint" id="voice-hint" hidden></p>
-
-    <h4 data-i18n="h_voice">SES MOTORU</h4>
-    <label class="row"><span data-i18n="voice_engine_lbl">Okuyucu sesi</span>
-      <select id="voice-engine" class="inp" aria-label="Okuyucu sesi">
-        <option value="tolga" data-i18n="voice_tolga">Tolga (çevrimdışı)</option>
-        <option value="ece"  data-i18n="voice_ece">Ece (kadın ses, yerel)</option>
-      </select>
-    </label>
-    <div id="voice-not" class="hint" data-i18n="voice_tolga_not">
-      Tolga: Windows'un kendi sesi — hiçbir metin dışarı çıkmaz, internet gerekmez.
-    </div>
 
     <h4 data-i18n="h_loc">KONUM</h4>
     <input id="opt-city" class="inp" type="text" data-i18n-ph="city_ph" placeholder="Şehir ara… (örn. Ankara)">

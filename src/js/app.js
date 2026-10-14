@@ -374,29 +374,10 @@
      Yeni sürüm varsa ayarların altındaki metin PARLAR ve "Güncelle"
      düğmesi görünür. Denetim başarısız olursa (ağ yok) günlüğe yazılır
      — sessiz başarısızlık yok. */
-  /* ── Ses motoru: Tolga (Windows) / Ece (YEREL kadın ses) ──
-       v1.16.0: bulut "Emel" (Edge TTS + Python) TAMAMEN kaldırıldı —
-       KVKK gereği hiçbir metin dışarı çıkmaz. Ece, EMA Lightning ile
-       yerelde üretilmiş kliplerdir (`ses/*.wav`). Seçim yalnız saat
-       anonsunu etkiler; not başlıkları daima Tolga ile okunur
-       (bkz. speech.js → PZA.eceSaat / PZA.sayMetin). */
-  const sesSec = $('voice-engine'), sesNot = $('voice-not');
-
-  function sesNotYaz(anahtar) {
-    if (!sesNot) return;
-    /* i18n her ortamda yüklü olmayabilir (testler app.js'i tek başına
-       yükler): erişim savunmalı olmalı — yoksa panel yönü testi düşer. */
-    const t = (PZA.i18n && typeof PZA.i18n.t === 'function') ? PZA.i18n.t(anahtar) : null;
-    if (t != null) sesNot.textContent = t;
-  }
-
-  sesSec?.addEventListener('change', e => {
-    PZA.set('ses', e.target.value);
-    sesNotYaz(e.target.value === 'ece' ? 'voice_ece_not' : 'voice_tolga_not');
-  });
-
-  if (sesSec) sesSec.value = PZA.settings.ses || 'tolga';
-  sesNotYaz((PZA.settings.ses || 'tolga') === 'ece' ? 'voice_ece_not' : 'voice_tolga_not');
+  /* ── Ses motoru artık TEK seçicide (v1.16.1) ──
+     "voice-select" listesi hem "Ece (yerel kadın)" hem sistemde KURULU
+     sesleri içerir; seçim aşağıdaki handler'da işlenir. Bulut "Emel"
+     (Edge TTS + Python) v1.16.0'da tamamen kaldırıldı — KVKK. */
 
   /* ── Sürüm durumu + güncelleme (v1.14.0) ──────────────────
      KULLANICI (v1.11.0): *"kurulu olan kişi yeni versiyon çıkınca neden
@@ -527,16 +508,32 @@
   /* Açılışta bir kez denetle (PA'yı ilk anda doğru göstermek için) */
   surumKontrol();
 
-  const guncKutu = $('gunc-kutu'), guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
-  guncBtn?.addEventListener('click', async () => {
-    guncBtn.disabled = true;
-    guncMetin.textContent = 'Güncelleniyor… uygulama birazdan yeniden başlayacak.';
-    const ok = await invoke('guncelleme_yap');
-    if (ok !== true) {                       // kurulduysa zaten yeniden başlar
-      guncMetin.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
-      guncBtn.disabled = false;
+  const guncMetin = $('gunc-metin'), guncBtn = $('btn-guncelle');
+  const paYenile = $('pa-yenile'), paNot = $('pa-not');
+
+  /* Güncellemeyi uygula — hem ayarlardaki kutu hem PA popup'ı bunu kullanır.
+     Başarılıysa uygulama yeniden başlar (dönüş olmaz); hata olursa metin
+     sebebi söyler ve düğme yeniden etkinleşir (sessiz başarısızlık yok). */
+  async function guncelleUygula(metinEl, btnEl) {
+    if (btnEl) btnEl.disabled = true;
+    if (metinEl) metinEl.textContent = 'Güncelleniyor… uygulama birazdan yeniden başlayacak.';
+    try {
+      const ok = await invoke('guncelleme_yap');
+      if (ok !== true) {                       // kurulduysa zaten yeniden başlar
+        if (metinEl) metinEl.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
+        if (btnEl) btnEl.disabled = false;
+      }
+    } catch (e) {
+      if (metinEl) metinEl.textContent = 'Güncelleme uygulanamadı — yeniden deneyin.';
+      if (btnEl) btnEl.disabled = false;
+      PZA.logYaz?.('uyari', 'Güncelleme başarısız', { hata: String(e).slice(0, 120) });
     }
-  });
+  }
+
+  guncBtn?.addEventListener('click', () => guncelleUygula(guncMetin, guncBtn));
+  /* PA popup'taki "Güncelle" (id="pa-yenile"). ÖNCE BU DÜĞME BAĞLANMAMIŞTI:
+     görünüyordu ama tıklanınca hiçbir şey olmuyordu (kullanıcı bildirimi). */
+  paYenile?.addEventListener('click', () => guncelleUygula(paNot, paYenile));
 
   document.querySelectorAll('input[name="size"]').forEach(r =>
     r.addEventListener('change', () => { if (r.checked) PZA.set('size', r.value); }));
@@ -638,7 +635,14 @@
      ve iki uydurma "okuyucu" (Ece/Emre) tek Türkçe sesli sistemde
      aynı sesi veriyordu — kaldırıldı. */
   $('voice-select')?.addEventListener('change', e => {
-    PZA.set('voiceName', e.target.value);
+    const v = e.target.value;
+    if (v === '__ece') {               // yerel kadın ses (EMA Lightning klipleri)
+      PZA.set('ses', 'ece');
+    } else {                           // Windows'ta kurulu bir ses (ör. Tolga)
+      PZA.set('ses', 'tolga');
+      PZA.set('voiceName', v);
+    }
+    PZA.renderVoiceUi?.();             // etiketi tazele
     PZA.sayNow?.();                    // seçimi hemen duyur — karşılaştırmak için
   });
   $('btn-say-test')?.addEventListener('click', () => PZA.sayNow?.());

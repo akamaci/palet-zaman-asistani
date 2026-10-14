@@ -118,10 +118,11 @@ PZA.otomatikSesSec = function () {
   return v;
 };
 
-/** Seçili sesin okunur etiketi. */
+/** Seçili okuyucunun okunur etiketi: "Ece" (yerel kadın) ya da sistem sesi. */
 PZA.voiceLabel = function () {
+  if (PZA.settings && PZA.settings.ses === 'ece') return PZA.eceEtiket();
   const v = PZA.seciliSes();
-  if (!v) return 'Sistemde konuşma sesi bulunamadı';
+  if (!v) return PZA.eceEtiket();      // sistem sesi yoksa Ece zaten var
   return v.name || v.lang || 'Sistem sesi';
 };
 
@@ -132,47 +133,41 @@ function kopyaDugmesi() {
     + PZA.SES_URI + ' yolunu kopyala</button>';
 }
 
-/** Kurulu ses uyarısı — yeterli Türkçe ses varsa null.
-    Kullanıcı isteği: "not olarak bayan sesi buradan ayarlanır gibi
-    ibare koy." */
-PZA.voiceHint = function () {
-  if (PZA.trSesSayisi >= 2) return null;
-  const E = PZA.escHtml || (s => String(s));
-  const bas = PZA.trSesSayisi === 1
-    ? 'Sistemde tek Türkçe ses var (<b>' + E(PZA.sesListesi[0].name) + '</b>).'
-    : 'Sistemde Türkçe konuşma sesi yok.';
-  return bas + '<br>Bayan sesi buradan ayarlanır: <b>' + PZA.SES_YOLU + '</b>.' + kopyaDugmesi();
-};
+/** Uyarı artık YOK: kadın ses "Ece" pakete GÖMÜLÜ geldiği için
+    "Windows'a ses ekle" yönlendirmesine gerek kalmadı (kullanıcı:
+    iki seçici kafa karıştırıyordu → tek listeye indirildi). */
+PZA.voiceHint = function () { return null; };
 
-/** Arayüz: seçim listesi + etiket + kurulu ses uyarısı.
-    `voiceschanged` de bunu çağırır — sesler gecikmeli yüklenebiliyor. */
+/** TEK okuyucu listesi: "Ece (yerel kadın)" + sistemde KURULU sesler.
+    (v1.16.1) Eskiden üstte "Okuyucu sesi" + altta "SES MOTORU" diye İKİ
+    seçici vardı — kafa karıştırıyordu (kullanıcı bildirimi) → tek listeye indi. */
+const ECE_VAL = '__ece';
+PZA.eceEtiket = function () {
+  return (PZA.i18n && typeof PZA.i18n.t === 'function')
+    ? PZA.i18n.t('voice_ece', 'Ece (kadın ses, yerel)')
+    : 'Ece (kadın ses, yerel)';
+};
 PZA.renderVoiceUi = function () {
-  const secili = PZA.otomatikSesSec();
+  PZA.otomatikSesSec();                 // kayıtsız seçimi kalıcılaştır
+  const ece = (PZA.settings && PZA.settings.ses) === 'ece';
   const sel = document.getElementById('voice-select');
   if (sel) {
     const E = PZA.escHtml || (s => String(s));
-    if (!PZA.sesListesi.length) {
-      sel.innerHTML = '<option value="">Ses bulunamadı</option>';
-      sel.disabled = true;
-    } else {
-      sel.disabled = false;
-      // "(kadın)" / "(erkek)" etiketi ses adından TAHMİN edilir —
-      // kullanıcı hangi sesin hangi cinsiyette olduğunu listede görsün.
-      sel.innerHTML = PZA.sesListesi.map(v =>
+    sel.disabled = false;               // Ece her zaman var → liste hep etkin
+    sel.innerHTML =
+      '<option value="' + ECE_VAL + '">' + E(PZA.eceEtiket()) + '</option>' +
+      PZA.sesListesi.map(v =>
         '<option value="' + E(v.name) + '">' + E(v.name)
         + (v.kadin ? ' (kadın)' : v.erkek ? ' (erkek)' : '') + '</option>'
       ).join('');
-      sel.value = secili ? secili.name : '';
-    }
+    const secili = PZA.seciliSes();
+    sel.value = ece ? ECE_VAL : (secili ? secili.name : ECE_VAL);
+    if (!sel.value) sel.value = ECE_VAL;
   }
   const vn = document.getElementById('voice-name');
   if (vn) vn.textContent = PZA.voiceLabel();
   const vh = document.getElementById('voice-hint');
-  if (vh) {
-    const ipucu = PZA.voiceHint();
-    vh.innerHTML = ipucu || '';
-    vh.hidden = !ipucu;
-  }
+  if (vh) { vh.innerHTML = ''; vh.hidden = true; }
 };
 
 if ('speechSynthesis' in window) {

@@ -122,20 +122,15 @@ esit(PZA.tekSes, true, 'tek ses işaretlendi');
 esit(PZA.trSesSayisi, 1, 'Türkçe ses sayısı 1');
 esit(PZA.otomatikSesSec().name, TOLGA.name, 'otomatik seçim eldeki tek ses');
 
-const ipucu = PZA.voiceHint();
-dogru(typeof ipucu === 'string' && ipucu.length > 0, 'uyarı metni var');
-dogru(ipucu.includes('tek Türkçe ses'), 'uyarı tek sesi bildiriyor');
-dogru(ipucu.includes(TOLGA.name), 'uyarı hangi sesin kurulu olduğunu yazıyor');
-dogru(ipucu.includes('Bayan sesi buradan ayarlanır'), 'uyarı "bayan sesi buradan ayarlanır" diyor');
-dogru(ipucu.includes('Konuşma'), 'uyarı Windows yolunu tarif ediyor');
-dogru(ipucu.includes(PZA.SES_URI), 'uyarı kopyalanabilir URI\'yi veriyor');
-dogru(ipucu.includes('data-kopya'), 'kopyalama düğmesi üretildi');
+/* v1.16.1: kadın ses "Ece" pakete gömülü geldiği için "Windows'a ses
+   ekle" yönlendirmesi KALDIRILDI → voiceHint artık daima null. */
+esit(PZA.voiceHint(), null, 'Ece gömülü → sistem-ses uyarısı kaldırıldı');
 
 // ASIL DÜZELTME: uydurma okuyucu adları tamamen gitti
 dogru(PZA.OKUYUCU === undefined, 'Ece/Emre adları (PZA.OKUYUCU) kaldırıldı');
 dogru(PZA.ayar === undefined, 'perde ile ayrıştırma (PZA.ayar) kaldırıldı');
 dogru(PZA.voices === undefined, 'female/male ikilisi kaldırıldı');
-dogru(!ipucu.includes('Ece') && !ipucu.includes('Emre'), 'uyarıda uydurma ad geçmiyor');
+dogru(PZA.voiceHint() === null, 'uyarı kaldırıldı (uydurma ad/uyarı yok)');
 /* Adlar artık YALNIZCA "kaldırıldı" diye anlatan yorumlarda geçebilir;
    kodda geçmemeli. Bu yüzden yorumlar ayıklanarak aranır. */
 const yorumsuz = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '');
@@ -150,10 +145,10 @@ for (const f of ['app.js', 'settings.js', 'speech.js']) {
 }
 
 PZA.renderVoiceUi();
-dogru(el('voice-select').innerHTML.includes(TOLGA.name), 'liste tek sesi gösteriyor');
+dogru(el('voice-select').innerHTML.includes(TOLGA.name), 'liste sistem sesini gösteriyor');
 dogru(el('voice-select').innerHTML.includes('(erkek)'), 'Tolga erkek olarak etiketlendi');
-esit(el('voice-hint').hidden, false, 'uyarı görünür');
-dogru(el('voice-hint').innerHTML.includes('Bayan sesi buradan ayarlanır'), 'uyarı panele yazıldı');
+dogru(el('voice-select').innerHTML.includes('Ece'), 'liste Ece\'yi de gösteriyor (tek seçici)');
+esit(el('voice-hint').hidden, true, 'uyarı yok (Ece gömülü)');
 
 PZA.say(9, 30);
 esit(konusulan[0].voice?.name, TOLGA.name, 'tek sesle de konuşuyor (sessiz kalmıyor)');
@@ -166,23 +161,21 @@ esit(PZA.sesListesi.length, 2, 'yedek sesler listelendi');
 esit(PZA.trSesSayisi, 0, 'Türkçe ses sayısı 0');
 esit(PZA.tekSes, true, 'Türkçe yokken uyarı açık');
 esit(PZA.sesListesi[1].kadin, true, 'Zira kadın olarak tanındı');
-dogru(PZA.voiceHint().includes('Türkçe konuşma sesi yok'), 'uyarı Türkçe ses yokluğunu yazıyor');
-dogru(PZA.voiceHint().includes('Bayan sesi buradan ayarlanır'), 'yönlendirme yine var');
+esit(PZA.voiceHint(), null, 'uyarı yok (Ece gömülü)');
 esit(PZA.otomatikSesSec().name, 'Microsoft Zira - English (US)', 'yedekte kadın ses seçildi');
 
 console.log('\n4 · Hiç ses yok — çökmemeli');
 seslerKur([]);
 PZA = yukle();
 esit(PZA.sesListesi.length, 0, 'liste boş');
-esit(PZA.seciliSes(), null, 'seçili ses yok');
-esit(PZA.voiceLabel(), 'Sistemde konuşma sesi bulunamadı', 'etiket durumu söylüyor');
+esit(PZA.seciliSes(), null, 'seçili sistem sesi yok');
+esit(PZA.voiceLabel(), PZA.eceEtiket(), 'sistem sesi yoksa etiket Ece');
 dogru(PZA.say(12, 0) === true, 'konuşma yine de denenir (çökme yok)');
 esit(konusulan.at(-1).text, 'saat on iki', 'metin doğru üretildi');
 esit(konusulan.at(-1).voice, null, 'ses atanmadı, motor kendi seçer');
 PZA.renderVoiceUi();
-esit(el('voice-select').disabled, true, 'seçim kutusu devre dışı');
-dogru(el('voice-select').innerHTML.includes('Ses bulunamadı'), 'liste boşluğu yazıyla bildiriyor');
-dogru(el('voice-hint').innerHTML.includes('Bayan sesi buradan ayarlanır'), 'uyarı boş listede de çıkıyor');
+esit(el('voice-select').disabled, false, 'Ece her zaman var → liste etkin');
+dogru(el('voice-select').innerHTML.includes('Ece'), 'Ece seçeneği listede');
 
 console.log('\n5 · Seçim sesin ADIYLA saklanır');
 seslerKur([TOLGA, FILIZ]);
