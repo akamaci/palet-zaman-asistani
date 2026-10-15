@@ -1304,15 +1304,15 @@ input { user-select: text; }
 
 .widget[data-size="bar"] {
   max-width: none;
-  display: flex;                /* temel .widget blok'tur → satır için flex ŞART */
-  flex-direction: row;          /* iki bar YAN YANA → tek satır */
+  position: fixed; left: 0; right: 0;      /* kenara sabit: pencere (ayarlar için) büyüse de bar yerinde */
+  display: flex;                           /* temel .widget blok'tur → satır için flex ŞART */
+  flex-direction: row;                     /* iki bar YAN YANA → tek satır */
   align-items: stretch;
 }
+.widget[data-size="bar"][data-bar-konum="ust"] { top: 0; bottom: auto; }
+.widget[data-size="bar"][data-bar-konum="alt"] { bottom: 0; top: auto; }
 .widget[data-size="bar"] .bar-preview,
-.widget[data-size="bar"] .dateline,
-.widget[data-size="bar"] .btn-notes,
-.widget[data-size="bar"] .panel-notes,
-.widget[data-size="bar"] .panel-weather { display: none; }  /* ince barda barınamaz */
+.widget[data-size="bar"] .dateline { display: none; }
 .widget[data-size="bar"] .bar-top,
 .widget[data-size="bar"] .bar-bottom { flex: 1 1 auto; padding-top: 6px; padding-bottom: 6px; }
 .widget[data-size="bar"] .bar-bottom { border-top: 0; border-left: 1px solid var(--edge-soft); }
@@ -1320,6 +1320,21 @@ input { user-select: text; }
 .widget[data-size="bar"] .flip { width: 40px; height: 46px; border-radius: 9px; }
 .widget[data-size="bar"] .flip-num { font-size: 21px; }
 .widget[data-size="bar"] .colon i { width: 4px; height: 4px; }
+
+/* Bar modunda Notlar/Hava panelleri satır içine sığmaz → barın YANINA açılan
+   KAPLAMA olur (pencere fitBar ile büyür). Böylece not girişi + hava ÇALIŞIR. */
+.widget[data-size="bar"] .panel-notes,
+.widget[data-size="bar"] .panel-weather {
+  position: fixed; left: 0; right: 0; z-index: 45;
+  max-height: 72vh; overflow-y: auto;
+}
+.widget[data-size="bar"][data-bar-konum="ust"] .panel-notes,
+.widget[data-size="bar"][data-bar-konum="ust"] .panel-weather { top: 46px; bottom: auto; }
+.widget[data-size="bar"][data-bar-konum="alt"] .panel-notes,
+.widget[data-size="bar"][data-bar-konum="alt"] .panel-weather { bottom: 46px; top: auto; }
+
+/* Ezan menüsü YÖNÜ: üst barda AŞAĞI, alt barda (varsayılan) YUKARI açılır */
+.widget[data-size="bar"][data-bar-konum="ust"] .ezan-menu { bottom: auto; top: calc(100% + 8px); }
 
 /* Açma/kapama tutamağı — yalnız bar + otomatik gizlemede görünür (JS `hidden` kaldırır) */
 .bar-tutamak {
@@ -1331,9 +1346,9 @@ input { user-select: text; }
 .bar-tutamak:hover { color: var(--fg); }
 .bar-tutamak svg { width: 16px; height: 16px; fill: none; stroke: currentColor;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-bar-konum="ust"] .bar-tutamak { top: 0; border-radius: 0 0 9px 9px; }
-[data-bar-konum="alt"] .bar-tutamak { bottom: 0; border-radius: 9px 9px 0 0; }
-[data-bar-konum="ust"] .bar-tutamak svg { transform: rotate(180deg); }   /* üst bar: ok AŞAĞI */
+.widget[data-size="bar"][data-bar-konum="ust"] .bar-tutamak { top: 0; border-radius: 0 0 9px 9px; }
+.widget[data-size="bar"][data-bar-konum="alt"] .bar-tutamak { bottom: 0; border-radius: 9px 9px 0 0; }
+.widget[data-size="bar"][data-bar-konum="ust"] .bar-tutamak svg { transform: rotate(180deg); }   /* üst bar: ok AŞAĞI */
 
 /* Kapalı bar: yalnız ince tutamak kalır; gövde şeffaf (programı engellemez) */
 .widget.bar-kapali > *:not(.bar-tutamak):not(.skin-bg) { display: none !important; }

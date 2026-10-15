@@ -202,14 +202,38 @@
         const w = win.getCurrentWindow();
         const alan = await isAlani(win);
         const sw = window.screen.availWidth || 1920;
+        const ust = PZA.settings.barKonum === 'ust';
         const acik = PZA.settings.barGizli !== true || PZA.__barAcik === true;
-        const W = acik ? sw : 84;                                   // kapalı: yalnız ince tutamak
-        const H = acik ? Math.max(46, gerekliH()) : 15;
-        const y = (PZA.settings.barKonum === 'ust') ? alan.ust : (alan.ust + alan.boy - H);
-        const x = acik ? 0 : Math.round((sw - W) / 2);
-        const anahtar = W + 'x' + H + '@' + x + ',' + y + (acik ? '1' : '0');
-        document.getElementById('widget')?.classList.toggle('bar-kapali', !acik);
-        if (anahtar === sonBar) return;                             // titremeyi önle
+        document.getElementById('widget')?.classList.toggle('bar-kapali',
+          PZA.settings.barGizli === true && PZA.__barAcik !== true);
+
+        const kapVar   = acikMi('settings') || acikMi('studio');   // Ayarlar/Stüdyo kaplaması
+        const panelVar = acikMi('panel-notes') || acikMi('panel-weather');
+
+        let W, H, x, y;
+        if (kapVar) {
+          /* Ayarlar/Stüdyo: `position: fixed`, `max-height: calc(100vh-10px)`.
+             İnce pencerede max-height kırpılıyordu → en alt seçenekler görünmüyor,
+             kaydırma sona inmiyordu. Çözüm: pencere İŞ ALANINI doldurur. */
+          W = sw; H = Math.max(240, alan.boy - 4); x = 0; y = alan.ust;
+        } else if (panelVar) {
+          /* Not/Hava: bar + panel yüksekliği kadar pencere; panel barın yanına açılır. */
+          const barH = Math.max(46, gerekliH());
+          let ph = 0;
+          for (const id of ['panel-notes', 'panel-weather']) {
+            const el = document.getElementById(id);
+            if (el && !el.hidden) ph = Math.max(ph, el.scrollHeight);
+          }
+          W = sw; H = Math.min(alan.boy - 4, barH + ph + 16); x = 0;
+          y = ust ? alan.ust : Math.max(alan.ust, alan.ust + alan.boy - H);
+        } else {
+          W = acik ? sw : 84;                                   // kapalı: yalnız ince tutamak
+          H = acik ? Math.max(46, gerekliH()) : 15;
+          x = acik ? 0 : Math.round((sw - W) / 2);
+          y = ust ? alan.ust : (alan.ust + alan.boy - H);
+        }
+        const anahtar = W + 'x' + H + '@' + x + ',' + y;
+        if (anahtar === sonBar) return;                         // titremeyi önle
         sonBar = anahtar;
         await w.setSize(new win.LogicalSize(W, H));
         await w.setPosition(new win.LogicalPosition(x, y));
