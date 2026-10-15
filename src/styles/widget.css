@@ -1311,8 +1311,14 @@ input { user-select: text; }
 }
 .widget[data-size="bar"][data-bar-konum="ust"] { top: 0; bottom: auto; }
 .widget[data-size="bar"][data-bar-konum="alt"] { bottom: 0; top: auto; }
-.widget[data-size="bar"] .bar-preview,
-.widget[data-size="bar"] .dateline { display: none; }
+.widget[data-size="bar"] .bar-preview { display: none; }
+/* Bar modunda tarih (takvim) SİMGE + YAZI: saatle YAN YANA, tek satır */
+.widget[data-size="bar"] .group-center { flex-direction: row; align-items: center; gap: 10px; }
+.widget[data-size="bar"] .dateline { display: flex; align-items: center; gap: 6px; margin: 0; white-space: nowrap; }
+.widget[data-size="bar"] .dateline .beacon { display: none; }
+.widget[data-size="bar"] .dl-cal { display: inline-flex; width: 14px; height: 14px; color: var(--fg-mute); flex: none; }
+.dl-cal { display: none; }
+.dl-cal svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .widget[data-size="bar"] .bar-top,
 .widget[data-size="bar"] .bar-bottom { flex: 1 1 auto; padding-top: 6px; padding-bottom: 6px; }
 .widget[data-size="bar"] .bar-bottom { border-top: 0; border-left: 1px solid var(--edge-soft); }
