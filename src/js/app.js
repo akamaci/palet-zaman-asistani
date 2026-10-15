@@ -192,8 +192,34 @@
        Sıra önemli: `fit()` temel konumu `outerPosition()`ten okur; konum
        önce gelmezse pencere ortada açılıp orada kalırdı. Mandal, `fit`
        birden çok kez çağrıldığında (gözlemciler) yalnız bir kez yüklenir. */
+    /* BAR MODU (v1.18.0): bar ekranın bir kenarına yayılır; otomatik gizlemede
+       pencere TAM ORTADA küçücük bir ince oka küçülür — yalnız o ok tıklanır,
+       böylece browser/öbür programların tıklamaları engellenmez. */
+    let sonBar = '';
+    const fitBar = async () => {
+      try {
+        const win = window.__TAURI__.window;
+        const w = win.getCurrentWindow();
+        const alan = await isAlani(win);
+        const sw = window.screen.availWidth || 1920;
+        const acik = PZA.settings.barGizli !== true || PZA.__barAcik === true;
+        const W = acik ? sw : 84;                                   // kapalı: yalnız ince tutamak
+        const H = acik ? Math.max(46, gerekliH()) : 15;
+        const y = (PZA.settings.barKonum === 'ust') ? alan.ust : (alan.ust + alan.boy - H);
+        const x = acik ? 0 : Math.round((sw - W) / 2);
+        const anahtar = W + 'x' + H + '@' + x + ',' + y + (acik ? '1' : '0');
+        document.getElementById('widget')?.classList.toggle('bar-kapali', !acik);
+        if (anahtar === sonBar) return;                             // titremeyi önle
+        sonBar = anahtar;
+        await w.setSize(new win.LogicalSize(W, H));
+        await w.setPosition(new win.LogicalPosition(x, y));
+        sonG = W; sonH = H; sonY = y;
+      } catch (e) { /* yetki yoksa sessiz */ }
+    };
+
     let konumYuklendi = false;
     const fit = async () => {
+      if (PZA.settings && PZA.settings.size === 'bar') { await fitBar(); return; }
       if (!konumYuklendi) { konumYuklendi = true; await konumGeriYukle(); }
       const h = gerekliH();
       const g = Math.max(EN_AZ_G, gerekliG());
@@ -277,6 +303,7 @@
       subtree: true, attributes: true, attributeFilter: ['hidden']
     });
     window.addEventListener('load', fit);
+    window.addEventListener('bar-degisti', () => { sonH = sonG = -1; fit(); });
   }
 
   /* ── Başlat ─────────────────────────────────────────── */
@@ -287,7 +314,16 @@
   else if (PZA.settings.weather) PZA.loadWeather();
 
   /* ── Ayarlar aç/kapa ────────────────────────────────── */
-  $('btn-settings')?.addEventListener('click', () => { $('settings').hidden = false; });
+  $('btn-settings')?.addEventListener('click', () => {
+    $('settings').hidden = false;
+    /* v1.18.0 — KULLANICI BİLDİRİMİ: "dün il/ilçeyi işaretledim, restart
+       sonrası unutmuş; ayarlardan tekrar seçmek zorunda kaldım."
+       KÖK NEDEN: `PZA.apply()` (yukarıda, ~satır 283) çalışırken
+       `PZA.ezanAyarCiz` HENÜZ TANIMLI DEĞİL (aşağıda tanımlanıyor) → açılışta
+       EZAN il/ilçe listeleri hiç doldurulmuyor, kayıtlı seçim geri
+       yüklenmiyordu. Ayarlar her açıldığında yeniden çizerek telafi et. */
+    PZA.ezanAyarCiz?.();
+  });
   $('set-close')?.addEventListener('click', () => { $('settings').hidden = true; });
   $('settings')?.addEventListener('click', e => {
     if (e.target.id === 'settings') $('settings').hidden = true;   // dışına tıkla
@@ -300,6 +336,22 @@
   /* ── Tema ───────────────────────────────────────────── */
   $('btn-light')?.addEventListener('click', () => PZA.set('theme', 'light'));
   $('btn-dark')?.addEventListener('click', () => PZA.set('theme', 'dark'));
+
+  /* ── BAR MODU (v1.18.0): konum (üst/alt) + otomatik gizleme + ortadaki ince ok.
+     Kullanıcı: "tıklayınca açılsın; her yerine tıklanınca değil — browser ve
+     öbür programlara engel olur." Bu yüzden bar'ın tamamı değil, yalnız ince
+     ok tıklamayı alır. */
+  $('bar-konum')?.addEventListener('change', e => PZA.set('barKonum', e.target.value));
+  $('opt-bargizli')?.addEventListener('change', e => {
+    PZA.__barAcik = !e.target.checked;         // gizleme kapalıysa bar hep açık
+    PZA.set('barGizli', e.target.checked);
+    window.dispatchEvent(new Event('bar-degisti'));
+  });
+  $('bar-tutamak')?.addEventListener('click', () => {
+    PZA.__barAcik = !(PZA.__barAcik === true);
+    PZA.apply();
+    window.dispatchEvent(new Event('bar-degisti'));
+  });
 
   /* ── Skin / görünürlük / boyut / tema (ayarlar paneli) ─ */
   $('skin-list')?.addEventListener('click', e => {
@@ -756,6 +808,57 @@
     ezanSesZaman = setTimeout(() => { PZA.settings.ezanSes = v; PZA.save(); }, 200);
   });
   $('ezan-test')?.addEventListener('click', () => PZA.ezanTest?.());
+
+  /* ── ANA PANEL: ezan ses düğmesi + günün vakitleri dropdown'ı (v1.18.0) ──
+     KULLANICI: "1/2 boyutta tam ortadaki tema yazısı gereksiz; yerine ezan
+     sesini kısıp/açacak buton (bayrak benzeri ay-yıldız, kuzeydoğuya apraz)
+     ve onun altında o günkü namaz vakitleri KÜÇÜK bir liste." */
+  PZA.ezanMenuCiz = function () {
+    const kap = document.getElementById('ezan-vakit');
+    if (!kap) return;
+    const liste = PZA.__ezanListe;
+    const bugun = liste ? PZA.ezanBugun(liste, PZA.ezanBugunAnahtar(new Date())) : null;
+    if (!bugun) { kap.innerHTML = '<span class="vk bos">Vakitler yükleniyor…</span>'; return; }
+    const adlar = PZA.EZAN_ADLAR || {};
+    const sirali = ['Imsak', 'Gunes', 'Ogle', 'Ikindi', 'Aksam', 'Yatsi'];
+    kap.innerHTML = sirali.map(v => {
+      const sinif = v === 'Gunes' ? ' gunes' : '';                 // Güneş'te ezan yok
+      return '<span class="vk' + sinif + '">' + (adlar[v] || v) + '</span>'
+           + '<span class="vt' + sinif + '">' + PZA.escHtml(String(bugun[v] || '--:--')) + '</span>';
+    }).join('');
+  };
+  PZA.on?.('ezan:vakitler', () => PZA.ezanMenuCiz());
+
+  const ezanMenu = $('ezan-menu'), ezanBtn = $('ezan-ses-btn');
+  function menuKapat() {
+    if (ezanMenu) ezanMenu.hidden = true;
+    if (ezanBtn) ezanBtn.setAttribute('aria-expanded', 'false');
+  }
+  ezanBtn?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!ezanMenu) return;
+    const acikti = !ezanMenu.hidden;
+    ezanMenu.hidden = acikti;
+    ezanBtn.setAttribute('aria-expanded', acikti ? 'false' : 'true');
+    if (!acikti) PZA.ezanMenuCiz();
+  });
+  document.addEventListener('click', e => {
+    if (!ezanMenu || ezanMenu.hidden) return;
+    if (!e.target.closest('#ezan-ctl')) menuKapat();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') menuKapat(); });
+  $('ezan-sessiz-btn')?.addEventListener('click', () => PZA.set('ezanSessiz', !PZA.settings.ezanSessiz));
+  let hizliZaman = null;
+  $('ezan-hizli-ses')?.addEventListener('input', e => {
+    clearTimeout(hizliZaman);
+    const v = parseFloat(e.target.value);
+    hizliZaman = setTimeout(() => { PZA.set('ezanSes', v); }, 180);
+  });
+
+  /* Tanımlar tamam → açılışta BİR KEZ çiz: il/ilçe listelerini doldurur ve
+     KAYITLI seçimi geri yükler (yukarıdaki sıra hatasının asıl telafisi). */
+  PZA.ezanAyarCiz?.();
+  PZA.ezanMenuCiz();
 
   /* Uyarı bloğundaki "yolunu kopyala" düğmesi — blok dinamik
      yazıldığı için delege edilir (düğme HTML'de yok). */

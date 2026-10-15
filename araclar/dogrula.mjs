@@ -275,6 +275,60 @@ head('11 · Ust bar ortalamasi (tur 17)');
   }
 }
 
+head('12 · EZAN il/ilce acilista geri yukleniyor mu (v1.18.0)');
+{
+  /* KULLANICI: "dun il/ilceyi isaretledim, restart sonrasi unutmus; ayarlardan
+     tekrar secmek zorunda kaldim." KOK NEDEN: `PZA.apply()` (app.js BASI)
+     `PZA.ezanAyarCiz` TANIMLANMADAN cagriliyordu → acilista il/ilce listeleri
+     hic dolmuyor, kayitli secim geri yuklenmiyordu. En az IKI cagri olmali:
+     (1) Ayarlar acilinca, (2) tanim biter bitmez acilista. Bu kural geri
+     alinirsa hata da sessizce geri gelir → statik olarak baglariz. */
+  const app = src('app.js');
+  if (!/PZA\.ezanAyarCiz\s*=\s*(async\s*)?function/.test(app))
+    fail('app.js: PZA.ezanAyarCiz tanimli degil');
+  else ok('app.js: ezanAyarCiz tanimli');
+  const cagri = (app.match(/PZA\.ezanAyarCiz\?\.\(\)/g) || []).length;
+  if (cagri < 2) fail('app.js: ezanAyarCiz yalniz ' + cagri + ' kez cagriliyor (ayarlar + acilis olmali) → acilista il/ilce kaybolur');
+  else ok('app.js: ezanAyarCiz ' + cagri + ' yerde cagriliyor (ayarlar + acilis)');
+  if (!/btn-settings'\)\?\.addEventListener\([\s\S]*?ezanAyarCiz/.test(app))
+    fail('app.js: Ayarlar acilinca ezanAyarCiz cagrilmiyor');
+  else ok('app.js: Ayarlar acilinca EZAN listeleri tazeleniyor');
+
+  /* Ana panel ezan düğmesi + vakit listesi bagli mi (v1.18.0). */
+  for (const id of ['ezan-ses-btn', 'ezan-menu', 'ezan-vakit', 'ezan-sessiz-btn'])
+    if (!html.includes('id="' + id + '"')) fail('index.html: #' + id + ' yok (ezan ses/vakit dropdown)');
+  if (html.includes('id="theme-label"')) fail('index.html: #theme-label hala var (kaldirilmaliydi)');
+  if (/getElementById\('theme-label'\)/.test(src('settings.js'))) fail('settings.js: #theme-label referansi kalmis');
+  else ok('ana panel ezan dugmesi + vakit listesi bagli (theme-label kaldirildi)');
+}
+
+head('13 · BAR MODU bagli mi (v1.18.0)');
+{
+  /* Kullanıcı: "tek satırda tüm arayüz; üst/alt; otomatik gizlemede TAM ORTADA
+     ince ok TIKLAYINCA açılsın (her yere tıklama browser/programlara engel
+     olur)." Bu mekanik parçalardan biri koparsa özellik sessizce ölür. */
+  let eksik = [];
+  for (const id of ['bar-tutamak', 'bar-ayar', 'bar-konum', 'opt-bargizli'])
+    if (!html.includes('id="' + id + '"')) eksik.push('#' + id);
+  if (eksik.length) fail('index.html: bar modu ogeleri eksik → ' + eksik.join(', '));
+  else ok('index.html: tutamak + konum/gizleme kontrolleri var');
+  if (!/name="size"\s+value="bar"/.test(html)) fail('index.html: "Bar" boyut secenegi yok');
+  else ok('index.html: "Bar" boyut secenegi var');
+
+  const app = src('app.js');
+  if (!/const fitBar\s*=/.test(app)) fail('app.js: fitBar tanimli degil (bar pencere boyut/konum)');
+  else ok('app.js: fitBar tanimli');
+  if (!/bar-tutamak'\)\?\.addEventListener/.test(app)) fail('app.js: ortadaki ince ok (bar-tutamak) baglanmamis');
+  else ok('app.js: ortadaki ince ok bagli (tiklayinca acar)');
+  if (!/bar-degisti/.test(app)) fail('app.js: bar-degisti yeniden-olcum yok');
+  else ok('app.js: bar ac/kapa yeniden olcuyor');
+
+  if (!/\[data-size="bar"\]/.test(css)) fail('widget.css: [data-size="bar"] stili yok');
+  else ok('widget.css: bar (tek satir) duzeni var');
+  if (!/\.widget\.bar-kapali/.test(css)) fail('widget.css: bar-kapali (yalniz ince ok) stili yok');
+  else ok('widget.css: kapali bar (yalniz ince ok) stili var');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

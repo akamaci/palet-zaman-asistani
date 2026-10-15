@@ -39,6 +39,15 @@ PZA.ezanBugunAnahtar = function (d) {
 /** Ezan çalınacak 5 vakit (Güneş hariç), sırayla. */
 PZA.EZAN_VAKITLER = ['Imsak', 'Ogle', 'Ikindi', 'Aksam', 'Yatsi'];
 
+/** Vakitlerin Türkçe adları — ana panelin vakit listesinde kullanılır. */
+PZA.EZAN_ADLAR = { Imsak: 'İmsak', Gunes: 'Güneş', Ogle: 'Öğle', Ikindi: 'İkindi', Aksam: 'Akşam', Yatsi: 'Yatsı' };
+
+/** Bugünün vakit satırı (ana panel dropdown çizelgesi için). Liste yoksa null. */
+PZA.ezanBugunVakitler = function () {
+  if (!PZA.__ezanListe) return null;
+  return PZA.ezanBugun(PZA.__ezanListe, PZA.ezanBugunAnahtar(new Date()));
+};
+
 /* ── Önbellek (localStorage) ─────────────────────────────── */
 function ezanOku(anahtar) {
   try { const r = localStorage.getItem(EZAN_DEPO + anahtar); return r ? JSON.parse(r) : null; }
@@ -105,6 +114,13 @@ async function ezanMp3Url(dosya) {
 
 /** Ezanı çal (dosya adı verilir). Ayarlardaki ses seviyesi kullanılır. */
 PZA.ezanCal = async function (dosya, ses) {
+  /* v1.18.0 — SESSİZ mod: ana `ezan` açık ama kullanıcı ana paneldeki
+     düğmeyle sesi kapatmış. Sesi hiç çalmayız (mp3 de indirilmez); vakit
+     kaçmaz, yalnız duyulmaz. Kullanıcı isteği: "ezan sesini kısıp açacak buton". */
+  if (PZA.settings && PZA.settings.ezanSessiz === true) {
+    PZA.logYaz?.('bilgi', 'Ezan sessiz modda (çalınmadı): ' + dosya);
+    return false;
+  }
   try {
     const url = await ezanMp3Url(dosya);
     if (PZA.__ezanAudio) { try { PZA.__ezanAudio.pause(); } catch (e) {} PZA.__ezanAudio = null; }

@@ -195,6 +195,7 @@
 [data-size="4"] .dateline-day,
 [data-size="4"] .btn-ghost span,
 [data-size="4"] .btn-notes > span:first-child,
+[data-size="4"] .ezan-ctl,
 [data-size="4"] .status { display: none; }
 
 [data-size="3"] .bar-preview { display: none; }
@@ -792,6 +793,47 @@ body.tauri.yukari { align-items: flex-end; }
 .status { display: flex; align-items: center; gap: 6px; color: var(--fg-mute); }
 .status b { color: var(--fg-dim); font-weight: 600; }
 .status .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--fg-mute); }
+
+/* ── EZAN SES + VAKİT DROPDOWN'I (v1.18.0) ────────────────────
+   Alt barda "Tema: Karanlık" yazısının yerini aldı (kullanıcı: gereksiz).
+   Soldaki tema düğmeleri zaten temayı gösteriyor; burada ezan sesi
+   aç/kapa + altında günün namaz vakitleri listesi açılır. */
+.ezan-ctl { position: relative; display: flex; align-items: center; }
+.ezan-btn {
+  display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px;
+  border-radius: 8px; background: var(--surface-1); border: 1px solid var(--border-ctl);
+  color: var(--fg-dim); cursor: pointer; font: inherit;
+  transition: border-color .15s, color .15s, opacity .15s;
+}
+.ezan-btn:hover { border-color: var(--accent-soft); }
+.ezan-btn:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+.ezan-ico { width: 16px; height: 16px; transform: rotate(-18deg); }   /* ay-yıldız kuzeydoğuya apraz */
+.ezan-ico .ay, .ezan-ico .yildiz { fill: var(--accent-strong); }
+.ezan-ico .cizgi { stroke: var(--fg); stroke-width: 2; stroke-linecap: round; fill: none; display: none; }
+.ezan-btn.sessiz { opacity: .62; }
+.ezan-btn.sessiz .cizgi { display: block; }                            /* sessiz → üstü çizili */
+.ezan-ses-txt { font-size: 11px; font-weight: 600; }
+
+.ezan-menu {
+  position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 30;
+  min-width: 190px; padding: 9px; border-radius: 12px;
+  background: var(--surface-2, var(--surface-1));
+  border: 1px solid var(--border-ctl);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+}
+.em-ust { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.em-sw {
+  display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 8px;
+  background: var(--surface-1); border: 1px solid var(--border-ctl);
+  color: var(--fg-dim); cursor: pointer; font: inherit; white-space: nowrap;
+}
+.em-sw[aria-pressed="true"] { border-color: var(--accent-soft); color: var(--accent-strong); }
+.em-range { flex: 1; min-width: 60px; }
+.em-vakit { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 11px; }
+.em-vakit .vk { color: var(--fg-mute); }
+.em-vakit .vt { text-align: right; font-family: var(--font-num); color: var(--fg); }
+.em-vakit .gunes { opacity: .45; }
+.em-vakit .bos { grid-column: 1 / 3; color: var(--fg-mute); }
 .brand {
   width: 26px; height: 26px; display: grid; place-items: center;
   border-radius: 8px;
@@ -1254,3 +1296,45 @@ input { user-select: text; }
    Kullanıcı isteği: "ayarların altında parlayan bir metin". */
 .gunc-parla { color: var(--accent); font-weight: 600; animation: guncParla 1.6s ease-in-out infinite; }
 @keyframes guncParla { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* ══ BAR MODU (v1.18.0) ══════════════════════════════════════════
+   Kullanıcı: "tek satır, tüm programın arayüzü dağıtılmış; üst/alt
+   seçilebilir; otomatik gizlemede TAM ORTADA ince ok — TIKLAYINCA açılır
+   (her yere tıklama browser/öbür programlara engel olur)." */
+
+.widget[data-size="bar"] {
+  max-width: none;
+  display: flex;                /* temel .widget blok'tur → satır için flex ŞART */
+  flex-direction: row;          /* iki bar YAN YANA → tek satır */
+  align-items: stretch;
+}
+.widget[data-size="bar"] .bar-preview,
+.widget[data-size="bar"] .dateline,
+.widget[data-size="bar"] .btn-notes,
+.widget[data-size="bar"] .panel-notes,
+.widget[data-size="bar"] .panel-weather { display: none; }  /* ince barda barınamaz */
+.widget[data-size="bar"] .bar-top,
+.widget[data-size="bar"] .bar-bottom { flex: 1 1 auto; padding-top: 6px; padding-bottom: 6px; }
+.widget[data-size="bar"] .bar-bottom { border-top: 0; border-left: 1px solid var(--edge-soft); }
+.widget[data-size="bar"] .flip-row { gap: 6px; }
+.widget[data-size="bar"] .flip { width: 40px; height: 46px; border-radius: 9px; }
+.widget[data-size="bar"] .flip-num { font-size: 21px; }
+.widget[data-size="bar"] .colon i { width: 4px; height: 4px; }
+
+/* Açma/kapama tutamağı — yalnız bar + otomatik gizlemede görünür (JS `hidden` kaldırır) */
+.bar-tutamak {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 78px; height: 15px; padding: 0; margin: 0; border: 0; cursor: pointer;
+  display: grid; place-items: center;
+  background: var(--surface-bar); color: var(--fg-mute); z-index: 60;
+}
+.bar-tutamak:hover { color: var(--fg); }
+.bar-tutamak svg { width: 16px; height: 16px; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+[data-bar-konum="ust"] .bar-tutamak { top: 0; border-radius: 0 0 9px 9px; }
+[data-bar-konum="alt"] .bar-tutamak { bottom: 0; border-radius: 9px 9px 0 0; }
+[data-bar-konum="ust"] .bar-tutamak svg { transform: rotate(180deg); }   /* üst bar: ok AŞAĞI */
+
+/* Kapalı bar: yalnız ince tutamak kalır; gövde şeffaf (programı engellemez) */
+.widget.bar-kapali > *:not(.bar-tutamak):not(.skin-bg) { display: none !important; }
+.widget.bar-kapali { background: transparent; box-shadow: none; border-color: transparent; min-height: 15px; }

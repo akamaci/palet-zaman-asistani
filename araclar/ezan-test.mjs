@@ -82,5 +82,28 @@ PZA.ezanTick(new Date(2026, 9, 10, 18, 25));
 PZA.ezanTick(new Date(2026, 9, 11, 18, 25));        // ertesi gün (liste bugünü içermez → çalmaz)
 esit(calinan.length, 1, 'gün değişince mandal temizlenir');
 
+/* v1.18.0 — ana paneldeki ses düğmesi: SESSİZ mod + vakit adları + bugünün
+   listesi. Gerçek mp3 indirilmez; fetch/Audio stub'lanır, yalnız KARAR ölçülür. */
+console.log('\n6 · Sessiz mod + vakit adları/listesi (v1.18.0)');
+PZA = yukle();
+PZA.settings = { ezan: true, ezanIlce: 9206, ezanSes: 0.8, ezanSessiz: true };
+let audioSay = 0;
+g.fetch = async () => ({ ok: true, blob: async () => new Blob([]) });
+g.Audio = function () { audioSay++; this.play = async () => {}; };
+g.URL = { createObjectURL: () => 'blob:test' };
+const r1 = await PZA.ezanCal('Ezan.mp3');
+dogru(r1 === false, 'sessiz modda ezan ÇALINMAZ (false döner)');
+dogru(audioSay === 0, 'sessiz modda Audio hiç oluşturulmaz (mp3 de inmez)');
+PZA.settings.ezanSessiz = false;
+const r2 = await PZA.ezanCal('Ezan.mp3');
+dogru(r2 === true, 'sessiz kapatılınca ezan çalınır (true)');
+dogru(audioSay === 1, 'ses açıkken Audio oluşturulur (1)');
+esit(PZA.EZAN_ADLAR.Ogle, 'Öğle', 'vakit Türkçe adı Öğle');
+esit(PZA.EZAN_ADLAR.Gunes, 'Güneş', 'vakit Türkçe adı Güneş');
+esit(PZA.EZAN_ADLAR.Yatsi, 'Yatsı', 'vakit Türkçe adı Yatsı');
+PZA.__ezanListe = [{ MiladiTarihKisa: PZA.ezanBugunAnahtar(new Date()),
+  Imsak: '05:24', Gunes: '06:46', Ogle: '12:41', Ikindi: '15:51', Aksam: '18:25', Yatsi: '19:43' }];
+esit(PZA.ezanBugunVakitler().Ogle, '12:41', 'ezanBugunVakitler bugünün satırını verir');
+
 console.log('\n' + (bad ? bad + ' SORUN · ' + iyi + ' geçti' : 'TÜMÜ GEÇTİ · ' + iyi + ' kontrol'));
 process.exit(bad ? 1 : 0);

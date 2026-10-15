@@ -175,7 +175,33 @@
       </div>
     </div>
 
-    <div class="status"><span class="dot"></span>Tema: <b id="theme-label">Karanlık</b></div>
+    <!-- v1.18.0 — KULLANICI: "1/2 boyutta tam ortadaki Tema yazısı gereksiz.
+         Yerine ezan sesini kısıp/açacak buton (Türk bayrağına benzer ay-yıldız;
+         tam yukarı bakmaz, kuzeydoğuya hafif apraz) ve ALTINDA o günkü namaz
+         vakitleri küçük bir liste hâlinde açılsın." -->
+    <div class="ezan-ctl" id="ezan-ctl">
+      <button id="ezan-ses-btn" class="ezan-btn" type="button"
+              aria-haspopup="true" aria-expanded="false"
+              title="Ezan sesi — günün namaz vakitleri">
+        <svg class="ezan-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="ay" d="M14.4 4.1a7.4 7.4 0 1 0 4 13 6.05 6.05 0 0 1-7.7-8.7 7.4 7.4 0 0 0 3.7-4.3z"/>
+          <path class="yildiz" d="M17.7 5.2l.52 1.45 1.54.05-1.22.95.44 1.5-1.28-.9-1.28.9.44-1.5-1.22-.95 1.54-.05z"/>
+          <line class="cizgi" x1="3.4" y1="3.4" x2="20.6" y2="20.6"/>
+        </svg>
+        <span class="ezan-ses-txt" id="ezan-ses-txt">Ezan</span>
+      </button>
+
+      <div class="ezan-menu" id="ezan-menu" hidden role="menu" aria-label="Ezan sesi ve vakitler">
+        <div class="em-ust">
+          <button id="ezan-sessiz-btn" class="em-sw" type="button" aria-pressed="false">
+            <span class="em-ikon" id="em-ikon">🔊</span><span id="em-sw-txt">Ses açık</span>
+          </button>
+          <input id="ezan-hizli-ses" class="em-range" type="range" min="0" max="1" step="0.05"
+                 aria-label="Ezan ses seviyesi">
+        </div>
+        <div class="em-vakit" id="ezan-vakit">—</div>
+      </div>
+    </div>
     <!-- v1.14.0 — kullanıcı: "tasarımda PA yazısı var bunu butona çevirelim."
          Ayarlar sol altta → PA sağ altta (zıt istikamet). Basınca sürüm
          durumu popup'ı açılır; yeni sürüm varsa ışık efektiyle parlar. -->
@@ -184,6 +210,14 @@
       <span>PA</span>
     </button>
   </div>
+
+  <!-- BAR MODU (v1.18.0) — otomatik gizlemede TAM ORTADA ince açma oku.
+       Kullanıcı: "tıklayınca açılsın; her yerine tıklanınca değil — browser
+       ve diğer programlara engel olur." Bu yüzden yalnız bu KÜÇÜK ok açılır. -->
+  <button id="bar-tutamak" class="bar-tutamak" type="button" hidden
+          aria-label="Barı aç / kapat" title="Barı aç / kapat">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
 
 </div>
 
@@ -346,6 +380,17 @@
     <label class="row radio"><input type="radio" name="size" value="2"><span>1/2 Genişlik <i>(en geniş)</i></span></label>
     <label class="row radio"><input type="radio" name="size" value="3"><span>1/3 Genişlik <i>(orta)</i></span></label>
     <label class="row radio"><input type="radio" name="size" value="4"><span>1/4 Genişlik <i>(kompakt)</i></span></label>
+    <!-- v1.18.0 — BAR MODU: görev çubuğu gibi tek satır; üst/alt + otomatik gizleme. -->
+    <label class="row radio"><input type="radio" name="size" value="bar"><span>Bar <i>(görev çubuğu gibi tek satır)</i></span></label>
+    <div id="bar-ayar" hidden>
+      <label class="row"><span>Bar konumu</span>
+        <select id="bar-konum" class="inp" aria-label="Bar konumu">
+          <option value="alt">Alt (görev çubuğu gibi)</option>
+          <option value="ust">Üst (menü çubuğu gibi)</option>
+        </select></label>
+      <label class="row"><span>Otomatik gizle <i>(tam ortadaki ince oka tıklayınca açılır)</i></span>
+        <input type="checkbox" id="opt-bargizli" class="sw"></label>
+    </div>
 
     <h4 data-i18n="h_start">BAŞLANGIÇ</h4>
     <label class="row"><span data-i18n-html="opt_autostart_html">Windows ile Başlat <i class="hint-i">(önerilir — otomatik açılır)</i></span><input type="checkbox" id="opt-autostart" class="sw"></label>
