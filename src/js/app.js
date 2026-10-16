@@ -872,20 +872,49 @@
     if (ezanBtn) ezanBtn.setAttribute('aria-expanded', 'false');
   }
 
-  /* Bar modunda ezan menüsü `position: fixed`'tir (`.widget` `overflow:hidden`
-     menüyü kırpıyordu → kullanıcı: "ezan menüsü açılmıyor"). Fixed menünün
-     konumu düğmeye JS ile hizalanır; normal modda CSS konumu yeterli olduğundan
-     inline değerler temizlenir. */
+  /* Bar modunda barın DIŞINA taşan menüler/paneller `position: fixed`'tir.
+     KULLANICI BEKLENTİSİ (2026-10-16): "hava durumuna basınca HAVA yazan
+     yerden, ezana basınca EZAN yerinden, notlara basınca NOTLAR yazan yerden
+     açılsın." → her yüzeyi TETİKLEYEN öğeye YATAYDA hizala (dikey CSS'ten
+     `data-bar-konum` yönetir). Bar modu değilse inline değerler temizlenir. */
+  PZA.barYuzeyHizala = function (el, tetik, yon) {
+    if (!el) return;
+    const barMod = PZA.settings && PZA.settings.size === 'bar';
+    if (!barMod || el.hidden || !tetik) {
+      el.style.left = ''; el.style.right = ''; el.style.marginLeft = '';
+      return;
+    }
+    const vw = window.innerWidth;
+    const w = Math.round(el.getBoundingClientRect().width) || 412;
+    const r = tetik.getBoundingClientRect();
+    const enSol = 8, enSag = Math.max(enSol, vw - w - 8);
+    if (yon === 'sol') {
+      /* Tetikleyicinin SOLUNA hizala, ekrandan taşmasın */
+      el.style.right = 'auto';
+      el.style.marginLeft = '0';
+      el.style.left = Math.round(Math.max(enSol, Math.min(r.left, enSag))) + 'px';
+    } else {
+      /* Tetikleyicinin SAĞINA hizala (sağ kenarlar çakışır) */
+      el.style.left = 'auto';
+      el.style.marginLeft = '0';
+      el.style.right = Math.round(Math.max(enSol, Math.min(vw - r.right, enSag))) + 'px';
+    }
+  };
+
   PZA.ezanMenuYerlestir = function () {
-    if (!ezanMenu || ezanMenu.hidden) return;
-    if (!(PZA.settings && PZA.settings.size === 'bar')) {
-      ezanMenu.style.left = ''; ezanMenu.style.right = '';
-      ezanMenu.style.top = '';  ezanMenu.style.bottom = '';
+    PZA.barYuzeyHizala(ezanMenu, ezanBtn, 'sag');
+    PZA.barYuzeyHizala(document.getElementById('panel-weather'), $('weather-tile'), 'sol');
+    PZA.barYuzeyHizala(document.getElementById('panel-notes'), $('btn-notes'), 'sag');
+
+    /* Ezan menüsünün DİKEY yönü ayrıdır (base CSS `bottom: 100%`; fixed'te
+       JS ile butona göre belirlenir). */
+    const barMod = PZA.settings && PZA.settings.size === 'bar';
+    if (!ezanMenu) return;
+    if (!barMod || ezanMenu.hidden) {
+      ezanMenu.style.top = ''; ezanMenu.style.bottom = '';
       return;
     }
     const r = ezanBtn.getBoundingClientRect();
-    ezanMenu.style.left = 'auto';
-    ezanMenu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
     if (PZA.settings.barKonum === 'ust') {
       ezanMenu.style.top = Math.round(r.bottom + 8) + 'px';
       ezanMenu.style.bottom = 'auto';

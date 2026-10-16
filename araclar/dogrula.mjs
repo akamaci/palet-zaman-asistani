@@ -329,7 +329,7 @@ head('13 · BAR MODU bagli mi (v1.18.0)');
   else ok('widget.css: kapali bar (yalniz ince ok) stili var');
 }
 
-head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.3)');
+head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.4)');
 {
   /* Kullanıcı bildirimi (2026-10-16): "hava durumu ve takvim ekran genisliginde
      buyuyor, arka plan saydamlasip okunamaz; ayarlar menusu genisliginde ve koyu
@@ -356,6 +356,21 @@ head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.3)');
   if (!/const ezanVar\s*=\s*acikMi\('ezan-menu'\)/.test(app))
     fail('app.js: fitBar ezan menusunu olcmuyor → pencere buyumez, menu kirpilir');
   else ok('app.js: fitBar ezan menusu acikken pencereyi buyutuyor');
+
+  /* Kullanıcı beklentisi (2026-10-16): "hava durumuna basınca HAVA yazan yerden,
+     ezana basınca EZAN yerinden, notlara basınca NOTLAR yazan yerden açılsın."
+     → paneller tetikleyici öğeye hizalanmalı; bu bağ koparsa hepsi ortadan açar. */
+  if (!/PZA\.barYuzeyHizala\s*=/.test(app)) fail('app.js: barYuzeyHizala tanimli degil (panel tetikleyiciye hizalanmaz)');
+  else ok('app.js: barYuzeyHizala tanimli');
+  if (!/barYuzeyHizala\(document\.getElementById\('panel-weather'\),\s*\$\('weather-tile'\),\s*'sol'\)/.test(app))
+    fail('app.js: Hava paneli weather-tile\'a hizalanmiyor (kullanici: "hava notlardan aciliyor")');
+  else ok('app.js: Hava paneli hava kutucuguna hizali');
+  if (!/barYuzeyHizala\(document\.getElementById\('panel-notes'\),\s*\$\('btn-notes'\),\s*'sag'\)/.test(app))
+    fail('app.js: Notlar paneli btn-notes\'a hizalanmiyor');
+  else ok('app.js: Notlar paneli Notlar dugmesine hizali');
+  if (!/barYuzeyHizala\(ezanMenu,\s*ezanBtn,\s*'sag'\)/.test(app))
+    fail('app.js: Ezan menusu ezan dugmesine hizalanmiyor');
+  else ok('app.js: Ezan menusu Ezan dugmesine hizali');
 }
 
 /* ── Sonuç ─────────────────────────────────────────────── */

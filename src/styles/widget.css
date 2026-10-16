@@ -1332,16 +1332,19 @@ input { user-select: text; }
 
    KULLANICI BİLDİRİMİ (2026-10-16): "hava durumu ve takvim ekran genişliğinde
    büyüyor, arka plan saydamlaşıyor okunamıyor; boyu AYARLAR MENÜSÜ genişliğinde
-   olsun, KOYU MODDA okunaklı olacak."
+   olsun, KOYU MODDA okunaklı olacak." + "hava durumuna basınca HAVA yazan yerden,
+   ezana basınca EZAN yerinden, notlara basınca NOTLAR yazan yerden açılsın."
    Kök neden: panel `position: fixed; left:0; right:0` ile pencere genişliğine
    yayılıyordu ve zemin token'ı yarı saydam (`--surface-panel` .55) olduğundan
    barın ALTINDA masaüstü görünüyordu (pencere şeffaf). Normal modda panel
    widget'ın kendi gradyanının ÜSTÜNDE olduğu için fark edilmiyordu.
-   Çözüm: Ayarlar ile AYNI genişlik (412px), ORTALI ve OPAK zemin. */
+   Çözüm: Ayarlar ile AYNI genişlik (412px) + OPAK zemin. YATAY konum JS
+   (`PZA.ezanMenuYerlestir` → `barYuzeyHizala`) ile TETİKLEYİCİYE hizalanır;
+   aşağıdaki `left/margin-left` JS çalışmazsa YEDEK (ortada) değerlerdir. */
 .widget[data-size="bar"] .panel-notes,
 .widget[data-size="bar"] .panel-weather {
   position: fixed;
-  left: 50%; margin-left: -206px;          /* 412px → tam ortalı (transform ile çakışmaz) */
+  left: 50%; margin-left: -206px;          /* YEDEK: JS hizalama gelmezse ortada */
   width: 412px; max-width: calc(100vw - 20px);
   z-index: 45;
   max-height: 72vh; overflow-y: auto;
