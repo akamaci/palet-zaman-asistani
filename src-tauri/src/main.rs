@@ -15,6 +15,12 @@ use tauri::{
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_updater::UpdaterExt;
 
+/// Güncelleme sürerken pencere kapatmaya İZİN verilir. KULLANICI (2026-10-16):
+/// "tepsi ikonu kapatılamadığından otomatik güncelleme takılıyor" → varsayılan
+/// `CloseRequested` davranışı pencereyi gizliyordu (kapanmıyordu); NSIS kurulumu
+/// uygulamanın kapanmasını beklediği için takılıyordu.
+static GUNCELLEME: AtomicBool = AtomicBool::new(false);
+
 /// Ayarlardan "Windows ile Başlat" toggle'ı bu komutu çağırır.
 #[tauri::command]
 fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
@@ -434,6 +440,7 @@ async fn guncelleme_yap(app: tauri::AppHandle) -> Result<bool, String> {
     let Some(s) = yeni else {
         return Ok(false);                    // yeni sürüm yok
     };
+    GUNCELLEME.store(true, Ordering::SeqCst); // kurulum için kapanmaya İZİN ver
     /* İlerlemeyi yüzde değiştikçe yay (her parça için spam yapma). */
     let son = std::sync::Arc::new(AtomicI32::new(-1));
     let (app_i, son_i) = (app.clone(), son.clone());
@@ -520,9 +527,14 @@ fn main() {
 
             Ok(())
         })
-        // Kapatma tuşu = tepsiye küçül, uygulamadan çıkma
+        // Kapatma tuşu = tepsiye küçül, uygulamadan çıkma.
+        // AMA güncelleme sürerken kapanmaya İZİN ver (kurulum bekliyor).
         .on_window_event(|w, ev| {
             if let WindowEvent::CloseRequested { api, .. } = ev {
+                if GUNCELLEME.load(Ordering::SeqCst) {
+                    w.app_handle().exit(0);
+                    return;
+                }
                 api.prevent_close();
                 let _ = w.hide();
             }

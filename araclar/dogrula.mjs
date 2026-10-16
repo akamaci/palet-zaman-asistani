@@ -454,6 +454,24 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
   }
 }
 
+head('18 · Guncelleme kapanma izni + plaka tam ekran + ezan menusu (v1.19.1)');
+{
+  /* Kullanıcı (2026-10-16): "tepsi ikonu kapatilamadigindan guncelleme takiliyor"
+     + "ezan tiklaninca ust kismi kayip" + "orbital skin bozuk". */
+  const main = fs.readFileSync(path.join(root, 'src-tauri/src/main.rs'), 'utf8');
+  if (!/static GUNCELLEME/.test(main)) fail('main.rs: GUNCELLEME kapanma izni yok (guncelleme takilir)');
+  else ok('main.rs: guncelleme kapanma izni tanimli');
+  if (!/GUNCELLEME\.store\(true/.test(main)) fail('main.rs: guncelleme bayragi kurulum oncesi set edilmiyor');
+  else ok('main.rs: guncelleme bayragi kurulum oncesi set ediliyor');
+  if (!/GUNCELLEME\.load\(Ordering::SeqCst\)/.test(main)) fail('main.rs: CloseRequested guncelleme iznini kullanmiyor');
+  else ok('main.rs: kapatma istegi guncelleme sirasinda cikisa izin veriyor');
+
+  if (!/width:\s*100vw/.test(css)) fail('widget.css: plaka pencereyi doldurmuyor (100vw) → bosluk/tasma');
+  else ok('widget.css: plaka pencereyi tam doldurur');
+  if (!/max-height:\s*min\(58vh/.test(css)) fail('widget.css: ezan menusu yukseklik siniri yok (ust kisim kirpilir)');
+  else ok('widget.css: ezan menusu yukseklik siniri + kaydirma var');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

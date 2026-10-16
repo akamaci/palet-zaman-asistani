@@ -820,6 +820,9 @@ body.tauri.yukari { align-items: flex-end; }
   background: var(--surface-2, var(--surface-1));
   border: 1px solid var(--border-ctl);
   box-shadow: 0 14px 34px rgba(0,0,0,.55);
+  /* KULLANICI (2026-10-16): "ezan tıklanınca üst kısmı kayıp görünmüyor."
+     Menü widget tepesine sığmazsa kırpılıyordu → yükseklik sınırı + kaydırma. */
+  max-height: min(58vh, 360px); overflow-y: auto; overscroll-behavior: contain;
 }
 .em-ust { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .em-sw {
@@ -1414,13 +1417,13 @@ select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; pa
    oturur. Yerleşim JS ile (PZA.applyPlate) verilir — burada yalnız iskelet. */
 .widget.plaka {
   position: relative;
-  width: var(--plate-w, 940px);
-  height: var(--plate-h, 430px);
+  width: 100vw;                       /* pencere ne olursa olsun TAM doldur */
+  height: 100vh;
   max-width: none;
   border-radius: 0;
   box-shadow: none;
   background: var(--plate-img) center / 100% 100% no-repeat;
-  overflow: visible;                 /* bölgeler/menüler taşarsa kırpılmasın */
+  overflow: hidden;                   /* taşma → kaydırma çubuğu/boşluk olmasın */
   transition: none;
 }
 .widget.plaka > .skin-bg { display: none; }

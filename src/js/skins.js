@@ -42,6 +42,102 @@ PZA.q1 = function (sel) {
   return (typeof document !== 'undefined' && document.querySelector) ? document.querySelector(sel) : null;
 };
 
+/* ── OTOMATİK SKİN (v1.20.0) ──────────────────────────────────
+   Kullanıcı: "bir resim, bir renk ve benzeri çizimler; belirli doneler
+   ve önerilerle bunu otomatikleştirmek." → Son kullanıcı bir RESİM + bir
+   RENK verir; kontrol bölgeleri ÖN AYAR (dono) haritalarından gelir.
+   (Winamp'taki "koordinatı elle yaz" derdi son kullanıcıdan alınır.) */
+PZA.PLATE_LAYOUTS = {
+  standart: {
+    name: 'Standart', panel: 0.10,
+    regions: {
+      clock: { x: 256, y: 144, w: 428, h: 122 }, date: { x: 383, y: 32, w: 174, h: 24 },
+      weather: { x: 36, y: 109, w: 202, h: 126 }, notes: { x: 702, y: 136, w: 202, h: 66 },
+      theme: { x: 702, y: 218, w: 202, h: 56 }, settings: { x: 36, y: 251, w: 202, h: 50 },
+      ezan: { x: 817, y: 366, w: 36, h: 32 }, pa: { x: 865, y: 369, w: 39, h: 26 }
+    }
+  },
+  ferah: {
+    name: 'Ferah (geniş)', panel: 0.12,
+    regions: {
+      clock: { x: 270, y: 150, w: 400, h: 120 }, date: { x: 383, y: 34, w: 174, h: 24 },
+      weather: { x: 28, y: 96, w: 190, h: 150 }, notes: { x: 722, y: 120, w: 190, h: 74 },
+      theme: { x: 722, y: 210, w: 190, h: 56 }, settings: { x: 28, y: 262, w: 190, h: 48 },
+      ezan: { x: 815, y: 368, w: 36, h: 32 }, pa: { x: 863, y: 371, w: 39, h: 26 }
+    }
+  }
+};
+
+function yuvarlakKutu(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+/** Resim + renk + düzen → plaka (WebP data URI). cb(err, plateDataUri, layout) */
+PZA.autoPlate = function (imageUri, accent, layoutKey, panel, cb) {
+  const L = PZA.PLATE_LAYOUTS[layoutKey] || PZA.PLATE_LAYOUTS.standart;
+  const cv = { w: 940, h: 430 };
+  const c = document.createElement('canvas'); c.width = cv.w; c.height = cv.h;
+  const g = c.getContext('2d');
+  const pc = PZA.parseColor(accent) || { hex: '#00f0ff' };
+  const A = [parseInt(pc.hex.slice(1, 3), 16), parseInt(pc.hex.slice(3, 5), 16), parseInt(pc.hex.slice(5, 7), 16)].join(',');
+  const panelA = (typeof panel === 'number') ? panel : L.panel;
+
+  const ciz = () => {
+    Object.keys(L.regions).forEach(k => {
+      const r = L.regions[k];
+      yuvarlakKutu(g, r.x, r.y, r.w, r.h, 12);
+      g.fillStyle = 'rgba(' + A + ',' + panelA + ')'; g.fill();
+      g.lineWidth = 1; g.strokeStyle = 'rgba(' + A + ',0.45)'; g.stroke();
+    });
+    let out;
+    try { out = c.toDataURL('image/webp', 0.9); } catch (e) { out = c.toDataURL('image/png'); }
+    cb(null, out, L);
+  };
+
+  const img = new Image();
+  img.onload = () => {
+    const s = Math.max(cv.w / img.naturalWidth, cv.h / img.naturalHeight);
+    const w = img.naturalWidth * s, h = img.naturalHeight * s;
+    g.drawImage(img, (cv.w - w) / 2, (cv.h - h) / 2, w, h);
+    g.fillStyle = 'rgba(6,9,16,0.55)'; g.fillRect(0, 0, cv.w, cv.h);      // okunurluk için karart
+    g.fillStyle = 'rgba(' + A + ',0.06)'; g.fillRect(0, 0, cv.w, cv.h);   // hafif renk tonu
+    ciz();
+  };
+  img.onerror = () => cb('Resim açılamadı.');
+  img.src = imageUri;
+};
+
+/** Otomatik skin nesnesi üret (kaydetmez). o = {plate,layoutKey,accent,name} */
+PZA.autoSkin = function (o) {
+  const L = PZA.PLATE_LAYOUTS[o.layoutKey] || PZA.PLATE_LAYOUTS.standart;
+  const acc = PZA.parseColor(o.accent) || { hex: '#00f0ff', a: 1 };
+  const koyu = PZA.luminance(acc.hex) < 0.65;
+  return {
+    format: PZA.SKIN_FORMAT_V2,
+    id: PZA.newId(o.name || 'Otomatik'),
+    name: String(o.name || 'Otomatik').slice(0, 24),
+    author: 'Otomatik',
+    canvas: { w: 940, h: 430 },
+    plate: o.plate,
+    regions: JSON.parse(JSON.stringify(L.regions)),
+    tokens: {
+      '--fg': '#eef3fa', '--fg-dim': '#a9b8cc', '--fg-mute': '#6b7c93',
+      '--accent': acc.hex, '--accent-strong': acc.hex,
+      '--on-accent': koyu ? '#04121a' : '#ffffff',
+      '--warn': '#ffb703', '--ok': '#34d399'
+    },
+    fontUI: "'Segoe UI', system-ui, -apple-system, sans-serif",
+    fontNum: "'Cascadia Mono', 'Consolas', monospace"
+  };
+};
+
 /* ── Düzenlenebilir token kataloğu ─────────────────────────
    Sıra, stüdyodaki grup sırasıdır. Yeni token eklemek için
    buraya bir satır yazmak yeter — motor gerisini kendisi yapar. */
