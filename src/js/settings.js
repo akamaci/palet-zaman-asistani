@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.19.1';
+PZA.SURUM = '1.20.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -307,3 +307,75 @@ PZA.renderSkins = function () {
   }
 
 };
+
+/* ══ AYARLAR SEKMELERİ (v1.20.0) ══════════════════════════════
+   Kullanıcı: "ayarlar içinde sekme yapalım; uzadıkça en aşağı kadar uzuyor,
+   gruplayalım; her grup AYNI UZUNLUKTA olsun." → Mevcut `.set-body`
+   bölümleri (<h4> başlıklarından) sekmelere BÖLÜNÜR; DOM taşınır ama
+   öğe kimlikleri korunur (mevcut bağlar bozulmaz). */
+PZA.AYAR_SEKMELERI = [
+  { id: 'genel',   ad: 'Genel',   basliklar: ['h_lang', 'h_vis', 'h_theme', 'h_size', 'h_start'] },
+  { id: 'gorunum', ad: 'Görünüm', basliklar: ['h_skin'] },
+  { id: 'ses',     ad: 'Ses',     basliklar: ['h_speech', 'h_loc', 'h_ezan'] },
+  { id: 'takvim',  ad: 'Takvim',  basliklar: ['h_gcal'] },
+  { id: 'diger',   ad: 'Diğer',   basliklar: ['h_log'] }
+];
+
+PZA.ayarSekmeAc = function (id) {
+  const govde = document.querySelector('#settings .set-body');
+  if (!govde) return;
+  govde.querySelectorAll('.set-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  govde.querySelectorAll('.set-tab-panel').forEach(p => p.classList.toggle('on', p.dataset.tab === id));
+};
+
+PZA.kurAyarlarSekmeleri = function () {
+  const govde = document.querySelector('#settings .set-body');
+  if (!govde || govde.dataset.sekmeli === '1') return;
+  govde.dataset.sekmeli = '1';
+
+  /* Bölümleri <h4> sınırlarından ayır (h4 + ardındakiler). */
+  const bolumler = [];
+  let anlik = null;
+  Array.from(govde.children).forEach(el => {
+    if (el.tagName === 'H4') { anlik = { bas: el, ogeler: [el] }; bolumler.push(anlik); }
+    else if (anlik) { anlik.ogeler.push(el); }
+  });
+
+  const sekmeBul = k => PZA.AYAR_SEKMELERI.find(s => s.basliklar.indexOf(k) >= 0) || PZA.AYAR_SEKMELERI[PZA.AYAR_SEKMELERI.length - 1];
+
+  /* Paneller (sabit sıra) */
+  const kok = document.createElement('div');
+  const paneller = {};
+  PZA.AYAR_SEKMELERI.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'set-tab-panel'; d.dataset.tab = s.id;
+    paneller[s.id] = d; kok.appendChild(d);
+  });
+
+  /* Öğeleri panellere TAŞI (id ve olay bağları korunur) */
+  bolumler.forEach(b => {
+    const s = sekmeBul(b.bas.getAttribute('data-i18n') || '');
+    b.ogeler.forEach(el => paneller[s.id].appendChild(el));
+  });
+
+  /* Sekme çubuğu */
+  const bar = document.createElement('div');
+  bar.className = 'set-tabs'; bar.id = 'set-tabs'; bar.setAttribute('role', 'tablist');
+  PZA.AYAR_SEKMELERI.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'set-tab' + (i === 0 ? ' on' : '');
+    btn.dataset.tab = s.id; btn.textContent = s.ad;
+    bar.appendChild(btn);
+  });
+  bar.addEventListener('click', e => {
+    const b = e.target.closest('.set-tab');
+    if (b) PZA.ayarSekmeAc(b.dataset.tab);
+  });
+
+  govde.insertBefore(bar, govde.firstChild);
+  govde.insertBefore(kok, bar.nextSibling);
+  PZA.ayarSekmeAc(PZA.AYAR_SEKMELERI[0].id);
+};
+
+/* DOM hazır (script'ler sayfa sonunda) → hemen kur. */
+PZA.kurAyarlarSekmeleri();

@@ -472,6 +472,32 @@ head('18 · Guncelleme kapanma izni + plaka tam ekran + ezan menusu (v1.19.1)');
   else ok('widget.css: ezan menusu yukseklik siniri + kaydirma var');
 }
 
+head('19 · Ayarlar SEKMELERI (esit yukseklik) + plaka surukleme seridi (v1.20.0)');
+{
+  /* Kullanıcı: "ayarlar içinde sekme yapalım; uzadıkça en aşağı kadar uzuyor,
+     gruplayalım; her grup AYNI UZUNLUKTA olsun." + plakada düğmeler çalışmıyor. */
+  const st = src('settings.js');
+  if (!/PZA\.AYAR_SEKMELERI\s*=/.test(st)) fail('settings.js: sekme tanimi yok');
+  else ok('settings.js: sekme tanimi var');
+  if (!/PZA\.kurAyarlarSekmeleri\s*=/.test(st)) fail('settings.js: sekme kurucu yok');
+  else ok('settings.js: sekme kurucu var');
+  if (!/PZA\.kurAyarlarSekmeleri\(\);/.test(st)) fail('settings.js: sekmeler acilista KURULMUYOR (olu kod)');
+  else ok('settings.js: sekmeler acilista kuruluyor');
+  const adet = (st.match(/id:\s*'(genel|gorunum|ses|takvim|diger)'/g) || []).length;
+  if (adet < 5) fail('settings.js: sekmeler eksik (' + adet + '/5)'); else ok('settings.js: 5 sekme tanimli');
+  if (!/set-tab-panel\.on[\s\S]*height:\s*min\(52vh, 380px\)/.test(css))
+    fail('widget.css: sekme gruplari ESIT yukseklikte degil');
+  else ok('widget.css: her sekme grubu AYNI yukseklikte');
+
+  if (!/id="plate-drag"/.test(html)) fail('index.html: plaka surukleme seridi yok (plaka tasinamaz)');
+  else ok('index.html: plaka surukleme seridi var');
+  if (!/\.widget\.plaka \.plate-drag/.test(css)) fail('widget.css: plaka seridi stili yok');
+  else ok('widget.css: plaka seridi stili var');
+  if (/setAttribute\('data-tauri-drag-region'/.test(src('skins.js')))
+    fail('skins.js: tum yuzey tasima bolgesi → DUGMELER tiklanmaz');
+  else ok('skins.js: tum yuzey tasima bolgesi DEGIL (dugmeler calisir)');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

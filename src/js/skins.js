@@ -413,7 +413,6 @@ PZA.applyPlate = function (skin) {
 
   w.dataset.skin = 'plaka';
   if (w.classList) w.classList.add('plaka');
-  if (w.setAttribute) w.setAttribute('data-tauri-drag-region', '');   // plakada taşıma: tüm yüzey
   w.style.setProperty('--plate-w', cv.w + 'px');
   w.style.setProperty('--plate-h', cv.h + 'px');
   w.style.setProperty('--plate-img', 'url("' + skin.plate + '")');
