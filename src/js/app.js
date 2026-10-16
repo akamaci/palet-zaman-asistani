@@ -299,22 +299,23 @@
           /* Kaplama panel (Ayarlar/Stüdyo, `position: fixed`): pencere
              iş alanına sığsın diye gerekiyorsa yukarı çekilir; panel
              kapanınca temelY'ye dönülür. */
-          if (temelY === null && !icVar) temelY = y;
+          if (temelY === null) temelY = y;
           hedefY = Math.max(alan.ust, alt - hh - 8);
-        } else if (!icVar && temelY !== null) {
-          /* Her şey kapandı → panel açılmadan önceki yere dön. */
-          hedefY = temelY;
-          temelY = null;
-        } else {
-          /* Widget içi panel (Notlar/Hava).
-             KULLANICI BİLDİRİMİ: "saat windows'un en altına alınırsa
-             pencere yönünün yukarı açılması lazım ki okuna bilsin."
-             Aşağıda yer yoksa panel saatin ÜSTÜNE alınır (`.yukari`)
-             ve pencere, saatin yeri değişmeyecek şekilde panelin
-             eklediği pay kadar yukarı kaydırılır. */
+        } else if (icVar) {
+          /* Widget içi panel (Notlar/Hava). KULLANICI (2026-10-16): "1/4'te
+             hava simgesine tıklayınca aşağı kayıyor; devam edersem başka yere
+             kayıyor." KÖK NEDEN: yukarı açılan panelde (`.yukari`) pencere
+             yukarı kaydırılıyordu ama DİNLENME konumu saklanmıyordu → kapanınca
+             geri dönmüyor, her aç/kapada kayıyordu. Çözüm: panel açılırken
+             TABAN konum (temelY) bir kez saklanır; kapanınca AYNEN dönülür. */
+          if (temelY === null) temelY = y;                 // panel öncesi TABAN
           pay = Math.max(0, h - temelYukseklik());
-          yukari = icVar && (saatTepesi + hh > alt);
-          hedefY = yukari ? Math.max(alan.ust, saatTepesi - pay) : saatTepesi;
+          yukari = (temelY + hh) > alt;                    // altta yer yok → yukarı
+          hedefY = yukari ? Math.max(alan.ust, temelY - pay) : temelY;
+        } else {
+          /* Panel yok → TABANA dön (kayma birikmez). */
+          hedefY = (temelY !== null) ? temelY : y;
+          temelY = null;
         }
 
         /* `yukari` hem widget'a hem gövdeye: gövdedeki sınıf widget'ı

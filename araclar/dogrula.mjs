@@ -498,6 +498,26 @@ head('19 · Ayarlar SEKMELERI (esit yukseklik) + plaka surukleme seridi (v1.20.0
   else ok('skins.js: tum yuzey tasima bolgesi DEGIL (dugmeler calisir)');
 }
 
+head('20 · 1/4 ezan ikonu + panel kayma (konum donusu) (v1.20.1)');
+{
+  /* Kullanıcı: "1/4'te ortada olması gereken ezan simgesi yok; yazı sığmıyorsa
+     yalnız ikon" + "1/4'te hava simgesine tıklayınca aşağı kayıyor, devam
+     edersem başka yere kayıyor." */
+  if (/\[data-size="4"\]\s*\.ezan-ctl/.test(css)) fail('widget.css: 1/4 ezan kontrolu hala gizli');
+  else ok('widget.css: 1/4 ezan kontrolu gorunur (ikon)');
+  if (!/\[data-size="4"\]\s*\.ezan-ses-txt\s*\{\s*display:\s*none/.test(css))
+    fail('widget.css: 1/4 ezan YAZISI gizlenmiyor (sigmiyor)');
+  else ok('widget.css: 1/4 ezan yazisi gizli (yalniz ikon)');
+
+  const a = src('app.js');
+  if (!/if \(temelY === null\) temelY = y;\s*\/\/ panel öncesi TABAN/.test(a))
+    fail('app.js: panel acilirken TABAN konum saklanmiyor (kayma)');
+  else ok('app.js: panel acilirken taban konum saklaniyor');
+  if (!/hedefY = \(temelY !== null\) \? temelY : y;/.test(a))
+    fail('app.js: panel kapaninca tabana donulmuyor (kayma birikir)');
+  else ok('app.js: panel kapaninca tabana donuluyor (kayma yok)');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

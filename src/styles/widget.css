@@ -195,8 +195,13 @@
 [data-size="4"] .dateline-day,
 [data-size="4"] .btn-ghost span,
 [data-size="4"] .btn-notes > span:first-child,
-[data-size="4"] .ezan-ctl,
 [data-size="4"] .status { display: none; }
+
+/* 1/4'te EZAN: kullanıcı — "ortada olması gereken ezan simgesi yok; yazı
+   sığmıyorsa yalnız ikon olsun." → kontrol KALIR, yalnız "Ezan" YAZISI
+   gizlenir (ikon kalır), düğme daralır. */
+[data-size="4"] .ezan-ses-txt { display: none; }
+[data-size="4"] .ezan-btn { padding: 0 6px; }
 
 [data-size="3"] .bar-preview { display: none; }
 
