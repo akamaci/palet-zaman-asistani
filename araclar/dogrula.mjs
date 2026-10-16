@@ -421,6 +421,39 @@ head('16 · Ezan "sustur" = calar saat gibi (v1.18.6)');
   else ok('app.js: sesi kis dugmesi ezanSustur / ezanSesiAc cagiriyor');
 }
 
+head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
+{
+  /* Winamp usulu "katman + bolge" motoru; koparsa plaka skinleri calismaz. */
+  const s = src('skins.js');
+  for (const f of ['PZA.PLATE_MAP', 'PZA.applyPlate', 'PZA.clearPlate', 'PZA.plateSize'])
+    if (!s.includes(f)) fail('skins.js: ' + f + ' yok'); else ok('skins.js: ' + f + ' var');
+  if (!/PZA\.SKIN_FORMAT_V2\s*=\s*'pza-skin\/2'/.test(s)) fail("skins.js: 'pza-skin/2' bicimi tanimli degil");
+  else ok("skins.js: 'pza-skin/2' bicimi tanimli");
+  if (!/o\.format === PZA\.SKIN_FORMAT_V2/.test(s)) fail('skins.js: v2 ice-aktarma dogrulamasi yok');
+  else ok('skins.js: v2 ice-aktarma dogrulamasi var');
+  if (!/PZA\.plateSize && PZA\.plateSize\(\)/.test(src('app.js'))) fail('app.js: pencere plakayi olcmuyor');
+  else ok('app.js: pencere plaka tuvaline gore boyutlanir');
+  if (!/\.widget\.plaka/.test(css)) fail('widget.css: .widget.plaka stili yok');
+  else ok('widget.css: plaka stili var');
+  if (!/PLATE_SKINS/.test(src('skins-builtin.js'))) fail('skins-builtin.js: gomulu plaka skini yok');
+  else {
+    try {
+      const txt = src('skins-builtin.js');
+      const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
+      const o = JSON.parse(m[1]); const sk = o[Object.keys(o)[0]];
+      if (sk.format !== 'pza-skin/2') fail('gomulu skin bicimi pza-skin/2 degil');
+      else ok('gomulu skin bicimi pza-skin/2');
+      if (!(typeof sk.plate === 'string' && sk.plate.indexOf('data:image/') === 0))
+        fail('gomulu skin plakasi data:image degil');
+      else ok('gomulu skin plakasi data:image gomulu');
+      if (!(sk.canvas && sk.canvas.w >= 100 && sk.canvas.h >= 60)) fail('gomulu skin tuvali gecersiz');
+      else ok('gomulu skin tuvali gecerli (' + sk.canvas.w + 'x' + sk.canvas.h + ')');
+      const rc = sk.regions ? Object.keys(sk.regions).length : 0;
+      if (rc < 1) fail('gomulu skin bolgeleri yok'); else ok('gomulu skin bolgeleri var (' + rc + ')');
+    } catch (e) { fail('skins-builtin.js JSON cozulemedi: ' + e.message); }
+  }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

@@ -115,6 +115,8 @@
        `position: fixed`: widget'ı büyütmedikleri için tek başına
        ResizeObserver yetmez — kırpılırlardı. */
     const gerekliH = () => {
+      const ps = PZA.plateSize && PZA.plateSize();       // pza-skin/2: plaka tuvali
+      if (ps) return Math.ceil(ps.h);
       let h = 0;
       const w = document.getElementById('widget');
       if (w) h = w.getBoundingClientRect().height;
@@ -130,6 +132,8 @@
        `position: fixed` ve genişlikleri sabit olduğundan bu sayı
        pencere boyutundan bağımsızdır — döngü kurmaz. */
     const gerekliG = () => {
+      const ps = PZA.plateSize && PZA.plateSize();       // pza-skin/2: plaka tuvali
+      if (ps) return Math.ceil(ps.w);
       let g = 0;
       const w = document.getElementById('widget');
       if (w) {

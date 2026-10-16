@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.18.6';
+PZA.SURUM = '1.19.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -282,7 +282,9 @@ PZA.renderSkins = function () {
      kullanıcı skinleri sonda ve "✎" ile işaretli. */
   const sel = document.getElementById('skin-select');
   if (sel) {
-    const builtin = PZA.SKINS.map(sk => ({ id: sk.id, name: sk.name }));
+    const builtin = PZA.SKINS.map(sk => ({ id: sk.id, name: sk.name }))
+      .concat(Object.keys(PZA.PLATE_SKINS || {}).map(k =>
+        ({ id: k, name: (PZA.PLATE_SKINS[k].name || k) })));
     const custom = PZA.customSkins().map(sk => ({
       id: 'user:' + sk.id, name: (sk.name || 'İsimsiz') + '  ✎'
     }));

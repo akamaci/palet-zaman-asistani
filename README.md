@@ -243,6 +243,14 @@ skin kendi kendine yeter ve tema değişince yarım kalmaz.
 > Not: elle yazılmış kısmî bir skin içe aktarılabilir, ama stüdyonun ürettiği
 > dosya her zaman 27/27 token içerir — paylaşılan skin alıcıda eksik görünmesin.
 
+### Katmanlı skin — `pza-skin/2` (Winamp usulü, görsel tabanlı)
+
+Renklerin yanında **gerçek bir tasarım** (şasi/çerçeve/pod) isteyenler için:
+statik bir **plaka** görseli (WebP/PNG) + canlı kontrollerin **bölge koordinatları**.
+BMP kullanılmaz. Biçim, bölgeler ve adım adım **yapay zekâ tarifi**:
+→ **[`SKIN-TARIFI.md`](SKIN-TARIFI.md)**. Gömülü örnek: `PZA.PLATE_SKINS.orbital`
+(`src/js/skins-builtin.js`). Plaka/koordinat üretici: `skin-araclari/plaka-uret.mjs`.
+
 ### Yerleşik skin eklemek (geliştirici)
 
 1. `src/styles/widget.css` içine `[data-skin="benim-skin"] { --accent: …; }` bloğu ekleyin

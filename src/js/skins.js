@@ -20,6 +20,28 @@ window.PZA = window.PZA || {};
 
 PZA.SKIN_FORMAT = 'pza-skin/1';
 
+/* ── pza-skin/2 (KATMAN+BÖLGE · Winamp usulü) ────────────────
+   Statik bir "plaka" görseli (şasi/çerçeve, dinamik yazı YOK) + canlı
+   kontrollerin plaka üzerindeki KOORDİNATLARI. BMP değil WebP/PNG. */
+PZA.SKIN_FORMAT_V2 = 'pza-skin/2';
+
+/* Bölge adı → DOM seçici (canlı kontrol: saat/hava/notlar…). */
+PZA.PLATE_MAP = {
+  clock:    '#flip-row',
+  date:     '.dateline',
+  weather:  '#weather-tile',
+  notes:    '#btn-notes',
+  theme:    '.theme-switch',
+  settings: '#btn-settings',
+  ezan:     '.ezan-ctl',
+  pa:       '#pa-btn'
+};
+
+/* Güvenli sorgu — test ortamında `document.querySelector` olmayabilir. */
+PZA.q1 = function (sel) {
+  return (typeof document !== 'undefined' && document.querySelector) ? document.querySelector(sel) : null;
+};
+
 /* ── Düzenlenebilir token kataloğu ─────────────────────────
    Sıra, stüdyodaki grup sırasıdır. Yeni token eklemek için
    buraya bir satır yazmak yeter — motor gerisini kendisi yapar. */
@@ -268,7 +290,90 @@ PZA.activeTheme = function () { return previewTheme || PZA.settings.theme; };
 PZA.activeSkin = function () {
   if (preview) return preview;
   const s = String(PZA.settings.skin || '');
-  return s.indexOf('user:') === 0 ? PZA.skinById(s.slice(5)) : null;
+  if (s.indexOf('user:') === 0) return PZA.skinById(s.slice(5));
+  if (PZA.PLATE_SKINS && PZA.PLATE_SKINS[s]) return PZA.PLATE_SKINS[s];  // gömülü pza-skin/2
+  return null;
+};
+
+/** Aktif skin bir pza-skin/2 (plaka) ise {w,h}; değilse null. */
+PZA.plateSize = function () {
+  const sk = PZA.activeSkin();
+  if (sk && sk.format === PZA.SKIN_FORMAT_V2 && sk.canvas) return sk.canvas;
+  return null;
+};
+
+/** pza-skin/2 uygula: plaka zemini + bölge koordinatları + token'lar. */
+PZA.applyPlate = function (skin) {
+  const w = document.getElementById('widget');
+  if (!w) return;
+  const cv = skin.canvas || { w: 940, h: 430 };
+
+  Object.keys(skin.tokens || {}).forEach(k => {
+    const c = PZA.parseColor(skin.tokens[k]);
+    if (c) w.style.setProperty(k, PZA.toCss(c));
+  });
+  if (skin.fontUI)  w.style.setProperty('--font-ui', skin.fontUI);
+  if (skin.fontNum) w.style.setProperty('--font-num', skin.fontNum);
+
+  w.dataset.skin = 'plaka';
+  if (w.classList) w.classList.add('plaka');
+  if (w.setAttribute) w.setAttribute('data-tauri-drag-region', '');   // plakada taşıma: tüm yüzey
+  w.style.setProperty('--plate-w', cv.w + 'px');
+  w.style.setProperty('--plate-h', cv.h + 'px');
+  w.style.setProperty('--plate-img', 'url("' + skin.plate + '")');
+
+  // Önce tüm bölge stillerini temizle (skin değişiminde kalıntı kalmasın)
+  Object.keys(PZA.PLATE_MAP).forEach(k => {
+    const el = PZA.q1(PZA.PLATE_MAP[k]);
+    if (!el) return;
+    el.removeAttribute('data-plate');
+    ['position', 'left', 'top', 'width', 'height', 'transform'].forEach(p => el.style.removeProperty(p));
+  });
+  // Bölgeleri yerleştir (yüzde → pencere ölçeklenince orantı korunur)
+  const R = skin.regions || {};
+  Object.keys(R).forEach(k => {
+    const sel = PZA.PLATE_MAP[k], r = R[k]; if (!sel || !r) return;
+    const el = document.querySelector(sel); if (!el) return;
+    el.setAttribute('data-plate', k);
+    if (k === 'clock') return;                       // saat özel işlenir (aşağıda)
+    el.style.position = 'absolute';
+    el.style.left   = (r.x * 100 / cv.w) + '%';
+    el.style.top    = (r.y * 100 / cv.h) + '%';
+    el.style.width  = (r.w * 100 / cv.w) + '%';
+    el.style.height = (r.h * 100 / cv.h) + '%';
+  });
+
+  /* SAAT: bölgeye SIĞDIRILIR. Flip kartları sabit ölçülü olduğundan
+     kutuya sığmaz; merkezi bölge merkezine konur ve ölçekle oturtulur. */
+  if (R.clock) {
+    const el = PZA.q1(PZA.PLATE_MAP.clock);
+    if (el) {
+      const r = R.clock;
+      el.style.position = 'absolute';
+      el.style.left = ((r.x + r.w / 2) * 100 / cv.w) + '%';
+      el.style.top  = ((r.y + r.h / 2) * 100 / cv.h) + '%';
+      el.style.width = ''; el.style.height = '';
+      const nw = el.offsetWidth || 1, nh = el.offsetHeight || 1;
+      const s = Math.min(r.w / nw, r.h / nh) * 0.94;   // hafif iç boşluk
+      el.style.transform = 'translate(-50%, -50%) scale(' + (Math.round(s * 1000) / 1000) + ')';
+    }
+  }
+  PZA.emit('skin', skin);
+};
+
+/** Plaka modundan çık (yerleşik token skinine dönerken). */
+PZA.clearPlate = function () {
+  const w = document.getElementById('widget');
+  if (!w) return;
+  if (w.classList) w.classList.remove('plaka');
+  if (w.removeAttribute) w.removeAttribute('data-tauri-drag-region');
+  ['--plate-w', '--plate-h', '--plate-img'].forEach(k => w.style.removeProperty(k));
+  Object.keys(PZA.PLATE_MAP).forEach(k => {
+    const el = PZA.q1(PZA.PLATE_MAP[k]);
+    if (!el) return;
+    el.removeAttribute('data-plate');
+    ['position', 'left', 'top', 'width', 'height', 'transform'].forEach(p => el.style.removeProperty(p));
+  });
 };
 
 PZA.applySkin = function () {
@@ -282,6 +387,14 @@ PZA.applySkin = function () {
 
   const bgEl = document.getElementById('skin-bg');
   const skin = PZA.activeSkin();
+
+  /* pza-skin/2 — KATMAN+BÖLGE (plaka). */
+  if (skin && skin.format === PZA.SKIN_FORMAT_V2) {
+    if (bgEl) { bgEl.style.backgroundImage = 'none'; bgEl.hidden = true; }
+    PZA.applyPlate(skin);
+    return;
+  }
+  PZA.clearPlate();
 
   if (!skin) {
     w.dataset.skin = String(PZA.settings.skin || 'halo').replace(/^user:.*/, 'halo');
@@ -351,6 +464,34 @@ PZA.importSkin = function (text) {
     }
     return out;
   };
+
+  /* pza-skin/2 — KATMAN+BÖLGE: statik plaka + bölgeler + token'lar. */
+  if (o.format === PZA.SKIN_FORMAT_V2) {
+    if (typeof o.plate !== 'string' || !/^data:image\/(webp|png|jpeg|gif);/i.test(o.plate))
+      return { ok: false, err: 'pza-skin/2 için "plate" bir data:image (webp/png) olmalı.' };
+    const cv = (o.canvas && typeof o.canvas.w === 'number' && typeof o.canvas.h === 'number')
+      ? { w: Math.round(o.canvas.w), h: Math.round(o.canvas.h) } : null;
+    if (!cv || cv.w < 100 || cv.h < 60) return { ok: false, err: 'Geçersiz "canvas" (en az 100×60).' };
+    const regions = {};
+    if (o.regions && typeof o.regions === 'object') {
+      Object.keys(PZA.PLATE_MAP).forEach(k => {
+        const r = o.regions[k];
+        if (r && ['x', 'y', 'w', 'h'].every(p => typeof r[p] === 'number'))
+          regions[k] = { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) };
+      });
+    }
+    if (!Object.keys(regions).length)
+      return { ok: false, err: 'Tanınan bölge yok (clock/date/weather/notes/theme/settings/ezan/pa).' };
+    const ad2 = String(o.name || 'İsimsiz').slice(0, 24);
+    return { ok: true, skin: {
+      format: PZA.SKIN_FORMAT_V2,
+      id: PZA.newId(ad2), name: ad2,
+      author: String(o.author || '').slice(0, 24),
+      canvas: cv, plate: o.plate, regions, tokens: cleanSet(o.tokens),
+      fontUI: typeof o.fontUI === 'string' ? o.fontUI.slice(0, 120) : '',
+      fontNum: typeof o.fontNum === 'string' ? o.fontNum.slice(0, 120) : ''
+    } };
+  }
 
   const dark = cleanSet(o.dark);
   if (!Object.keys(dark).length)

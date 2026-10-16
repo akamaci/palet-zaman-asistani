@@ -260,6 +260,13 @@
     $('st-paste-text').value = '';
     $('st-paste-box').hidden = true;
     PZA.emit('skins-changed');
+    /* pza-skin/2 (plaka) geldiyse token editörüne AÇMA — renk düzenleme
+       plakayı silerdi; doğrudan uygula. */
+    if (r.skin.format === PZA.SKIN_FORMAT_V2) {
+      PZA.settings.skin = 'user:' + r.skin.id; PZA.save(); PZA.apply();
+      msg('"' + r.skin.name + '" (plaka skini) eklendi ve uygulandı ✓');
+      return;
+    }
     openStudio(r.skin, false);           // içe aktarılanı hemen düzenlemeye aç
     msg('"' + r.skin.name + '" içe aktarıldı ✓');
   }
@@ -295,6 +302,11 @@
         if (!r.ok) { msg('Dosya okunamadı: ' + r.err, true); return; }
         PZA.saveSkin(r.skin);
         PZA.emit('skins-changed');
+        if (r.skin.format === PZA.SKIN_FORMAT_V2) {
+          PZA.settings.skin = 'user:' + r.skin.id; PZA.save(); PZA.apply();
+          msg('"' + r.skin.name + '" (plaka skini) dosyadan alındı ✓');
+          return;
+        }
         openStudio(r.skin, false);
         msg('"' + r.skin.name + '" dosyadan alındı ✓');
       };
@@ -379,7 +391,14 @@
   PZA.openStudioNew = function () { openStudio(null, true); };
   PZA.openStudioEdit = function (id) {
     const sk = PZA.skinById(id);
-    if (sk) openStudio(sk, false);
+    if (!sk) return;
+    /* pza-skin/2 (plaka) token editöründe DÜZENLENMEZ — renk değişikliği
+       plakayı silerdi; yalnız uygula. */
+    if (sk.format === PZA.SKIN_FORMAT_V2) {
+      PZA.settings.skin = 'user:' + id; PZA.save(); PZA.apply();
+      return;
+    }
+    openStudio(sk, false);
   };
   PZA.studioOpen = function () { return !!(draft && !$('studio').hidden); };
 

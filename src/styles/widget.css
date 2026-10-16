@@ -1407,3 +1407,48 @@ select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; pa
 /* Kapalı bar: yalnız ince tutamak kalır; gövde şeffaf (programı engellemez) */
 .widget.bar-kapali > *:not(.bar-tutamak):not(.skin-bg) { display: none !important; }
 .widget.bar-kapali { background: transparent; box-shadow: none; border-color: transparent; min-height: 15px; }
+
+/* ══ pza-skin/2 — KATMAN + BÖLGE (PLAKA) ═══════════════════════════
+   Winamp usulünün Web karşılığı: statik bir "plaka" görseli (şasi/çerçeve)
+   zemin olur; canlı kontroller (saat/hava/notlar…) bölge koordinatlarına
+   oturur. Yerleşim JS ile (PZA.applyPlate) verilir — burada yalnız iskelet. */
+.widget.plaka {
+  position: relative;
+  width: var(--plate-w, 940px);
+  height: var(--plate-h, 430px);
+  max-width: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--plate-img) center / 100% 100% no-repeat;
+  overflow: visible;                 /* bölgeler/menüler taşarsa kırpılmasın */
+  transition: none;
+}
+.widget.plaka > .skin-bg { display: none; }
+/* Sarmalayıcı barlar kutu üretmesin → çocuklar plakaya göre konumlanır. */
+.widget.plaka .bar,
+.widget.plaka .group-left,
+.widget.plaka .group-center,
+.widget.plaka .group-right,
+.widget.plaka .group-bottom-left { display: contents; }
+.widget.plaka .bar-preview { display: none; }
+/* Çerçeveyi PLAKA çizer → canlı kontroller KROMSUZ (yalnız değer/ikon). */
+.widget.plaka #weather-tile,
+.widget.plaka #btn-notes,
+.widget.plaka #btn-settings,
+.widget.plaka .tile,
+.widget.plaka .theme-switch,
+.widget.plaka .theme-switch button,
+.widget.plaka .ezan-btn,
+.widget.plaka #pa-btn,
+.widget.plaka .notes-day-btn,
+.widget.plaka .notes-today {
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+.widget.plaka .theme-switch button.on { background: transparent; border-color: transparent; color: var(--accent-strong); }
+/* Bölgeye oturan her canlı kontrol mutlak konumlanır (left/top/width/height JS'ten). */
+.widget.plaka [data-plate] { position: absolute; margin: 0; }
+/* Saat bölgeye ölçekle oturur; kilit düğmesi plakada yeri olmadığından gizlenir. */
+.widget.plaka #flip-row { transform-origin: center center; }
+.widget.plaka .btn-lock { display: none; }
+/* Plaka tam pencereyi doldurur → tarayıcı önizlemesinde kaydırma çubuğu olmasın. */
+html:has(.widget.plaka), body:has(.widget.plaka) { overflow: hidden; }
