@@ -1422,15 +1422,17 @@ select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; pa
    oturur. Yerleşim JS ile (PZA.applyPlate) verilir — burada yalnız iskelet. */
 .widget.plaka {
   position: relative;
-  width: 100vw;                       /* pencere ne olursa olsun TAM doldur */
-  height: 100vh;
+  width: var(--plate-w, 940px);       /* GERİLME YOK: sabit tuval ölçüsü */
+  height: var(--plate-h, 430px);
   max-width: none;
   border-radius: 0;
   box-shadow: none;
   background: var(--plate-img) center / 100% 100% no-repeat;
-  overflow: hidden;                   /* taşma → kaydırma çubuğu/boşluk olmasın */
+  overflow: hidden;
   transition: none;
 }
+/* Pencere tuvalden büyükse plakayı ORTAYA al (gerilmesin, yazı kutulara otursun). */
+body:has(.widget.plaka) { align-items: center !important; justify-content: center !important; padding: 0 !important; }
 .widget.plaka > .skin-bg { display: none; }
 /* Sarmalayıcı barlar kutu üretmesin → çocuklar plakaya göre konumlanır. */
 .widget.plaka .bar,

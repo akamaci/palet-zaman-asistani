@@ -466,8 +466,8 @@ head('18 · Guncelleme kapanma izni + plaka tam ekran + ezan menusu (v1.19.1)');
   if (!/GUNCELLEME\.load\(Ordering::SeqCst\)/.test(main)) fail('main.rs: CloseRequested guncelleme iznini kullanmiyor');
   else ok('main.rs: kapatma istegi guncelleme sirasinda cikisa izin veriyor');
 
-  if (!/width:\s*100vw/.test(css)) fail('widget.css: plaka pencereyi doldurmuyor (100vw) → bosluk/tasma');
-  else ok('widget.css: plaka pencereyi tam doldurur');
+  if (!/width:\s*var\(--plate-w/.test(css)) fail('widget.css: plaka SABIT tuval olcusunde degil (gerilir)');
+  else ok('widget.css: plaka sabit tuval olcusunde (gerilmez)');
   if (!/max-height:\s*min\(58vh/.test(css)) fail('widget.css: ezan menusu yukseklik siniri yok (ust kisim kirpilir)');
   else ok('widget.css: ezan menusu yukseklik siniri + kaydirma var');
 }
