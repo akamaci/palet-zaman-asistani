@@ -209,6 +209,7 @@
 
         const kapVar   = acikMi('settings') || acikMi('studio');   // Ayarlar/Stüdyo kaplaması
         const panelVar = acikMi('panel-notes') || acikMi('panel-weather');
+        const ezanVar  = acikMi('ezan-menu');   // bar modunda ezan dropdown'ı (fixed)
 
         let W, H, x, y;
         if (kapVar) {
@@ -224,7 +225,18 @@
             const el = document.getElementById(id);
             if (el && !el.hidden) ph = Math.max(ph, el.scrollHeight);
           }
+          /* Pencere, panelin 72vh'lik kaydırma sınırından fazla büyümesin —
+             aksi hâlde panel tavanına takılır, altında boş koyu şerit kalırdı. */
+          ph = Math.min(ph, Math.round(alan.boy * 0.72));
           W = sw; H = Math.min(alan.boy - 4, barH + ph + 16); x = 0;
+          y = ust ? alan.ust : Math.max(alan.ust, alan.ust + alan.boy - H);
+        } else if (ezanVar) {
+          /* Ezan dropdown'ı da barın DIŞINA taşar (fixed) → pencere, menünün
+             sığacağı kadar bar yönünde büyür (üst bar: aşağı, alt bar: yukarı). */
+          const barH = Math.max(46, gerekliH());
+          const em = document.getElementById('ezan-menu');
+          const eh = Math.max(60, em ? em.scrollHeight : 60);
+          W = sw; H = Math.min(alan.boy - 4, barH + eh + 16); x = 0;
           y = ust ? alan.ust : Math.max(alan.ust, alan.ust + alan.boy - H);
         } else {
           W = acik ? sw : 84;                                   // kapalı: yalnız ince tutamak
@@ -238,6 +250,7 @@
         await w.setSize(new win.LogicalSize(W, H));
         await w.setPosition(new win.LogicalPosition(x, y));
         sonG = W; sonH = H; sonY = y;
+        PZA.ezanMenuYerlestir?.();                              // menü düğmeye hizalanır
       } catch (e) { /* yetki yoksa sessiz */ }
     };
 
@@ -858,14 +871,39 @@
     if (ezanMenu) ezanMenu.hidden = true;
     if (ezanBtn) ezanBtn.setAttribute('aria-expanded', 'false');
   }
+
+  /* Bar modunda ezan menüsü `position: fixed`'tir (`.widget` `overflow:hidden`
+     menüyü kırpıyordu → kullanıcı: "ezan menüsü açılmıyor"). Fixed menünün
+     konumu düğmeye JS ile hizalanır; normal modda CSS konumu yeterli olduğundan
+     inline değerler temizlenir. */
+  PZA.ezanMenuYerlestir = function () {
+    if (!ezanMenu || ezanMenu.hidden) return;
+    if (!(PZA.settings && PZA.settings.size === 'bar')) {
+      ezanMenu.style.left = ''; ezanMenu.style.right = '';
+      ezanMenu.style.top = '';  ezanMenu.style.bottom = '';
+      return;
+    }
+    const r = ezanBtn.getBoundingClientRect();
+    ezanMenu.style.left = 'auto';
+    ezanMenu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+    if (PZA.settings.barKonum === 'ust') {
+      ezanMenu.style.top = Math.round(r.bottom + 8) + 'px';
+      ezanMenu.style.bottom = 'auto';
+    } else {
+      ezanMenu.style.bottom = Math.round(window.innerHeight - r.top + 8) + 'px';
+      ezanMenu.style.top = 'auto';
+    }
+  };
+
   ezanBtn?.addEventListener('click', e => {
     e.stopPropagation();
     if (!ezanMenu) return;
     const acikti = !ezanMenu.hidden;
     ezanMenu.hidden = acikti;
     ezanBtn.setAttribute('aria-expanded', acikti ? 'false' : 'true');
-    if (!acikti) PZA.ezanMenuCiz();
+    if (!acikti) { PZA.ezanMenuCiz(); PZA.ezanMenuYerlestir(); }
   });
+  window.addEventListener('resize', () => PZA.ezanMenuYerlestir());
   document.addEventListener('click', e => {
     if (!ezanMenu || ezanMenu.hidden) return;
     if (!e.target.closest('#ezan-ctl')) menuKapat();

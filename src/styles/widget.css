@@ -1327,20 +1327,45 @@ input { user-select: text; }
 .widget[data-size="bar"] .flip-num { font-size: 21px; }
 .widget[data-size="bar"] .colon i { width: 4px; height: 4px; }
 
-/* Bar modunda Notlar/Hava panelleri satır içine sığmaz → barın YANINA açılan
-   KAPLAMA olur (pencere fitBar ile büyür). Böylece not girişi + hava ÇALIŞIR. */
+/* Bar modunda Notlar/Hava panelleri satır içine sığmaz → barın üstünde/altında
+   açılan KAPLAMA olur (pencere fitBar ile büyür). Böylece not girişi + hava ÇALIŞIR.
+
+   KULLANICI BİLDİRİMİ (2026-10-16): "hava durumu ve takvim ekran genişliğinde
+   büyüyor, arka plan saydamlaşıyor okunamıyor; boyu AYARLAR MENÜSÜ genişliğinde
+   olsun, KOYU MODDA okunaklı olacak."
+   Kök neden: panel `position: fixed; left:0; right:0` ile pencere genişliğine
+   yayılıyordu ve zemin token'ı yarı saydam (`--surface-panel` .55) olduğundan
+   barın ALTINDA masaüstü görünüyordu (pencere şeffaf). Normal modda panel
+   widget'ın kendi gradyanının ÜSTÜNDE olduğu için fark edilmiyordu.
+   Çözüm: Ayarlar ile AYNI genişlik (412px), ORTALI ve OPAK zemin. */
 .widget[data-size="bar"] .panel-notes,
 .widget[data-size="bar"] .panel-weather {
-  position: fixed; left: 0; right: 0; z-index: 45;
+  position: fixed;
+  left: 50%; margin-left: -206px;          /* 412px → tam ortalı (transform ile çakışmaz) */
+  width: 412px; max-width: calc(100vw - 20px);
+  z-index: 45;
   max-height: 72vh; overflow-y: auto;
+  background: linear-gradient(135deg, var(--bg-1), var(--bg-2));   /* OPAK — masaüstü görünmez */
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px -12px var(--shadow);
 }
 .widget[data-size="bar"][data-bar-konum="ust"] .panel-notes,
 .widget[data-size="bar"][data-bar-konum="ust"] .panel-weather { top: 46px; bottom: auto; }
 .widget[data-size="bar"][data-bar-konum="alt"] .panel-notes,
 .widget[data-size="bar"][data-bar-konum="alt"] .panel-weather { bottom: 46px; top: auto; }
 
-/* Ezan menüsü YÖNÜ: üst barda AŞAĞI, alt barda (varsayılan) YUKARI açılır */
-.widget[data-size="bar"][data-bar-konum="ust"] .ezan-menu { bottom: auto; top: calc(100% + 8px); }
+/* Ezan menüsü YÖNÜ: üst barda AŞAĞI, alt barda (varsayılan) YUKARI açılır.
+   KULLANICI BİLDİRİMİ (2026-10-16): "ezan menüsü açılmıyor."
+   Kök neden: `.widget` `overflow: hidden`; menü `position: absolute` ile
+   widget'ın ÜSTÜNE taşıyordu → bar modunda widget yalnız bar kadar yüksek
+   olduğundan menü tamamen kırpılıyordu. Çözüm: `position: fixed` (kırpmadan
+   çıkar) + OPAK zemin; konumu JS (`PZA.ezanMenuYerlestir`) düğmeye hizalar. */
+.widget[data-size="bar"] .ezan-menu {
+  position: fixed; right: auto; left: auto; z-index: 46;
+  background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+  border: 1px solid var(--edge);
+}
 
 /* Açma/kapama tutamağı — yalnız bar + otomatik gizlemede görünür (JS `hidden` kaldırır) */
 .bar-tutamak {

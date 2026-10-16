@@ -329,6 +329,35 @@ head('13 · BAR MODU bagli mi (v1.18.0)');
   else ok('widget.css: kapali bar (yalniz ince ok) stili var');
 }
 
+head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.3)');
+{
+  /* Kullanıcı bildirimi (2026-10-16): "hava durumu ve takvim ekran genisliginde
+     buyuyor, arka plan saydamlasip okunamaz; ayarlar menusu genisliginde ve koyu
+     modda okunakli olsun. Ayrica ezan menusu acilmiyor."
+     Bu baglar koparsa iki hata da sessizce geri gelir. */
+  const blk = (css.match(/\.widget\[data-size="bar"\] \.panel-notes[\s\S]*?\}/) || [''])[0];
+  if (!/width:\s*412px/.test(blk)) fail('widget.css: bar paneli 412px degil → ekran genisligine yayilir');
+  else ok('widget.css: bar paneli Ayarlar genisliginde (412px)');
+  if (!/background:\s*linear-gradient\(135deg,\s*var\(--bg-1\)/.test(blk))
+    fail('widget.css: bar paneli OPAK zemin degil → koyu modda masaustu gorunur, okunmaz');
+  else ok('widget.css: bar paneli opak zemin (koyu modda okunur)');
+
+  const em = (css.match(/\.widget\[data-size="bar"\] \.ezan-menu\s*\{[\s\S]*?\}/) || [''])[0];
+  if (!/position:\s*fixed/.test(em))
+    fail('widget.css: bar modunda ezan menusu fixed degil → overflow:hidden kirpar, acilmaz');
+  else ok('widget.css: bar modunda ezan menusu fixed (kirpilmaz)');
+
+  const app = src('app.js');
+  if (!/PZA\.ezanMenuYerlestir\s*=/.test(app)) fail('app.js: ezanMenuYerlestir tanimli degil');
+  else ok('app.js: ezanMenuYerlestir tanimli');
+  if (!/ezanMenuYerlestir\?\.\(\)/.test(app))
+    fail('app.js: ezanMenuYerlestir cagrilmiyor (olu kod → menu yanlis/gorunmez konumda)');
+  else ok('app.js: menu acilinca + fit sirasinda dugmeye hizalaniyor');
+  if (!/const ezanVar\s*=\s*acikMi\('ezan-menu'\)/.test(app))
+    fail('app.js: fitBar ezan menusunu olcmuyor → pencere buyumez, menu kirpilir');
+  else ok('app.js: fitBar ezan menusu acikken pencereyi buyutuyor');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
