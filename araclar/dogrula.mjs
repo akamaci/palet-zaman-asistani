@@ -398,6 +398,29 @@ head('15 · Gorunum/skin LISTESI + "+" yeni (v1.18.5)');
   else ok('widget.css: skin listesi stili var');
 }
 
+head('16 · Ezan "sustur" = calar saat gibi (v1.18.6)');
+{
+  /* Kullanıcı: "ezan okunurken sesi kıs → çalma durmuyor" + "bir sonraki
+     ezana kadar dursun, çalar saat gibi". Kalıcı kapatma Ayarlar'daki ana
+     anahtarda; panel düğmesi sureli susturma. */
+  const e = src('ezan.js');
+  if (!/PZA\.ezanDurdur\s*=/.test(e)) fail('ezan.js: ezanDurdur tanimli degil (calan ses durmaz)');
+  else ok('ezan.js: ezanDurdur var (calani durdurur)');
+  if (!/PZA\.ezanSustur\s*=/.test(e)) fail('ezan.js: ezanSustur tanimli degil');
+  else ok('ezan.js: ezanSustur var (bir sonraki vakte kadar susturur)');
+  if (!/PZA\.ezanSesiAc\s*=/.test(e)) fail('ezan.js: ezanSesiAc tanimli degil (geri acilmaz)');
+  else ok('ezan.js: ezanSesiAc var');
+  if (!/ezanSessizKadar/.test(e)) fail('ezan.js: sureli susturma bitisi (ezanSessizKadar) yok');
+  else ok('ezan.js: sureli susturma bitisi tutuluyor');
+  if (!/Date\.now\(\)\s*>=\s*s\.ezanSessizKadar/.test(e)) fail('ezan.js: tick sure dolunca sesi geri acmiyor');
+  else ok('ezan.js: ezanTick sure dolunca sesi kendiliginden acar');
+
+  const a = src('app.js');
+  if (!/ezan-sessiz-btn'\)\?\.addEventListener[\s\S]{0,500}ezanSustur/.test(a))
+    fail('app.js: sesi kis dugmesi ezanSustur cagirmiyor (eski davranis: yalniz ayar)');
+  else ok('app.js: sesi kis dugmesi ezanSustur / ezanSesiAc cagiriyor');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

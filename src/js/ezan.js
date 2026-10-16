@@ -123,12 +123,13 @@ PZA.ezanCal = async function (dosya, ses) {
   }
   try {
     const url = await ezanMp3Url(dosya);
-    if (PZA.__ezanAudio) { try { PZA.__ezanAudio.pause(); } catch (e) {} PZA.__ezanAudio = null; }
+    PZA.ezanDurdur();                                    // önceki çalanı durdur
     const a = new Audio(url);
     const v = (typeof ses === 'number') ? ses
       : ((PZA.settings && typeof PZA.settings.ezanSes === 'number') ? PZA.settings.ezanSes : 0.8);
     a.volume = Math.max(0, Math.min(1, v));
     PZA.__ezanAudio = a;
+    a.onended = () => { if (PZA.__ezanAudio === a) PZA.__ezanAudio = null; };
     await a.play();
     PZA.logYaz?.('bilgi', 'Ezan çalındı: ' + dosya);
     return true;
@@ -136,6 +137,73 @@ PZA.ezanCal = async function (dosya, ses) {
     PZA.logYaz?.('uyari', 'Ezan çalınamadı', { hata: String(e).slice(0, 120) });
     return false;
   }
+};
+
+/** ÇALAN ezanı DURDUR. KULLANICI BİLDİRİMİ (2026-10-16): "ezan okunurken
+    sesi kıs dediğimizde ses kapanmıyor ya da çalma duraklamıyor."
+    Kök neden: 'Sessiz' düğmesi yalnız `settings.ezanSessiz`'i değiştiriyordu;
+    çalmakta olan Audio nesnesine dokunmuyordu. Bu fonksiyon çalan sesi
+    duraklatır ve referansı temizler; sesi kısma düğmesi buna bağlanır. */
+PZA.ezanDurdur = function () {
+  if (!PZA.__ezanAudio) return false;
+  try { PZA.__ezanAudio.pause(); } catch (e) {}
+  PZA.__ezanAudio = null;
+  PZA.logYaz?.('bilgi', 'Çalan ezan durduruldu (ses kısıldı)');
+  return true;
+};
+
+/** Bugünün BİR SONRAKİ vakit zamanı (epoch ms). Bugün vakit kalmadıysa
+    yarının İmsak'ı. `liste` yoksa null. */
+function ezanSonrakiVakitMs(liste) {
+  const d = new Date();
+  const bugun = PZA.ezanBugun(liste, PZA.ezanBugunAnahtar(d));
+  if (!bugun) return null;
+  const now = d.getTime();
+  let en = null;
+  for (const v of PZA.EZAN_VAKITLER) {
+    const t = bugun[v]; if (!t) continue;
+    const [hh, mm] = String(t).split(':').map(Number);
+    const dt = new Date(d); dt.setHours(hh || 0, mm || 0, 0, 0);
+    const ms = dt.getTime();
+    if (ms > now && (en === null || ms < en)) en = ms;
+  }
+  if (en === null) {                                  // bugün kalmadı → yarın İmsak
+    const t = bugun['Imsak']; if (!t) return null;
+    const [hh, mm] = String(t).split(':').map(Number);
+    const dt = new Date(d); dt.setHours(hh || 0, mm || 0, 0, 0); dt.setDate(dt.getDate() + 1);
+    en = dt.getTime();
+  }
+  return en;
+}
+
+/** Sesi kıs — ÇALAR SAATİ KAPATIR GİBİ (kullanıcı, 2026-10-16):
+    "en azından bir dahaki ezana kadar durmalı … çalar saat gibi düşünelim."
+    Yapılan: ① çalan ezanı DURDUR ② sesi kapat ③ **bir sonraki vakit anına
+    kadar** kapalı kal (o an gelince `ezanTick` kendiliğinden geri açar). */
+PZA.ezanSustur = function () {
+  PZA.ezanDurdur();
+  const ms = PZA.__ezanListe ? ezanSonrakiVakitMs(PZA.__ezanListe) : null;
+  const s = PZA.settings || (PZA.settings = {});
+  s.ezanSessiz = true;
+  s.ezanSessizKadar = ms || (Date.now() + 30 * 60 * 1000);   // liste yoksa 30 dk sonra dene
+  PZA.save?.();
+  if (PZA.ezanMenuCiz) PZA.ezanMenuCiz();
+  PZA.apply?.();
+  PZA.logYaz?.('bilgi', 'Ezan susturuldu — ' +
+    new Date(s.ezanSessizKadar).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) +
+    ' (sonraki vakit) sonrası yeniden açılacak');
+  return true;
+};
+
+/** Ses kısma mandalını AÇ (kullanıcı düğmeye tekrar bastı ya da süre doldu). */
+PZA.ezanSesiAc = function () {
+  const s = PZA.settings || (PZA.settings = {});
+  s.ezanSessiz = false;
+  s.ezanSessizKadar = null;
+  PZA.save?.();
+  if (PZA.ezanMenuCiz) PZA.ezanMenuCiz();
+  PZA.apply?.();
+  return true;
 };
 
 /** Ayarlardaki "▶ Ezanı dene" — normal ezanı çalar. */
@@ -163,7 +231,15 @@ let ezanCalinan = new Set();           // "GG.AA.YYYY|vakit" — günlük mandal
 
 /** Her saniye `clock.js` çağırır. Vakit saati geldiyse ezanı çalar. */
 PZA.ezanTick = function (d) {
-  const s = PZA.settings || {};
+  let s = PZA.settings || {};
+  /* SÜRELİ SUSTURMA (kullanıcı, 2026-10-16): "çalar saat gibi" — panel
+     düğmesiyle susturulduysa, BİR SONRAKİ VAKİT anı gelince sesi
+     kendiliğinden geri aç (kalıcı kapatma Ayarlar'daki ana anahtarla). */
+  if (s.ezanSessiz === true && typeof s.ezanSessizKadar === 'number' &&
+      Date.now() >= s.ezanSessizKadar) {
+    PZA.ezanSesiAc();
+    s = PZA.settings || {};
+  }
   if (!s.ezan || !s.ezanIlce) return;
   const gun = PZA.ezanBugunAnahtar(d);
   if (ezanGun !== gun) { ezanCalinan = new Set(); ezanGun = gun; }   // gün değişti

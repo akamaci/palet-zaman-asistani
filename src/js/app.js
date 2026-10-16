@@ -937,11 +937,22 @@
     if (!e.target.closest('#ezan-ctl')) menuKapat();
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') menuKapat(); });
-  $('ezan-sessiz-btn')?.addEventListener('click', () => PZA.set('ezanSessiz', !PZA.settings.ezanSessiz));
+  $('ezan-sessiz-btn')?.addEventListener('click', () => {
+    /* KULLANICI (2026-10-16): "ezan okunurken sesi kıs → çalma durmuyor" ve
+       "bir sonraki ezana kadar dursun, çalar saat gibi". Panel düğmesi:
+       ÇALANI DURDUR + BİR SONRAKİ VAKTE KADAR sustur (kendiliğinden geri açılır).
+       Kalıcı kapatma = Ayarlar'daki ana `ezan` anahtarı (kullanıcı: "okunmasını
+       istemeyen zaten ayarlardan açmayacaktır"). */
+    if (PZA.settings.ezanSessiz === true) PZA.ezanSesiAc?.();
+    else PZA.ezanSustur?.();
+  });
   let hizliZaman = null;
   $('ezan-hizli-ses')?.addEventListener('input', e => {
-    clearTimeout(hizliZaman);
     const v = parseFloat(e.target.value);
+    /* Kayarken ÇALAN ezanın sesini ANINDA güncelle (yoksa bir sonraki çalmaya
+       kadar etkisiz kalıyordu). */
+    if (PZA.__ezanAudio) { try { PZA.__ezanAudio.volume = Math.max(0, Math.min(1, v)); } catch (err) {} }
+    clearTimeout(hizliZaman);
     hizliZaman = setTimeout(() => { PZA.set('ezanSes', v); }, 180);
   });
 
