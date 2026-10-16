@@ -518,6 +518,32 @@ head('20 · 1/4 ezan ikonu + panel kayma (konum donusu) (v1.20.1)');
   else ok('app.js: panel kapaninca tabana donuluyor (kayma yok)');
 }
 
+head('21 · Dugme DILIMLERI (normal/hover/basili) — Winamp playbut (v1.21.0)');
+{
+  const s = src('skins.js');
+  if (!/PZA\.dugmeResmi\s*=/.test(s)) fail('skins.js: dugmeResmi yok (dilim uygulanmaz)');
+  else ok('skins.js: dugme dilimi uygulayici var');
+  if (!/data-plate-btn/.test(s)) fail('skins.js: data-plate-btn isareti yok');
+  else ok('skins.js: dugme isareti var');
+  if (!/--btn-n/.test(s) || !/--btn-h/.test(s) || !/--btn-p/.test(s))
+    fail('skins.js: normal/hover/pressed degiskenleri yok');
+  else ok('skins.js: normal/hover/basili degiskenleri var');
+  if (!/\[data-plate-btn\]:hover[\s\S]{0,60}var\(--btn-h/.test(css))
+    fail('widget.css: dugme hover dilimi stili yok');
+  else ok('widget.css: dugme dilimi stilleri (hover/active) var');
+  try {
+    const txt = src('skins-builtin.js');
+    const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
+    const o = JSON.parse(m[1]);
+    const keys = Object.keys(o);
+    if (keys.length < 2) fail('skins-builtin.js: plaka skini sayisi < 2 (' + keys.length + ')');
+    else ok('skins-builtin.js: ' + keys.length + ' gomulu plaka skini (' + keys.join(', ') + ')');
+    const withBtn = keys.filter(k => o[k].buttons && Object.keys(o[k].buttons).length);
+    if (!withBtn.length) fail('skins-builtin.js: hicbir skinde dugme dilimi yok');
+    else ok('skins-builtin.js: dugme dilimli skinler: ' + withBtn.join(', '));
+  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

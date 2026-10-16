@@ -398,6 +398,35 @@ PZA.plateSize = function () {
   return null;
 };
 
+/* pza-skin/2: bölge + düğme kalıntılarını temizle. */
+PZA.plateTemizle = function () {
+  const els = [];
+  Object.keys(PZA.PLATE_MAP).forEach(k => { const el = PZA.q1(PZA.PLATE_MAP[k]); if (el) els.push(el); });
+  if (typeof document !== 'undefined' && document.querySelectorAll) {
+    document.querySelectorAll('.widget .flip').forEach(el => els.push(el));
+  }
+  els.forEach(el => {
+    el.removeAttribute('data-plate');
+    el.removeAttribute('data-plate-btn');
+    ['position', 'left', 'top', 'width', 'height', 'transform',
+     'backgroundImage', 'backgroundRepeat', 'backgroundSize', 'backgroundPosition'
+    ].forEach(p => el.style.removeProperty(p));
+    ['--btn-n', '--btn-h', '--btn-p'].forEach(v => el.style.removeProperty(v));
+  });
+};
+
+/* Bir öğeye düğme dilimi resmi uygula (normal/hover/pressed). */
+PZA.dugmeResmi = function (el, b) {
+  el.setAttribute('data-plate-btn', '1');
+  el.style.setProperty('--btn-n', 'url("' + b.normal + '")');
+  if (b.hover)   el.style.setProperty('--btn-h', 'url("' + b.hover + '")');
+  if (b.pressed) el.style.setProperty('--btn-p', 'url("' + b.pressed + '")');
+  el.style.backgroundImage = 'var(--btn-n)';
+  el.style.backgroundRepeat = 'no-repeat';
+  el.style.backgroundSize = '100% 100%';
+  el.style.backgroundPosition = 'center';
+};
+
 /** pza-skin/2 uygula: plaka zemini + bölge koordinatları + token'lar. */
 PZA.applyPlate = function (skin) {
   const w = document.getElementById('widget');
@@ -417,13 +446,8 @@ PZA.applyPlate = function (skin) {
   w.style.setProperty('--plate-h', cv.h + 'px');
   w.style.setProperty('--plate-img', 'url("' + skin.plate + '")');
 
-  // Önce tüm bölge stillerini temizle (skin değişiminde kalıntı kalmasın)
-  Object.keys(PZA.PLATE_MAP).forEach(k => {
-    const el = PZA.q1(PZA.PLATE_MAP[k]);
-    if (!el) return;
-    el.removeAttribute('data-plate');
-    ['position', 'left', 'top', 'width', 'height', 'transform'].forEach(p => el.style.removeProperty(p));
-  });
+  // Önce tüm bölge/düğme kalıntılarını temizle (skin değişiminde kalmasın)
+  PZA.plateTemizle();
   // Bölgeleri yerleştir (yüzde → pencere ölçeklenince orantı korunur)
   const R = skin.regions || {};
   Object.keys(R).forEach(k => {
@@ -453,6 +477,19 @@ PZA.applyPlate = function (skin) {
       el.style.transform = 'translate(-50%, -50%) scale(' + (Math.round(s * 1000) / 1000) + ')';
     }
   }
+
+  /* DÜĞME DİLİMLERİ (Winamp "playbut" mantığı): normal/hover/basılı resim.
+     Canlı metin/ikon üstte kalır; arka plan resimden gelir. */
+  const B = skin.buttons || {};
+  Object.keys(B).forEach(k => {
+    if (k === 'flip') return;
+    const sel = PZA.PLATE_MAP[k]; if (!sel || !B[k] || !B[k].normal) return;
+    const el = PZA.q1(sel); if (el) PZA.dugmeResmi(el, B[k]);
+  });
+  if (B.flip && B.flip.normal && typeof document !== 'undefined' && document.querySelectorAll) {
+    document.querySelectorAll('.widget.plaka .flip').forEach(el => PZA.dugmeResmi(el, B.flip));
+  }
+
   PZA.emit('skin', skin);
 };
 
@@ -463,12 +500,7 @@ PZA.clearPlate = function () {
   if (w.classList) w.classList.remove('plaka');
   if (w.removeAttribute) w.removeAttribute('data-tauri-drag-region');
   ['--plate-w', '--plate-h', '--plate-img'].forEach(k => w.style.removeProperty(k));
-  Object.keys(PZA.PLATE_MAP).forEach(k => {
-    const el = PZA.q1(PZA.PLATE_MAP[k]);
-    if (!el) return;
-    el.removeAttribute('data-plate');
-    ['position', 'left', 'top', 'width', 'height', 'transform'].forEach(p => el.style.removeProperty(p));
-  });
+  PZA.plateTemizle();
 };
 
 PZA.applySkin = function () {

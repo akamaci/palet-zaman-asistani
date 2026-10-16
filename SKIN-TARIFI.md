@@ -139,3 +139,20 @@ Bölgeleri **aynı bırak**, yalnız plakayı değiştir → yeni skin hazır.
 ## 5. Lisans & sınırlar
 - Skin = JSON + görsel; **kimlik/şifre gömme**. Görsellerin lisansı sana ait olsun.
 - Biçim sürümü `pza-skin/2`; `pza-skin/1` (yalnız renk+arka plan) hâlâ geçerli.
+
+## 6. Düğme DİLİMLERİ (Winamp "playbut" mantığı)
+Kontrolleri **resimle** boyamak için `buttons` ekle. Her bölge anahtarı için
+`normal`/`hover`/`pressed` (data:image) verilebilir; `flip` anahtarı saat
+kartlarını boyar:
+```json
+"buttons": {
+  "settings": { "normal": "data:image/webp;…", "hover": "…", "pressed": "…" },
+  "notes":    { … }, "theme": { … }, "ezan": { … }, "pa": { … }, "weather": { … },
+  "flip":     { "normal": "data:image/webp;…" }
+}
+```
+- Resim bölge kutusuna `100% 100%` oturur; üstüne **canlı metin/ikon** biner.
+- Plaka yapılırken **tüm yazı gizlenir** (yinelenen/çift yazı olmasın):
+  `body *{color:transparent!important} svg{visibility:hidden}`.
+- Üretici `plaka-uret.mjs` bu dilimleri **plakadan kırpar** (normal + `brightness(1.18)`
+  hover + `brightness(0.82)` pressed) ve otomatik ekler.

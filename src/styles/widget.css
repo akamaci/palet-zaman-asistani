@@ -1464,6 +1464,13 @@ select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; pa
 
 /* Bölgeye oturan her canlı kontrol mutlak konumlanır (left/top/width/height JS'ten). */
 .widget.plaka [data-plate] { position: absolute; margin: 0; }
+/* Düğme DİLİMLERİ (Winamp "playbut"): normal/hover/basılı arka planlar. */
+.widget.plaka [data-plate-btn] {
+  background-repeat: no-repeat; background-size: 100% 100%; background-position: center;
+  border: 0; box-shadow: none; background-color: transparent;
+}
+.widget.plaka [data-plate-btn]:hover { background-image: var(--btn-h, var(--btn-n)); }
+.widget.plaka [data-plate-btn]:active { background-image: var(--btn-p, var(--btn-h, var(--btn-n))); }
 /* Saat bölgeye ölçekle oturur; kilit düğmesi plakada yeri olmadığından gizlenir. */
 .widget.plaka #flip-row { transform-origin: center center; }
 .widget.plaka .btn-lock { display: none; }
