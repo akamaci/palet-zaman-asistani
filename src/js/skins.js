@@ -408,6 +408,7 @@ PZA.plateTemizle = function () {
   els.forEach(el => {
     el.removeAttribute('data-plate');
     el.removeAttribute('data-plate-btn');
+    el.removeAttribute('data-plate-baked');
     ['position', 'left', 'top', 'width', 'height', 'transform',
      'backgroundImage', 'backgroundRepeat', 'backgroundSize', 'backgroundPosition'
     ].forEach(p => el.style.removeProperty(p));
@@ -418,6 +419,7 @@ PZA.plateTemizle = function () {
 /* Bir öğeye düğme dilimi resmi uygula (normal/hover/pressed). */
 PZA.dugmeResmi = function (el, b) {
   el.setAttribute('data-plate-btn', '1');
+  if (b.label) el.setAttribute('data-plate-baked', '1');   // etiket dilime basılı → canlı yazı gizlenir
   el.style.setProperty('--btn-n', 'url("' + b.normal + '")');
   if (b.hover)   el.style.setProperty('--btn-h', 'url("' + b.hover + '")');
   if (b.pressed) el.style.setProperty('--btn-p', 'url("' + b.pressed + '")');

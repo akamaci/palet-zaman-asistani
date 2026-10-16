@@ -1473,6 +1473,8 @@ body:has(.widget.plaka) { align-items: center !important; justify-content: cente
 }
 .widget.plaka [data-plate-btn]:hover { background-image: var(--btn-h, var(--btn-n)); }
 .widget.plaka [data-plate-btn]:active { background-image: var(--btn-p, var(--btn-h, var(--btn-n))); }
+/* Etiket dilime BASILI düğmelerde canlı yazı gizlenir (çift/boş kutu olmasın). */
+.widget.plaka [data-plate-baked] > * { visibility: hidden !important; }
 /* Saat bölgeye ölçekle oturur; kilit düğmesi plakada yeri olmadığından gizlenir. */
 .widget.plaka #flip-row { transform-origin: center center; }
 .widget.plaka .btn-lock { display: none; }
