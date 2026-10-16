@@ -2,6 +2,7 @@
 # Biçim: anahtar = çeviri   (# ile başlayan satırlar yorum)
 settings_title = AYARLAR
 h_skin = GÖRÜNÜM / SKİN
+skin_lbl = Görünüm
 h_vis = GÖRÜNÜRLÜK
 h_theme = TEMA
 h_speech = SESLİ OKUMA

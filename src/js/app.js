@@ -391,11 +391,10 @@
   });
 
   /* ── Skin / görünürlük / boyut / tema (ayarlar paneli) ─ */
-  $('skin-list')?.addEventListener('click', e => {
-    if (e.target.closest('[data-skin-new]')) { PZA.openStudioNew(); return; }
-    const card = e.target.closest('[data-skin-set]');
-    if (card) PZA.set('skin', card.dataset.skinSet);
-  });
+  /* v1.18.5 — Kullanıcı: "yeni skinler eklendikçe bir listeden seçilsin,
+     tıpkı ses listesindeki Ece/Tolga gibi" + "+ yeni skin ekle". */
+  $('skin-select')?.addEventListener('change', e => PZA.set('skin', e.target.value));
+  $('skin-add')?.addEventListener('click', () => PZA.openStudioNew());
 
   /* Seçili kullanıcı skini: düzenle / sil */
   $('skin-edit')?.addEventListener('click', () => {

@@ -1159,6 +1159,26 @@ input { user-select: text; }
   flex: 1; font-size: 11px; color: var(--fg-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* ── GÖRÜNÜM/SKİN LİSTESİ (v1.18.5) ─────────────────────
+   Kullanıcı: "yeni skinler eklendikçe bir listeden seçilsin, tıpkı ses
+   listesindeki Ece/Tolga gibi" + "+ yeni skin ekle". Ses satırıyla aynı
+   düzen: etiket solda, <select> ortada, "+" düğmesi sağda. */
+.skin-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-ctl-soft);
+}
+.skin-lbl { color: var(--fg-dim); font-size: 11px; flex: none; }
+/* `select.` öneki ŞART: `.inp { width: 100% }` sonradan geldiği için düz
+   `.skin-sel` seçicisini ezer ve etiketi satırdan düşürürdü (bkz. voice-sel). */
+select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; padding: 6px 8px; }
+.skin-add {
+  flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  display: grid; place-items: center; font-size: 16px; line-height: 1;
+  color: var(--accent-strong); background: var(--surface-1);
+  border: 1px solid var(--border-ctl);
+}
+.skin-add:hover { border-color: var(--accent); background: var(--surface-2); }
+.skin-add:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .settings .lnk {
   background: none; border: 0; cursor: pointer;
   color: var(--accent-strong); font: inherit; font-size: 11px;

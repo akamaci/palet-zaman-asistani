@@ -2,6 +2,7 @@
 # Format: key = value   (lines starting with # are comments)
 settings_title = SETTINGS
 h_skin = APPEARANCE / SKIN
+skin_lbl = Appearance
 h_vis = VISIBILITY
 h_theme = THEME
 h_speech = SPOKEN TIME

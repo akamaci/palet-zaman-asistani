@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.18.4';
+PZA.SURUM = '1.18.5';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -276,27 +276,20 @@ PZA.applyLock = function () {
 PZA.renderSkins = function () {
   const s = PZA.settings;
 
-  const list = document.getElementById('skin-list');
-  if (list) {
-    const builtin = PZA.SKINS.map(sk => ({ id: sk.id, name: sk.name, swatch: sk.swatch, note: sk.note }));
+  /* v1.18.5 — Kullanıcı: "yeni skinler eklendikçe bir listeden seçilsin,
+     tıpkı ses listesindeki Ece/Tolga gibi." → kart ızgarası yerine
+     ETİKET + <select> listesi. Yerleşik + kullanıcı skinleri tek listede;
+     kullanıcı skinleri sonda ve "✎" ile işaretli. */
+  const sel = document.getElementById('skin-select');
+  if (sel) {
+    const builtin = PZA.SKINS.map(sk => ({ id: sk.id, name: sk.name }));
     const custom = PZA.customSkins().map(sk => ({
-      id: 'user:' + sk.id,
-      name: sk.name || 'İsimsiz',
-      swatch: PZA.skinSwatch(sk),
-      note: sk.author ? ('Yapan: ' + sk.author) : 'Kendi skinim',
-      custom: true
+      id: 'user:' + sk.id, name: (sk.name || 'İsimsiz') + '  ✎'
     }));
-
     const E = PZA.escHtml;
-    list.innerHTML = builtin.concat(custom).map(sk => `
-      <button class="skin-card ${sk.id === s.skin ? 'on' : ''}" data-skin-set="${E(sk.id)}" title="${E(sk.note)}">
-        <div class="skin-thumb" style="background:${E(sk.swatch)}"></div>
-        <span>${E(sk.name)}</span>
-        ${sk.custom ? '<i class="skin-flag">✎</i>' : ''}
-      </button>`).join('')
-      + `<button class="skin-card skin-new" data-skin-new="1" title="Kendi skinini tasarla">
-           <div class="skin-thumb">＋</div><span>Yeni</span>
-         </button>`;
+    sel.innerHTML = builtin.concat(custom).map(sk =>
+      `<option value="${E(sk.id)}"${sk.id === s.skin ? ' selected' : ''}>${E(sk.name)}</option>`
+    ).join('');
   }
 
   // Seçili skin kullanıcı skiniyse altındaki çubuğu göster

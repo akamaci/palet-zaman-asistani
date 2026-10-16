@@ -243,7 +243,14 @@
     </label>
 
     <h4 data-i18n="h_skin">GÖRÜNÜM / SKİN</h4>
-    <div class="skins" id="skin-list"></div>
+    <!-- v1.18.5 — Kullanıcı: "yeni skin ekle butonu (+) koyalım; yeni skinler
+         eklendikçe bir listeden seçilebilsin, tıpkı ses listesindeki Ece/Tolga gibi."
+         Eski 4'lü kart ızgarası yerine: ETİKET + <select> listesi + "+" düğmesi. -->
+    <div class="skin-row">
+      <span class="skin-lbl" data-i18n="skin_lbl">Görünüm</span>
+      <select id="skin-select" class="inp skin-sel" aria-label="Görünüm / skin"></select>
+      <button id="skin-add" class="skin-add" type="button" title="Yeni skin ekle" aria-label="Yeni skin ekle">＋</button>
+    </div>
     <div class="skin-bar" id="skin-bar" hidden>
       <span id="skin-bar-name">—</span>
       <button id="skin-edit" class="lnk" data-i18n="btn_edit">Düzenle</button>

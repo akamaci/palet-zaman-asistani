@@ -373,6 +373,31 @@ head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.4)');
   else ok('app.js: Ezan menusu Ezan dugmesine hizali');
 }
 
+head('15 · Gorunum/skin LISTESI + "+" yeni (v1.18.5)');
+{
+  /* Kullanıcı: "yeni skin ekle butonu (+) koyalim; yeni skinler eklendikce
+     bir listeden secilebilsin, tipki ses listesindeki Ece/Tolga gibi."
+     Eski 4'lu kart izgarasi yerine <select> + "+". */
+  const eksik = ['skin-select', 'skin-add', 'skin-bar'].filter(id => !html.includes('id="' + id + '"'));
+  if (eksik.length) fail('index.html: gorunum listesi ogeleri eksik → ' + eksik.join(', '));
+  else ok('index.html: gorunum <select> listesi + "+" dugmesi var');
+  if (html.includes('id="skin-list"')) fail('index.html: eski #skin-list izgarasi hala var');
+  else ok('index.html: eski kart izgarasi kaldirildi');
+
+  const a = src('app.js');
+  if (!/skin-select'\)\?\.addEventListener\('change'/.test(a)) fail('app.js: #skin-select change bagli degil');
+  else ok('app.js: listeden secim bagli');
+  if (!/skin-add'\)\?\.addEventListener/.test(a)) fail('app.js: "+" yeni skin bagli degil (studyo acilmaz)');
+  else ok('app.js: "+" yeni skin (studyo) bagli');
+
+  if (!/sel\.innerHTML\s*=\s*builtin\.concat\(custom\)/.test(src('settings.js')))
+    fail('settings.js: yerlesik+kullanici skinleri listeye doldurulmuyor');
+  else ok('settings.js: yerlesik+kullanici skinleri tek listede');
+
+  if (!/select\.skin-sel/.test(css)) fail('widget.css: select.skin-sel stili yok (etiket satirdan duser)');
+  else ok('widget.css: skin listesi stili var');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
