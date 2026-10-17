@@ -619,6 +619,21 @@ head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
+head('24 · Winamp görünümleri (klasik / modern / bento)');
+{
+  /* Kullanıcı (2026-10-17): "Winamp klasik/modern/bento görsellerine benzer
+     tasarımlar istiyorum." → üretici metalik kabartma + gömme LCD üretir. */
+  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
+  if (!/WINAMP_PALETTES/.test(uret)) fail('atlas-uret.mjs: Winamp görünümleri tanimli degil');
+  else ok('atlas-uret.mjs: Winamp görünümleri (klasik/modern/bento) tanimli');
+  try {
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
+    const wa = ['winamp-klasik', 'winamp-modern', 'bento'].filter(k => o[k] && o[k].format === 'pza-skin/3');
+    if (wa.length < 3) fail('skins-builtin.js: Winamp görünümleri eksik (' + wa.join(',') + ')');
+    else ok('skins-builtin.js: Winamp görünümleri gomulu (' + wa.join(', ') + ')');
+  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

@@ -226,6 +226,120 @@ if (fs.existsSync(ornekDir)) {
   }
 }
 
+/* ── WINAMP GÖRÜNÜMLERİ (klasik · modern · bento) ─────────────────────────────
+   Kullanıcı (2026-10-17): "Winamp klasik / modern / bento görsellerine BENZER
+   tasarımlar istiyorum." Klasik Winamp estetiği: METALİK KABARTMA çerçeve +
+   GÖMME (sunken) LCD alanlar + KABARTMA düğmeler. Doku: BMP değil SVG (hafif).
+   Tüm bölgeler LCD (koyu) → canlı yazı açık renk (okunur). */
+const WINAMP_PALETTES = {
+  'winamp-klasik': {
+    name: 'Winamp Klasik',
+    metal1: '#ececec', metal2: '#c9c9c9', metal3: '#9b9b9b', dark: '#6a6a6a', light: '#ffffff',
+    title: '#00007a', lcd1: '#0a1016', lcd2: '#06121f', accent: '#26ff9c',
+    text: '#c9ffe2', dim: '#7fbf9f', on: '#04160c', flip: '#0a1016'
+  },
+  'winamp-modern': {
+    name: 'Winamp Modern',
+    metal1: '#9aa3b0', metal2: '#6f7887', metal3: '#48505c', dark: '#2a303a', light: '#d4dbe6',
+    title: '#123a63', lcd1: '#0a1522', lcd2: '#061423', accent: '#49b7ff',
+    text: '#d7ecff', dim: '#8fb2cf', on: '#04121f', flip: '#0a1522'
+  },
+  'bento': {
+    name: 'Bento',
+    metal1: '#41474d', metal2: '#2c3136', metal3: '#1b1f22', dark: '#0d0f11', light: '#6a737d',
+    title: '#23282c', lcd1: '#111417', lcd2: '#0c0f12', accent: '#ff8c00',
+    text: '#ffe6cc', dim: '#c79a6b', on: '#1a0f04', flip: '#111417'
+  }
+};
+
+function wled(cx, op, p) { return `<circle cx="${cx}" cy="${CH + 22}" r="6" fill="${p.accent}" fill-opacity="${op}"/>`; }
+function sunkenWell(x, y, w, h, p, clock) {
+  let g = '';
+  if (clock) {
+    for (let gx = x + 16; gx < x + w - 8; gx += 22) g += `<line x1="${gx}" y1="${y + 4}" x2="${gx}" y2="${y + h - 4}" stroke="${p.accent}" stroke-opacity="0.05"/>`;
+    for (let gy = y + 16; gy < y + h - 8; gy += 22) g += `<line x1="${x + 4}" y1="${gy}" x2="${x + w - 4}" y2="${gy}" stroke="${p.accent}" stroke-opacity="0.05"/>`;
+  }
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${p.lcd1}" stroke="${p.dark}"/>
+  <rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${h - 2}" rx="5" fill="${clock ? p.lcd2 : 'none'}" fill-opacity="${clock ? 1 : 0}"/>
+  <path d="M${x + 6} ${y + 1.5} H${x + w - 6}" stroke="${p.dark}"/>
+  <path d="M${x + 1.5} ${y + 6} V${y + h - 6}" stroke="${p.dark}"/>
+  <path d="M${x + 6} ${y + h - 1.5} H${x + w - 6}" stroke="${p.light}" stroke-opacity="0.22"/>
+  <path d="M${x + w - 1.5} ${y + 6} V${y + h - 6}" stroke="${p.light}" stroke-opacity="0.22"/>
+  ${g}`;
+}
+function winampAtlas(p) {
+  let wells = '';
+  for (const k of Object.keys(REGIONS)) {
+    const r = REGIONS[k];
+    wells += sunkenWell(r.x - 5, r.y - 5, r.w + 10, r.h + 10, p, k === 'clock');
+  }
+  const titleBar = `<rect x="8" y="7" width="${CW - 16}" height="19" rx="3" fill="${p.title}" stroke="${p.dark}"/>
+  <rect x="8" y="7" width="${CW - 16}" height="9" rx="3" fill="#ffffff" fill-opacity="0.10"/>`;
+  const screws = [[15, CH - 15], [CW - 15, CH - 15], [15, 15], [CW - 15, 15]]
+    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.4" fill="${p.metal2}" stroke="${p.dark}"/><path d="M${x - 2.4} ${y - 1.6} L${x + 2.4} ${y + 1.6}" stroke="${p.light}" stroke-opacity="0.6"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${AH}" viewBox="0 0 ${CW} ${AH}">
+  <defs>
+    <linearGradient id="cmp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${p.metal1}"/><stop offset="0.46" stop-color="${p.metal2}"/>
+      <stop offset="0.54" stop-color="${p.metal2}"/><stop offset="1" stop-color="${p.metal3}"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="${CW - 1}" height="${CH - 1}" rx="10" fill="url(#cmp)" stroke="${p.dark}"/>
+  <rect x="1.5" y="1.5" width="${CW - 3}" height="${CH - 3}" rx="9" fill="none" stroke="${p.light}" stroke-opacity="0.7"/>
+  <rect x="3.5" y="3.5" width="${CW - 7}" height="${CH - 7}" rx="8" fill="none" stroke="${p.dark}" stroke-opacity="0.5"/>
+  ${wells}${titleBar}${screws}
+  ${wled(12, 0.3, p)}${wled(32, 0.65, p)}${wled(52, 1, p)}
+</svg>`;
+}
+function winampButtons(p) {
+  const out = {};
+  for (const k of Object.keys(REGIONS)) {
+    if (k === 'clock' || k === 'date') continue;
+    const r = REGIONS[k];
+    const st = mode => {
+      const light = mode === 'pressed' ? p.dark : p.light;
+      const dark = mode === 'pressed' ? p.light : p.dark;
+      const fo = mode === 'hover' ? 0.20 : 0;
+      return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${r.w}" height="${r.h}" viewBox="0 0 ${r.w} ${r.h}">
+      <rect x="1.5" y="1.5" width="${r.w - 3}" height="${r.h - 3}" rx="5" fill="${p.accent}" fill-opacity="${fo}" stroke="${dark}"/>
+      <path d="M${6} ${2} H${r.w - 6}" stroke="${light}" stroke-opacity="0.75"/>
+      <path d="M${2} ${6} V${r.h - 6}" stroke="${light}" stroke-opacity="0.75"/>
+      <path d="M${6} ${r.h - 2} H${r.w - 6}" stroke="${dark}"/>
+      <path d="M${r.w - 2} ${6} V${r.h - 6}" stroke="${dark}"/></svg>`);
+    };
+    out[k] = { normal: st('normal'), hover: st('hover'), pressed: st('pressed') };
+  }
+  return out;
+}
+function winampSkin(key, p) {
+  return {
+    format: 'pza-skin/3', id: key, name: p.name, author: 'Paletweb',
+    canvas: { w: CW, h: CH },
+    atlas: { image: svgUri(winampAtlas(p)), w: CW, h: AH },
+    parts: {
+      body: { x: 0, y: 0, w: CW, h: CH },
+      led0: { x: 6, y: CH + 16, w: 12, h: 12 }, led1: { x: 26, y: CH + 16, w: 12, h: 12 }, led2: { x: 46, y: CH + 16, w: 12, h: 12 }
+    },
+    layers: [
+      { part: 'body', x: 0, y: 0, w: CW, h: CH },
+      { frames: ['led0', 'led1', 'led2'], fps: 1.5, x: CW - 48, y: 12, w: 12, h: 12 }
+    ],
+    regions: JSON.parse(JSON.stringify(REGIONS)),
+    buttons: winampButtons(p),
+    filters: { dark: 'none', light: 'none' },
+    tokens: {
+      '--fg': p.text, '--fg-dim': p.dim, '--fg-mute': p.dim,
+      '--accent': p.accent, '--accent-strong': p.accent, '--on-accent': p.on,
+      '--warn': '#ffd75e', '--ok': '#57e08a',
+      '--flip-1': p.flip, '--flip-2': p.flip, '--flip-3': p.flip, '--flip-border': p.dark, '--pin': p.accent
+    },
+    fontUI: "'MS Sans Serif', 'Segoe UI', Tahoma, sans-serif",
+    fontNum: "'Consolas', 'Lucida Console', monospace"
+  };
+}
+const winampSkins = {};
+for (const k of Object.keys(WINAMP_PALETTES)) winampSkins[k] = winampSkin(k, WINAMP_PALETTES[k]);
+
 const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
    Palet Zaman Asistanı · GPL-3.0 · © 2026 Paletweb Bilişim
    OTOMATİK üretilir: araclar/atlas-uret.mjs -> .pzaskin.json -> buraya.
@@ -234,7 +348,7 @@ const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
 window.PZA = window.PZA || {};
 PZA.PLATE_SKINS = `;
 
-const body = JSON.stringify(Object.assign({ nebula: cyan, 'nebula-amber': amber }, ekSkins), null, 1);
+const body = JSON.stringify(Object.assign({ nebula: cyan, 'nebula-amber': amber }, ekSkins, winampSkins), null, 1);
 
 fs.writeFileSync(path.join(root, 'src', 'js', 'skins-builtin.js'), header + body + ';\n', 'utf8');
 console.log('yazıldı: src/js/skins-builtin.js (' + (header.length + body.length) + ' bayt)');
