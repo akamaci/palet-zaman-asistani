@@ -11,19 +11,19 @@ import path from 'node:path';
 import url from 'node:url';
 
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
-const CW = 940, CH = 430, AH = CH + 40;
+const CW = 940, CH = 320, AH = CH + 40;   // KOMPAKT: kısa widget, küçük kutular
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const svgUri = s => 'data:image/svg+xml;base64,' + b64(s);
 
 const REGIONS = {
-  date:     { x: 40,  y: 20,  w: 760, h: 22  },
-  clock:    { x: 40,  y: 50,  w: 760, h: 164 },
-  ezan:     { x: 866, y: 20,  w: 50,  h: 30  },
-  pa:       { x: 866, y: 54,  w: 50,  h: 26  },
-  weather:  { x: 40,  y: 236, w: 272, h: 160 },
-  notes:    { x: 324, y: 236, w: 272, h: 160 },
-  theme:    { x: 608, y: 236, w: 296, h: 76  },
-  settings: { x: 608, y: 318, w: 296, h: 78  }
+  date:     { x: 54,  y: 42,  w: 300, h: 20  },
+  clock:    { x: 310, y: 40,  w: 320, h: 104 },
+  ezan:     { x: 780, y: 40,  w: 118, h: 32  },   // GENİŞ: "Ezan" + ay ikonu sığar
+  pa:       { x: 852, y: 80,  w: 46,  h: 28  },
+  weather:  { x: 30,  y: 182, w: 208, h: 106 },
+  notes:    { x: 248, y: 182, w: 208, h: 106 },
+  theme:    { x: 466, y: 182, w: 208, h: 106 },
+  settings: { x: 684, y: 182, w: 206, h: 106 }
 };
 const A = { c1: '#2ee6c8', c2: '#8b5cf6', c3: '#ff5ea8', ink: '#eaefff', dim: '#a7b0d8', accent: '#38e8c8' };
 
@@ -32,11 +32,11 @@ function glass(x, y, w, h, r) {
   <path d="M${x + r} ${y + 1} H${x + w - r}" stroke="#ffffff" stroke-opacity="0.28"/>`;
 }
 function atlas() {
+  const top = glass(30, 20, 880, 140, 24);            // TEK PARÇA üst panel
   let cards = '';
-  for (const k of Object.keys(REGIONS)) {
-    if (k === 'ezan' || k === 'pa') continue;
+  for (const k of ['weather', 'notes', 'theme', 'settings']) {
     const r = REGIONS[k];
-    cards += glass(r.x - 6, r.y - 6, r.w + 12, r.h + 12, k === 'clock' ? 24 : 18);
+    cards += glass(r.x - 6, r.y - 6, r.w + 12, r.h + 12, 16);
   }
   let stars = '';
   for (let i = 0; i < 70; i++) {
@@ -54,16 +54,16 @@ function atlas() {
       <stop offset="0" stop-color="${A.c1}"/><stop offset="0.5" stop-color="${A.c2}"/><stop offset="1" stop-color="${A.c3}"/>
     </linearGradient>
   </defs>
-  <rect x="6" y="6" width="${CW - 12}" height="${CH - 12}" rx="28" fill="url(#sky)" stroke="#ffffff" stroke-opacity="0.10"/>
+  <rect x="6" y="6" width="${CW - 12}" height="${CH - 12}" rx="26" fill="url(#sky)" stroke="#ffffff" stroke-opacity="0.10"/>
   <g filter="url(#blur)">
-    <ellipse cx="240" cy="40" rx="330" ry="150" fill="${A.c1}" fill-opacity="0.55"/>
-    <ellipse cx="720" cy="30" rx="300" ry="140" fill="${A.c2}" fill-opacity="0.50"/>
-    <ellipse cx="470" cy="330" rx="380" ry="170" fill="${A.c3}" fill-opacity="0.26"/>
+    <ellipse cx="240" cy="30" rx="330" ry="140" fill="${A.c1}" fill-opacity="0.55"/>
+    <ellipse cx="720" cy="20" rx="300" ry="130" fill="${A.c2}" fill-opacity="0.50"/>
+    <ellipse cx="470" cy="280" rx="380" ry="150" fill="${A.c3}" fill-opacity="0.24"/>
   </g>
-  <rect x="6" y="6" width="${CW - 12}" height="${CH - 12}" rx="28" fill="#060a16" fill-opacity="0.42"/>
+  <rect x="6" y="6" width="${CW - 12}" height="${CH - 12}" rx="26" fill="#060a16" fill-opacity="0.42"/>
   ${stars}
-  ${cards}
-  <rect x="60" y="224" width="720" height="4" rx="2" fill="url(#line)"/>
+  ${top}${cards}
+  <rect x="50" y="166" width="840" height="4" rx="2" fill="url(#line)"/>
   ${led(12, 0.3)}${led(32, 0.65)}${led(52, 1)}
 </svg>`;
 }
@@ -89,7 +89,7 @@ function skin() {
     canvas: { w: CW, h: CH },
     atlas: { image: svgUri(atlas()), w: CW, h: AH },
     parts: { body: { x: 0, y: 0, w: CW, h: CH }, led0: { x: 6, y: CH + 16, w: 12, h: 12 }, led1: { x: 26, y: CH + 16, w: 12, h: 12 }, led2: { x: 46, y: CH + 16, w: 12, h: 12 } },
-    layers: [{ part: 'body', x: 0, y: 0, w: CW, h: CH }, { frames: ['led0', 'led1', 'led2'], fps: 1.4, x: 812, y: 30, w: 12, h: 12 }],
+    layers: [{ part: 'body', x: 0, y: 0, w: CW, h: CH }, { frames: ['led0', 'led1', 'led2'], fps: 1.4, x: 806, y: 118, w: 12, h: 12 }],
     regions: REGIONS,
     buttons: buttons(),
     filters: { dark: 'none', light: 'none' },
