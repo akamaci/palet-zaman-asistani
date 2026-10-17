@@ -414,7 +414,7 @@
     if (!sk) return;
     if (!confirm('"' + (sk.name || 'İsimsiz') + '" skini silinsin mi? Bu geri alınamaz.')) return;
     PZA.deleteSkin(id);
-    if (PZA.settings.skin === 'user:' + id) PZA.set('skin', 'halo');
+    if (PZA.settings.skin === 'user:' + id) PZA.set('skin', 'klasik');
     else PZA.apply();
   });
 

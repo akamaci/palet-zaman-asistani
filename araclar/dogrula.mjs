@@ -437,12 +437,16 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
   else ok('app.js: pencere plaka tuvaline gore boyutlanir');
   if (!/\.widget\.plaka/.test(css)) fail('widget.css: .widget.plaka stili yok');
   else ok('widget.css: plaka stili var');
-  if (!/PLATE_SKINS/.test(src('skins-builtin.js'))) fail('skins-builtin.js: gomulu plaka skini yok');
-  else {
-    try {
-      const txt = src('skins-builtin.js');
-      const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
-      const o = JSON.parse(m[1]); const sk = o[Object.keys(o)[0]];
+  if (!/PLATE_SKINS/.test(src('skins-builtin.js'))) fail('skins-builtin.js: PZA.PLATE_SKINS tanimli degil');
+  else ok('skins-builtin.js: PZA.PLATE_SKINS tanimli');
+  try {
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
+    const keys = Object.keys(o);
+    if (!keys.length) {
+      /* Kullanıcı (2026-10-17): "tüm skinleri kaldır, Klasik hariç." → plaka skini yok. */
+      ok('gomulu plaka skini YOK (kaldirildi; tek gorunum: Klasik)');
+    } else {
+      const sk = o[keys[0]];
       if (sk.format !== 'pza-skin/2' && sk.format !== 'pza-skin/3') fail('gomulu skin bicimi taninmiyor: ' + sk.format);
       else ok('gomulu skin bicimi ' + sk.format);
       if (!(sk.canvas && sk.canvas.w >= 100 && sk.canvas.h >= 60)) fail('gomulu skin tuvali gecersiz');
@@ -462,8 +466,8 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
           fail('gomulu skin plakasi data:image degil');
         else ok('gomulu skin plakasi data:image gomulu');
       }
-    } catch (e) { fail('skins-builtin.js JSON cozulemedi: ' + e.message); }
-  }
+    }
+  } catch (e) { fail('skins-builtin.js JSON cozulemedi: ' + e.message); }
 }
 
 head('18 · Guncelleme kapanma izni + plaka tam ekran + ezan menusu (v1.19.1)');
@@ -548,15 +552,15 @@ head('21 · Dugme DILIMLERI (normal/hover/basili) — Winamp playbut (v1.21.0)')
     fail('widget.css: dugme hover dilimi stili yok');
   else ok('widget.css: dugme dilimi stilleri (hover/active) var');
   try {
-    const txt = src('skins-builtin.js');
-    const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
-    const o = JSON.parse(m[1]);
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
     const keys = Object.keys(o);
-    if (keys.length < 2) fail('skins-builtin.js: plaka skini sayisi < 2 (' + keys.length + ')');
-    else ok('skins-builtin.js: ' + keys.length + ' gomulu plaka skini (' + keys.join(', ') + ')');
-    const withBtn = keys.filter(k => o[k].buttons && Object.keys(o[k].buttons).length);
-    if (!withBtn.length) fail('skins-builtin.js: hicbir skinde dugme dilimi yok');
-    else ok('skins-builtin.js: dugme dilimli skinler: ' + withBtn.join(', '));
+    if (!keys.length) ok('skins-builtin.js: plaka skini yok (kaldirildi)');
+    else {
+      ok('skins-builtin.js: ' + keys.length + ' gomulu plaka skini (' + keys.join(', ') + ')');
+      const withBtn = keys.filter(k => o[k].buttons && Object.keys(o[k].buttons).length);
+      if (!withBtn.length) fail('skins-builtin.js: hicbir skinde dugme dilimi yok');
+      else ok('skins-builtin.js: dugme dilimli skinler: ' + withBtn.join(', '));
+    }
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
@@ -583,15 +587,17 @@ head('22 · Renk temalari — Winamp ColorThemes / gammagroup (pza-skin/3)');
   if (!/@keyframes/.test(s)) fail('skins.js: animasyon keyframe uretimi yok');
   else ok('skins.js: animasyon keyframe uretimi var');
   try {
-    const txt = src('skins-builtin.js');
-    const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
-    const o = JSON.parse(m[1]);
-    const withTheme = Object.keys(o).filter(k => Array.isArray(o[k].colorthemes) && o[k].colorthemes.length >= 2);
-    if (!withTheme.length) fail('skins-builtin.js: hicbir skinde >=2 renk temasi yok');
-    else ok('skins-builtin.js: cok temali skinler: ' + withTheme.join(', '));
-    const withAnim = Object.keys(o).filter(k => (o[k].layers || []).some(L => Array.isArray(L.frames) && L.frames.length > 1));
-    if (!withAnim.length) fail('skins-builtin.js: animasyonlu katmani olan skin yok');
-    else ok('skins-builtin.js: animasyonlu skinler: ' + withAnim.join(', '));
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
+    const keys = Object.keys(o);
+    if (!keys.length) ok('skins-builtin.js: plaka skini yok (renk temasi/animasyon verisi yok)');
+    else {
+      const withTheme = keys.filter(k => Array.isArray(o[k].colorthemes) && o[k].colorthemes.length >= 2);
+      if (!withTheme.length) fail('skins-builtin.js: hicbir skinde >=2 renk temasi yok');
+      else ok('skins-builtin.js: cok temali skinler: ' + withTheme.join(', '));
+      const withAnim = keys.filter(k => (o[k].layers || []).some(L => Array.isArray(L.frames) && L.frames.length > 1));
+      if (!withAnim.length) fail('skins-builtin.js: animasyonlu katmani olan skin yok');
+      else ok('skins-builtin.js: animasyonlu skinler: ' + withAnim.join(', '));
+    }
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
@@ -613,44 +619,6 @@ head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
   else ok('app.js: guncelleme popup tetikleyiciye hizali (dropdown)');
   if (!/dropdownYerlestir\(ezanMenu,\s*ezanBtn\)/.test(a)) fail('app.js: ezan menusu ortak kurali kullanmiyor');
   else ok('app.js: ezan menusu ortak kurali kullaniyor');
-  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
-  if (!/ornek-skinler/.test(uret) || !/kurgu/.test(uret))
-    fail('atlas-uret.mjs: ilk tasarimlari yeniden kurgulama (v2->v3) yok');
-  else ok('atlas-uret.mjs: ilk tasarimlari yeniden kurgulama var');
-  try {
-    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
-    const v3 = Object.keys(o).filter(k => o[k].format === 'pza-skin/3' && o[k].atlas && o[k].layers);
-    if (v3.length < 3) fail('skins-builtin.js: v3 skin sayisi < 3 (' + v3.length + ')');
-    else ok('skins-builtin.js: ' + v3.length + ' v3 skin (' + v3.join(', ') + ')');
-  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
-}
-
-head('24 · Winamp görünümleri (klasik / modern / bento)');
-{
-  /* Kullanıcı (2026-10-17): "Winamp klasik/modern/bento görsellerine benzer
-     tasarımlar istiyorum." → üretici metalik kabartma + gömme LCD üretir. */
-  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
-  if (!/WINAMP_PALETTES/.test(uret)) fail('atlas-uret.mjs: Winamp görünümleri tanimli degil');
-  else ok('atlas-uret.mjs: Winamp görünümleri (klasik/modern/bento) tanimli');
-  try {
-    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
-    const wa = ['winamp-klasik', 'winamp-modern', 'bento'].filter(k => o[k] && o[k].format === 'pza-skin/3');
-    if (wa.length < 3) fail('skins-builtin.js: Winamp görünümleri eksik (' + wa.join(',') + ')');
-    else ok('skins-builtin.js: Winamp görünümleri gomulu (' + wa.join(', ') + ')');
-  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
-}
-
-head('25 · Aqua (gel / camsı) görünümü');
-{
-  /* Kullanıcı (2026-10-17): "futuristik, camsı/gel (aqua) bir skin." */
-  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
-  if (!/gelAtlas/.test(uret)) fail('atlas-uret.mjs: Aqua (gel) görünümü tanimli degil');
-  else ok('atlas-uret.mjs: Aqua (gel) görünümü tanimli');
-  try {
-    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
-    if (!(o.aqua && o.aqua.format === 'pza-skin/3' && o.aqua.canvas)) fail('skins-builtin.js: aqua skini yok');
-    else ok('skins-builtin.js: aqua (gel) skini gomulu');
-  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
 /* ── Sonuç ─────────────────────────────────────────────── */

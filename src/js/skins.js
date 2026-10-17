@@ -636,7 +636,7 @@ PZA.applySkin = function () {
   PZA.clearPlate();
 
   if (!skin) {
-    w.dataset.skin = String(PZA.settings.skin || 'halo').replace(/^user:.*/, 'halo');
+    w.dataset.skin = String(PZA.settings.skin || 'klasik').replace(/^user:.*/, 'klasik');
     if (bgEl) { bgEl.style.backgroundImage = 'none'; bgEl.hidden = true; }
     return;
   }

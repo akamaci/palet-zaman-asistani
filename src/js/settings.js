@@ -9,20 +9,17 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.31.0';
+PZA.SURUM = '1.32.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
    eklemek için buraya bir kayıt + CSS'te [data-skin="id"] bloğu yeter. */
 PZA.SKINS = [
-  { id: 'halo',    name: 'Halo',    swatch: 'linear-gradient(135deg,#101722,#06b6d4)', note: 'Orijinal uzay teması' },
-  { id: 'klasik',  name: 'Klasik',  swatch: 'linear-gradient(135deg,#1c1f24,#9aa4b2)', note: 'Düz antrasit' },
-  { id: 'neon',    name: 'Neon',    swatch: 'linear-gradient(135deg,#1a0f2e,#e879f9)', note: 'Mor–pembe parıltı' },
-  { id: 'minimal', name: 'Minimal', swatch: 'linear-gradient(135deg,#0f0f0f,#fafafa)', note: 'Monokrom' }
+  { id: 'klasik',  name: 'Klasik',  swatch: 'linear-gradient(135deg,#1c1f24,#9aa4b2)', note: 'Düz antrasit' }
 ];
 
 PZA.DEFAULTS = {
-  skin: 'halo',
+  skin: 'klasik',
   theme: 'dark',
   plateTheme: null,   // pza-skin/3 Winamp ColorThemes: seçili renk teması (null = skinin ilk teması)
   size: '2',          // 2 = 1/2 · 3 = 1/3 · 4 = 1/4 · 'bar' = görev çubuğu gibi tek satır

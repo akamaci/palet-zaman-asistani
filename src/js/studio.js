@@ -121,7 +121,7 @@
     if (!w || !p) return;
     p.setAttribute('style', w.getAttribute('style') || '');
     p.dataset.theme = w.dataset.theme || 'dark';
-    p.dataset.skin = w.dataset.skin || 'halo';
+    p.dataset.skin = w.dataset.skin || 'klasik';
 
     const wb = $('skin-bg'), pb = $('sp-bg');
     if (wb && pb) {
@@ -233,7 +233,7 @@
     const id = draft.id;
     PZA.deleteSkin(id);
     PZA.clearPreview();
-    if (PZA.settings.skin === 'user:' + id) PZA.set('skin', 'halo');
+    if (PZA.settings.skin === 'user:' + id) PZA.set('skin', 'klasik');
     else PZA.apply();
     $('studio').hidden = true;
     draft = null;
