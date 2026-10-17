@@ -142,25 +142,75 @@ cyan.colorthemes = [
   { id: 'mono',   name: 'Mono',   filter: 'grayscale(1) brightness(1.15)',                       accent: '#cbd5e1' }
 ];
 
-/* ── v2 → v3 dönüşümü ──────────────────────────────────────────
-   Eski `pza-skin/2` (tek parça plaka) tasarımlarını yeni motora taşır:
-   plaka → atlasın `body` parçası. Böylece İLK tasarımlar (Orbital/Halo)
-   yeni motorun (renk teması, animasyon, gerçek düğme durumları) altında çalışır. */
-function v2to3(o, key) {
-  const cw = o.canvas.w, ch = o.canvas.h;
+/* ── İLK TASARIMLARI YENİDEN KURGULA (v2 → v3, "yeni bilgilere göre") ─────────
+   Eski `pza-skin/2` tasarımlarını (Orbital HUD · Halo Uzay) yalnız taşımakla
+   kalma; v3 kurallarıyla YENİDEN kur:
+     • Taban plaka → atlasın `body` parçası (DEKOR; gömülü yazı YOK).
+     • Eski gömülü-etiketli düğme dilimleri ATILIR → yerine gömülü yazısız
+       GERÇEK durum katmanları (normal=şeffaf, hover/pressed=parıltı). Etiket
+       artık CANLI `<text>` — dil/tema ile uyumlu (çift yazı olmaz).
+     • gammagroup karşılığı `colorthemes` + `filters`.
+     • AnimatedLayer: atlasın alt payında yanıp sönen LED.
+   Taban plaka (özel WebP) atlas içine SVG `<image>` ile gömülür. */
+const KURGU = {
+  'orbital-hud': {
+    accent: '#00f0ff',
+    themes: [
+      { id: 'cyan',   name: 'Cyan',   filter: 'none',                                              accent: '#00f0ff' },
+      { id: 'amber',  name: 'Amber',  filter: 'hue-rotate(-140deg) saturate(1.35) brightness(1.05)', accent: '#ffb703' },
+      { id: 'violet', name: 'Violet', filter: 'hue-rotate(90deg) saturate(1.25)',                    accent: '#b57bff' }
+    ]
+  },
+  'halo-hud': {
+    accent: '#7aa2ff',
+    themes: [
+      { id: 'blue',  name: 'Blue',  filter: 'none',                                       accent: '#7aa2ff' },
+      { id: 'cyan',  name: 'Cyan',  filter: 'hue-rotate(-30deg) saturate(1.15)',           accent: '#00f0ff' },
+      { id: 'amber', name: 'Amber', filter: 'hue-rotate(120deg) saturate(1.25) brightness(1.05)', accent: '#ffb703' },
+      { id: 'mono',  name: 'Mono',  filter: 'grayscale(1) brightness(1.1)',                 accent: '#cbd5e1' }
+    ]
+  }
+};
+
+function kurgu(o, key) {
+  const cfg = KURGU[key] || { accent: '#00f0ff', themes: [] };
+  const cw = o.canvas.w, ch = o.canvas.h, AH = ch + 40;
+  const led = (cx, op) => `<circle cx="${cx}" cy="${ch + 22}" r="6" fill="${cfg.accent}" fill-opacity="${op}"/>`;
+  // atlas = gövde görseli (SVG <image>) + LED kareleri
+  const atlas = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${AH}" viewBox="0 0 ${cw} ${AH}">
+  <image href="${o.plate}" x="0" y="0" width="${cw}" height="${ch}"/>
+  ${led(12, 0.25)}${led(32, 0.6)}${led(52, 1)}
+</svg>`);
+  // gerçek düğme durumları — gömülü YAZI YOK, NÖTR parıltı (renk temasından bağımsız)
+  const btns = {};
+  Object.keys(o.regions || {}).forEach(k => {
+    if (k === 'clock' || k === 'date') return;
+    const r = o.regions[k];
+    const st = (fo, a) => svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${r.w}" height="${r.h}" viewBox="0 0 ${r.w} ${r.h}"><rect x="1" y="1" width="${Math.max(0, r.w - 2)}" height="${Math.max(0, r.h - 2)}" rx="9" fill="#ffffff" fill-opacity="${fo}" stroke="#ffffff" stroke-opacity="${a}"/></svg>`);
+    btns[k] = { normal: st(0, 0), hover: st(0.12, 0.5), pressed: st(0.22, 0.85) };
+  });
   return {
     format: 'pza-skin/3',
     id: key,
     name: o.name,
     author: o.author || 'Paletweb',
     canvas: { w: cw, h: ch },
-    atlas: { image: o.plate, w: cw, h: ch },
-    parts: { body: { x: 0, y: 0, w: cw, h: ch } },
-    layers: [{ part: 'body', x: 0, y: 0, w: cw, h: ch }],
+    atlas: { image: atlas, w: cw, h: AH },
+    parts: {
+      body: { x: 0, y: 0, w: cw, h: ch },
+      led0: { x: 6,  y: ch + 16, w: 12, h: 12 },
+      led1: { x: 26, y: ch + 16, w: 12, h: 12 },
+      led2: { x: 46, y: ch + 16, w: 12, h: 12 }
+    },
+    layers: [
+      { part: 'body', x: 0, y: 0, w: cw, h: ch },
+      { frames: ['led0', 'led1', 'led2'], fps: 2, x: cw - 48, y: 14, w: 12, h: 12 }   // AnimatedLayer
+    ],
     regions: o.regions,
-    buttons: o.buttons || {},
+    buttons: btns,
     filters: { dark: 'none', light: 'invert(.9) hue-rotate(180deg) saturate(1.15)' },
-    tokens: o.tokens || {},
+    colorthemes: cfg.themes,
+    tokens: Object.assign({}, o.tokens, { '--accent': cfg.accent, '--accent-strong': cfg.accent }),
     fontUI: o.fontUI || '', fontNum: o.fontNum || ''
   };
 }
@@ -171,7 +221,7 @@ if (fs.existsSync(ornekDir)) {
   for (const f of fs.readdirSync(ornekDir).filter(n => n.endsWith('.pzaskin.json'))) {
     try {
       const o = JSON.parse(fs.readFileSync(path.join(ornekDir, f), 'utf8'));
-      if (o.format === 'pza-skin/2' && o.plate && o.canvas) ekSkins[o.id] = v2to3(o, o.id);
+      if (o.format === 'pza-skin/2' && o.plate && o.canvas) ekSkins[o.id] = kurgu(o, o.id);
     } catch (e) { console.warn('ornek skin okunamadi: ' + f + ' - ' + e.message); }
   }
 }

@@ -608,9 +608,9 @@ head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
   if (!/vh\s*-\s*rb\.bottom/.test(a)) fail('app.js: ezan menusu yonu KONUMA gore degil');
   else ok('app.js: ezan menusu yonu KONUMA gore (altta yer yoksa yukari)');
   const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
-  if (!/ornek-skinler/.test(uret) || !/v2to3/.test(uret))
-    fail('atlas-uret.mjs: v2->v3 ornek skin donusumu yok');
-  else ok('atlas-uret.mjs: v2->v3 ornek skin donusumu var');
+  if (!/ornek-skinler/.test(uret) || !/kurgu/.test(uret))
+    fail('atlas-uret.mjs: ilk tasarimlari yeniden kurgulama (v2->v3) yok');
+  else ok('atlas-uret.mjs: ilk tasarimlari yeniden kurgulama var');
   try {
     const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
     const v3 = Object.keys(o).filter(k => o[k].format === 'pza-skin/3' && o[k].atlas && o[k].layers);
