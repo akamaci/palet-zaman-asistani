@@ -427,6 +427,9 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
   const s = src('skins.js');
   for (const f of ['PZA.PLATE_MAP', 'PZA.applyPlate', 'PZA.clearPlate', 'PZA.plateSize'])
     if (!s.includes(f)) fail('skins.js: ' + f + ' yok'); else ok('skins.js: ' + f + ' var');
+  if (!/skin\.format === PZA\.SKIN_FORMAT_V2 \|\| skin\.format === PZA\.SKIN_FORMAT_V3/.test(s))
+    fail('skins.js: applySkin v3 plakayi UYGULAMIYOR (Aurora/Klasik ayni gorunur)');
+  else ok('skins.js: applySkin v2+v3 plakayi uyguluyor');
   if (!/PZA\.SKIN_FORMAT_V2\s*=\s*'pza-skin\/2'/.test(s)) fail("skins.js: 'pza-skin/2' bicimi tanimli degil");
   else ok("skins.js: 'pza-skin/2' bicimi tanimli");
   if (!/PZA\.SKIN_FORMAT_V3\s*=\s*'pza-skin\/3'/.test(s)) fail("skins.js: 'pza-skin/3' bicimi tanimli degil");

@@ -627,8 +627,10 @@ PZA.applySkin = function () {
   const bgEl = document.getElementById('skin-bg');
   const skin = PZA.activeSkin();
 
-  /* pza-skin/2 — KATMAN+BÖLGE (plaka). */
-  if (skin && skin.format === PZA.SKIN_FORMAT_V2) {
+  /* pza-skin/2 & /3 — KATMAN+BÖLGE (plaka). v3 = atlas+parça+katman.
+     (HATA düzeltmesi: yalnız v2 deneniyordu → v3 plakalar hiç uygulanmıyordu,
+      Aurora/Klasik aynı görünüyordu.) */
+  if (skin && (skin.format === PZA.SKIN_FORMAT_V2 || skin.format === PZA.SKIN_FORMAT_V3)) {
     if (bgEl) { bgEl.style.backgroundImage = 'none'; bgEl.hidden = true; }
     PZA.applyPlate(skin);
     return;
