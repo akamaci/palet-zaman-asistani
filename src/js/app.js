@@ -211,7 +211,7 @@
         document.getElementById('widget')?.classList.toggle('bar-kapali',
           PZA.settings.barGizli === true && PZA.__barAcik !== true);
 
-        const kapVar   = acikMi('settings') || acikMi('studio');   // Ayarlar/Stüdyo kaplaması
+        const kapVar   = acikMi('settings') || acikMi('studio') || acikMi('pa-modal');   // kaplamalar
         const panelVar = acikMi('panel-notes') || acikMi('panel-weather');
         const ezanVar  = acikMi('ezan-menu');   // bar modunda ezan dropdown'ı (fixed)
 
@@ -280,7 +280,7 @@
         const alt = alan.ust + alan.boy;
 
         const icVar = acikMi('panel-notes') || acikMi('panel-weather');
-        const kapVar = acikMi('settings') || acikMi('studio');
+        const kapVar = acikMi('settings') || acikMi('studio') || acikMi('pa-modal');
 
         // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
         // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
@@ -335,7 +335,7 @@
 
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(fit);
-      ['widget', 'settings', 'studio'].forEach(id => {
+      ['widget', 'settings', 'studio', 'pa-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) ro.observe(el);
       });
@@ -908,24 +908,29 @@
   };
 
   PZA.ezanMenuYerlestir = function () {
-    PZA.barYuzeyHizala(ezanMenu, ezanBtn, 'sag');
+    /* Bar modunda HAVA/NOTLAR panelleri tetikleyiciye YATAYDA hizalanır. */
     PZA.barYuzeyHizala(document.getElementById('panel-weather'), $('weather-tile'), 'sol');
     PZA.barYuzeyHizala(document.getElementById('panel-notes'), $('btn-notes'), 'sag');
 
-    /* Ezan menüsünün DİKEY yönü ayrıdır (base CSS `bottom: 100%`; fixed'te
-       JS ile butona göre belirlenir). */
-    const barMod = PZA.settings && PZA.settings.size === 'bar';
+    /* EZAN MENÜSÜ — HER modda TAM AÇILIR; YÖNÜ KONUMA GÖRE (kullanıcı 2026-10-17):
+       butonun ALTINDA yer varsa AŞAĞI, yoksa YUKARI açılır. */
     if (!ezanMenu) return;
-    if (!barMod || ezanMenu.hidden) {
-      ezanMenu.style.top = ''; ezanMenu.style.bottom = '';
+    if (ezanMenu.hidden) {
+      ['top', 'bottom', 'left', 'right'].forEach(k => ezanMenu.style.removeProperty(k));
       return;
     }
-    const r = ezanBtn.getBoundingClientRect();
-    if (PZA.settings.barKonum === 'ust') {
-      ezanMenu.style.top = Math.round(r.bottom + 8) + 'px';
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rb = ezanBtn ? ezanBtn.getBoundingClientRect() : { right: vw - 20, top: 8, bottom: 40 };
+    const mw = Math.round(ezanMenu.getBoundingClientRect().width) || 200;
+    const mh = ezanMenu.offsetHeight || Math.round(ezanMenu.getBoundingClientRect().height) || 220;
+    const enSol = 8;
+    ezanMenu.style.left = 'auto';
+    ezanMenu.style.right = Math.round(Math.max(enSol, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
+    if ((vh - rb.bottom) >= mh + 12) {                 // altta yer VAR → aşağı aç
+      ezanMenu.style.top = Math.round(rb.bottom + 8) + 'px';
       ezanMenu.style.bottom = 'auto';
-    } else {
-      ezanMenu.style.bottom = Math.round(window.innerHeight - r.top + 8) + 'px';
+    } else {                                            // yoksa → yukarı aç
+      ezanMenu.style.bottom = Math.round(vh - rb.top + 8) + 'px';
       ezanMenu.style.top = 'auto';
     }
   };

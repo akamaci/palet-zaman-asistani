@@ -820,14 +820,14 @@ body.tauri.yukari { align-items: flex-end; }
 .ezan-ses-txt { font-size: 11px; font-weight: 600; }
 
 .ezan-menu {
-  position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 30;
+  /* TAM AÇILIR + YÖN KONUMA GÖRE (kullanıcı 2026-10-17): iç kaydırma sınırı YOK;
+     yönü JS konuma göre seçer (altta yer varsa AŞAĞI, yoksa YUKARI). Kırpılmaması
+     için `position: fixed`. Buradaki konum yalnız JS gelmezse YEDEKTİr. */
+  position: fixed; right: 10px; top: 46px; z-index: 30;
   min-width: 190px; padding: 9px; border-radius: 12px;
   background: var(--surface-2, var(--surface-1));
   border: 1px solid var(--border-ctl);
   box-shadow: 0 14px 34px rgba(0,0,0,.55);
-  /* KULLANICI (2026-10-16): "ezan tıklanınca üst kısmı kayıp görünmüyor."
-     Menü widget tepesine sığmazsa kırpılıyordu → yükseklik sınırı + kaydırma. */
-  max-height: min(58vh, 360px); overflow-y: auto; overscroll-behavior: contain;
 }
 .em-ust { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .em-sw {
@@ -885,7 +885,7 @@ body.tauri.yukari { align-items: flex-end; }
 .pa-box {
   width: min(330px, 100%); padding: 14px 16px 12px;
   display: grid; gap: 10px; border-radius: 14px;
-  max-height: calc(100vh - 24px); overflow-y: auto; align-content: start;
+  align-content: start;                 /* TAM AÇILIR: iç kaydırma/sınır YOK (kullanıcı 2026-10-17) */
   background: var(--surface-2); border: 1px solid var(--border-ctl);
   box-shadow: 0 18px 50px rgba(0,0,0,.5);
 }

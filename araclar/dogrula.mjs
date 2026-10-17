@@ -368,9 +368,9 @@ head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.4)');
   if (!/barYuzeyHizala\(document\.getElementById\('panel-notes'\),\s*\$\('btn-notes'\),\s*'sag'\)/.test(app))
     fail('app.js: Notlar paneli btn-notes\'a hizalanmiyor');
   else ok('app.js: Notlar paneli Notlar dugmesine hizali');
-  if (!/barYuzeyHizala\(ezanMenu,\s*ezanBtn,\s*'sag'\)/.test(app))
+  if (!/ezanMenu\.style\.right\s*=/.test(app) || !/rb\.right/.test(app))
     fail('app.js: Ezan menusu ezan dugmesine hizalanmiyor');
-  else ok('app.js: Ezan menusu Ezan dugmesine hizali');
+  else ok('app.js: Ezan menusu tetikleyiciye hizali (yön konuma göre)');
 }
 
 head('15 · Gorunum/skin LISTESI + "+" yeni (v1.18.5)');
@@ -480,8 +480,12 @@ head('18 · Guncelleme kapanma izni + plaka tam ekran + ezan menusu (v1.19.1)');
 
   if (!/width:\s*var\(--plate-w/.test(css)) fail('widget.css: plaka SABIT tuval olcusunde degil (gerilir)');
   else ok('widget.css: plaka sabit tuval olcusunde (gerilmez)');
-  if (!/max-height:\s*min\(58vh/.test(css)) fail('widget.css: ezan menusu yukseklik siniri yok (ust kisim kirpilir)');
-  else ok('widget.css: ezan menusu yukseklik siniri + kaydirma var');
+  /* v1.26.0 — kullanıcı: "ezan listesi tam açılsın". İç kaydırma sınırı KALKTI;
+     menü TAM açılır, yönü KONUMA göre JS seçer. Eski 58vh kırpma geri gelmemeli. */
+  if (/max-height:\s*min\(58vh/.test(css)) fail('widget.css: ezan menusunde eski 58vh kirpma kalmis');
+  else ok('widget.css: ezan menusu TAM acilir (ic kaydirma siniri yok)');
+  if (!/\.ezan-menu\s*\{[^}]*position:\s*fixed/.test(css)) fail('widget.css: ezan menusu fixed degil (kirpilir)');
+  else ok('widget.css: ezan menusu fixed (kirpilmaz)');
 }
 
 head('19 · Ayarlar SEKMELERI (esit yukseklik) + plaka surukleme seridi (v1.20.0)');
@@ -588,6 +592,30 @@ head('22 · Renk temalari — Winamp ColorThemes / gammagroup (pza-skin/3)');
     const withAnim = Object.keys(o).filter(k => (o[k].layers || []).some(L => Array.isArray(L.frames) && L.frames.length > 1));
     if (!withAnim.length) fail('skins-builtin.js: animasyonlu katmani olan skin yok');
     else ok('skins-builtin.js: animasyonlu skinler: ' + withAnim.join(', '));
+  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
+}
+
+head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
+{
+  /* Kullanıcı (2026-10-17): "ezan listesi tam açılır olsun. Güncelleme menüsü
+     tam açılır olsun. Aşağı bir konumdaysa yukarı, yukarısında ise aşağı doğru
+     açılan pencereler olmalı." */
+  if (/\.pa-box\s*\{[^}]*max-height/.test(css)) fail('widget.css: guncelleme kutusu hala kirpiliyor');
+  else ok('widget.css: guncelleme kutusu TAM acilir (ic sinir yok)');
+  const a = src('app.js');
+  if (!/acikMi\('pa-modal'\)/.test(a)) fail('app.js: guncelleme popup kaplama sayilmiyor (pencere buyumez)');
+  else ok('app.js: guncelleme popup kaplama sayilir (pencere buyur)');
+  if (!/vh\s*-\s*rb\.bottom/.test(a)) fail('app.js: ezan menusu yonu KONUMA gore degil');
+  else ok('app.js: ezan menusu yonu KONUMA gore (altta yer yoksa yukari)');
+  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
+  if (!/ornek-skinler/.test(uret) || !/v2to3/.test(uret))
+    fail('atlas-uret.mjs: v2->v3 ornek skin donusumu yok');
+  else ok('atlas-uret.mjs: v2->v3 ornek skin donusumu var');
+  try {
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
+    const v3 = Object.keys(o).filter(k => o[k].format === 'pza-skin/3' && o[k].atlas && o[k].layers);
+    if (v3.length < 3) fail('skins-builtin.js: v3 skin sayisi < 3 (' + v3.length + ')');
+    else ok('skins-builtin.js: ' + v3.length + ' v3 skin (' + v3.join(', ') + ')');
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 

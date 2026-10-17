@@ -142,6 +142,40 @@ cyan.colorthemes = [
   { id: 'mono',   name: 'Mono',   filter: 'grayscale(1) brightness(1.15)',                       accent: '#cbd5e1' }
 ];
 
+/* ── v2 → v3 dönüşümü ──────────────────────────────────────────
+   Eski `pza-skin/2` (tek parça plaka) tasarımlarını yeni motora taşır:
+   plaka → atlasın `body` parçası. Böylece İLK tasarımlar (Orbital/Halo)
+   yeni motorun (renk teması, animasyon, gerçek düğme durumları) altında çalışır. */
+function v2to3(o, key) {
+  const cw = o.canvas.w, ch = o.canvas.h;
+  return {
+    format: 'pza-skin/3',
+    id: key,
+    name: o.name,
+    author: o.author || 'Paletweb',
+    canvas: { w: cw, h: ch },
+    atlas: { image: o.plate, w: cw, h: ch },
+    parts: { body: { x: 0, y: 0, w: cw, h: ch } },
+    layers: [{ part: 'body', x: 0, y: 0, w: cw, h: ch }],
+    regions: o.regions,
+    buttons: o.buttons || {},
+    filters: { dark: 'none', light: 'invert(.9) hue-rotate(180deg) saturate(1.15)' },
+    tokens: o.tokens || {},
+    fontUI: o.fontUI || '', fontNum: o.fontNum || ''
+  };
+}
+
+const ekSkins = {};
+const ornekDir = path.join(root, 'araclar', 'ornek-skinler');
+if (fs.existsSync(ornekDir)) {
+  for (const f of fs.readdirSync(ornekDir).filter(n => n.endsWith('.pzaskin.json'))) {
+    try {
+      const o = JSON.parse(fs.readFileSync(path.join(ornekDir, f), 'utf8'));
+      if (o.format === 'pza-skin/2' && o.plate && o.canvas) ekSkins[o.id] = v2to3(o, o.id);
+    } catch (e) { console.warn('ornek skin okunamadi: ' + f + ' - ' + e.message); }
+  }
+}
+
 const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
    Palet Zaman Asistanı · GPL-3.0 · © 2026 Paletweb Bilişim
    OTOMATİK üretilir: araclar/atlas-uret.mjs -> .pzaskin.json -> buraya.
@@ -150,7 +184,7 @@ const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
 window.PZA = window.PZA || {};
 PZA.PLATE_SKINS = `;
 
-const body = JSON.stringify({ nebula: cyan, 'nebula-amber': amber }, null, 1);
+const body = JSON.stringify(Object.assign({ nebula: cyan, 'nebula-amber': amber }, ekSkins), null, 1);
 
 fs.writeFileSync(path.join(root, 'src', 'js', 'skins-builtin.js'), header + body + ';\n', 'utf8');
 console.log('yazıldı: src/js/skins-builtin.js (' + (header.length + body.length) + ' bayt)');
