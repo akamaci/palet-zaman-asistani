@@ -414,9 +414,11 @@ PZA.plateSize = function () {
 
 /* pza-skin/2: bölge + düğme kalıntılarını temizle. */
 PZA.plateTemizle = function () {
-  // pza-skin/3 katman kabını kaldır
+  // pza-skin/3 katman kabını ve animasyon stilini kaldır
   const lay = (typeof document !== 'undefined') ? document.getElementById('plate-layers') : null;
   if (lay && lay.parentNode) lay.parentNode.removeChild(lay);
+  const anm = (typeof document !== 'undefined') ? document.getElementById('plate-anim') : null;
+  if (anm) anm.textContent = '';
   const els = [];
   Object.keys(PZA.PLATE_MAP).forEach(k => { const el = PZA.q1(PZA.PLATE_MAP[k]); if (el) els.push(el); });
   if (typeof document !== 'undefined' && document.querySelectorAll) {
@@ -466,7 +468,47 @@ PZA.plateKatmanlari = function (w, skin) {
   })();
   cont.style.filter = (filt && filt !== 'none') ? filt : '';
   cont.innerHTML = '';
-  (skin.layers || []).forEach(L => {
+
+  // Animasyon keyframe stilini hazırla (Winamp AnimatedLayer karşılığı).
+  // index.html'deki sabit <style id="plate-anim"> yeniden kullanılır.
+  const animStil = (typeof document !== 'undefined') ? document.getElementById('plate-anim') : null;
+  if (animStil) animStil.textContent = '';
+  let animCss = '';
+
+  const sprite = (d, p) => {
+    d.style.backgroundImage = 'url("' + A.image + '")';
+    d.style.backgroundPosition = (-p.x) + 'px ' + (-p.y) + 'px';
+    d.style.backgroundSize = (A.w || p.w) + 'px ' + (A.h || p.h) + 'px';
+  };
+
+  (skin.layers || []).forEach((L, idx) => {
+    // ANIMASYONLU KATMAN (Winamp AnimatedLayer): frames:[partId,...]
+    if (Array.isArray(L.frames) && L.frames.length > 1) {
+      const fr = L.frames.filter(f => P[f]);
+      if (fr.length < 2) return;
+      const first = P[fr[0]];
+      const d = document.createElement('div');
+      d.className = 'plate-part';
+      d.style.left = (L.x || 0) + 'px';
+      d.style.top = (L.y || 0) + 'px';
+      d.style.width = (L.w || first.w) + 'px';
+      d.style.height = (L.h || first.h) + 'px';
+      sprite(d, first);
+      const name = 'pla' + String(skin.id || 'skin').replace(/[^a-z0-9]/gi, '') + idx;
+      const n = fr.length, step = 100 / n;
+      let kf = '';
+      fr.forEach((f, i) => {
+        const p = P[f];
+        kf += (i * step) + '%,' + ((i + 1) * step) + '%{background-position:' + (-p.x) + 'px ' + (-p.y) + 'px}';
+      });
+      const dur = Math.max(0.05, n / (L.fps || 8));
+      animCss += '@keyframes ' + name + '{' + kf + '}';
+      d.style.animation = name + ' ' + (Math.round(dur * 1000) / 1000) + 's linear infinite';
+      if (L.alpha != null) d.style.opacity = L.alpha;
+      cont.appendChild(d);
+      return;
+    }
+    // STATİK KATMAN
     const part = P[L.part]; if (!part) return;
     const d = document.createElement('div');
     d.className = 'plate-part';
@@ -474,12 +516,18 @@ PZA.plateKatmanlari = function (w, skin) {
     d.style.top = (L.y || 0) + 'px';
     d.style.width = (L.w || part.w) + 'px';
     d.style.height = (L.h || part.h) + 'px';
-    d.style.backgroundImage = 'url("' + A.image + '")';
-    d.style.backgroundPosition = (-part.x) + 'px ' + (-part.y) + 'px';
-    d.style.backgroundSize = (A.w || part.w) + 'px ' + (A.h || part.h) + 'px';
+    sprite(d, part);
     if (L.alpha != null) d.style.opacity = L.alpha;
     cont.appendChild(d);
   });
+
+  if (animStil) animStil.textContent = animCss;
+  else if (animCss && typeof document !== 'undefined' && document.head) {
+    const st = document.createElement('style');
+    st.id = 'plate-anim';
+    st.textContent = animCss;
+    document.head.appendChild(st);
+  }
 };
 
 /** pza-skin/2 (plaka) ve pza-skin/3 (atlas+parça+katman) uygula. */
@@ -686,12 +734,29 @@ PZA.importSkin = function (text) {
     });
     if (!Object.keys(parts).length)
       return { ok: false, err: 'pza-skin/3 için en az bir "parts" parçası gerekli.' };
-    const layers = (Array.isArray(o.layers) ? o.layers : []).filter(L => L && parts[L.part]).map(L => ({
-      part: L.part, x: Math.round(L.x || 0), y: Math.round(L.y || 0),
-      w: (L.w != null) ? Math.round(L.w) : parts[L.part].w,
-      h: (L.h != null) ? Math.round(L.h) : parts[L.part].h,
-      alpha: (typeof L.alpha === 'number') ? L.alpha : undefined
-    }));
+    const layers = (Array.isArray(o.layers) ? o.layers : []).map(L => {
+      if (!L) return null;
+      // ANIMASYONLU katman: frames:[partId,...]
+      if (Array.isArray(L.frames)) {
+        const fr = L.frames.filter(f => parts[f]);
+        if (fr.length < 2) return null;
+        return {
+          frames: fr,
+          fps: (typeof L.fps === 'number' && L.fps > 0) ? Math.min(60, L.fps) : 8,
+          x: Math.round(L.x || 0), y: Math.round(L.y || 0),
+          w: (L.w != null) ? Math.round(L.w) : parts[fr[0]].w,
+          h: (L.h != null) ? Math.round(L.h) : parts[fr[0]].h,
+          alpha: (typeof L.alpha === 'number') ? L.alpha : undefined
+        };
+      }
+      if (!parts[L.part]) return null;
+      return {
+        part: L.part, x: Math.round(L.x || 0), y: Math.round(L.y || 0),
+        w: (L.w != null) ? Math.round(L.w) : parts[L.part].w,
+        h: (L.h != null) ? Math.round(L.h) : parts[L.part].h,
+        alpha: (typeof L.alpha === 'number') ? L.alpha : undefined
+      };
+    }).filter(Boolean);
     if (!layers.length)
       return { ok: false, err: 'pza-skin/3 için en az bir "layers" katmanı gerekli.' };
     const regions = cleanRegions(o.regions);

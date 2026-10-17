@@ -573,6 +573,11 @@ head('22 · Renk temalari — Winamp ColorThemes / gammagroup (pza-skin/3)');
   if (!/\$\('skin-renk'\)\?\.addEventListener\('change'/.test(src('app.js')))
     fail('app.js: renk temasi secimi bagli DEGIL (olu kod)');
   else ok('app.js: renk temasi secimi bagli');
+  // Winamp AnimatedLayer: frames:[partId,...] + keyframe uretimi
+  if (!/Array\.isArray\(L\.frames\)/.test(s)) fail('skins.js: animasyonlu katman (frames) destegi yok');
+  else ok('skins.js: animasyonlu katman destegi var (AnimatedLayer)');
+  if (!/@keyframes/.test(s)) fail('skins.js: animasyon keyframe uretimi yok');
+  else ok('skins.js: animasyon keyframe uretimi var');
   try {
     const txt = src('skins-builtin.js');
     const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
@@ -580,6 +585,9 @@ head('22 · Renk temalari — Winamp ColorThemes / gammagroup (pza-skin/3)');
     const withTheme = Object.keys(o).filter(k => Array.isArray(o[k].colorthemes) && o[k].colorthemes.length >= 2);
     if (!withTheme.length) fail('skins-builtin.js: hicbir skinde >=2 renk temasi yok');
     else ok('skins-builtin.js: cok temali skinler: ' + withTheme.join(', '));
+    const withAnim = Object.keys(o).filter(k => (o[k].layers || []).some(L => Array.isArray(L.frames) && L.frames.length > 1));
+    if (!withAnim.length) fail('skins-builtin.js: animasyonlu katmani olan skin yok');
+    else ok('skins-builtin.js: animasyonlu skinler: ' + withAnim.join(', '));
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 

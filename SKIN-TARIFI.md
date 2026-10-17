@@ -185,7 +185,10 @@ kartlarını boyar:
   "canvas": { "w": 940, "h": 430 },
   "atlas":  { "image": "data:image/webp;base64,…", "w": 940, "h": 430 },
   "parts":  { "body": { "x": 0, "y": 0, "w": 940, "h": 430 } },
-  "layers": [ { "part": "body", "x": 0, "y": 0, "w": 940, "h": 430 } ],
+  "layers": [
+    { "part": "body", "x": 0, "y": 0, "w": 940, "h": 430 },
+    { "frames": ["led0", "led1", "led2"], "fps": 2, "x": 906, "y": 22, "w": 12, "h": 12 }
+  ],
   "regions": { "clock": {…}, "weather": {…}, "settings": {…}, "pa": {…} },
   "buttons": { "settings": { "normal": "data:image/webp;…", "hover": "…", "pressed": "…" } },
   "filters": { "dark": "none",
@@ -204,6 +207,9 @@ kartlarını boyar:
   geçerlidir (hafif, çözünürlükten bağımsız). `atlas.w/h` = atlasın kendi piksel ölçüsü.
 - Her `parts` parçası atlas içinde **dikdörtgen**; her `layers` katmanı var olan bir
   parçayı **konumlar** (z sırası = dizi sırası). Kanvas: `canvas.w ≥ 100`, `h ≥ 60`.
+- Bir katman **animasyonlu** olabilir (Winamp `AnimatedLayer`): `part` yerine
+  `frames:[partId,…]` + `fps`; motor kareleri CSS `@keyframes` ile döndürür
+  (ör. yanıp sönen LED). Kareler aynı boyutta olur (atlasın alt payında durur).
 - `regions` = canlı kontroller (**saat/tarih/hava/notlar/tema/ayarlar/ezan/pa**).
   Plakaya/dekora canlı yazı basma (çift yazı olur).
 - `filters` = **gammagroup karşılığı**: açık/karanlık tema için CSS `filter`; aynı

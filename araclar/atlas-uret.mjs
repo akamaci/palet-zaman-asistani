@@ -19,6 +19,7 @@ import url from 'node:url';
 
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const CW = 940, CH = 430;                 // kanvas (pencere) ölçüsü
+const AH = CH + 40;                       // atlas yüksekliği (animasyon kareleri için alt pay)
 
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const svgUri = s => 'data:image/svg+xml;base64,' + b64(s);
@@ -32,6 +33,9 @@ function bodySvg(accent) {
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${A}" fill-opacity="0.05" stroke="${A}" stroke-opacity="0.35"/>`;
   const bracket = (x, y, sx, sy) =>
     `<path d="M${x} ${y + sy * 22} L${x} ${y} L${x + sx * 22} ${y}" fill="none" stroke="${A}" stroke-opacity="0.85" stroke-width="2"/>`;
+  // Animasyon kareleri (Winamp AnimatedLayer): parlaklığı artan 3 LED
+  const led = (cx, op) =>
+    `<circle cx="${cx}" cy="${CH + 22}" r="6" fill="${A}" fill-opacity="${op}"/>`;
 
   let grid = '';
   for (let gx = 40; gx < CW - 40; gx += 40)
@@ -39,7 +43,7 @@ function bodySvg(accent) {
   for (let gy = 40; gy < CH - 40; gy += 40)
     grid += `<line x1="0" y1="${gy}" x2="${CW}" y2="${gy}" stroke="${A}" stroke-opacity="0.04"/>`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${AH}" viewBox="0 0 ${CW} ${AH}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0a1526"/>
@@ -59,6 +63,7 @@ function bodySvg(accent) {
   ${bracket(16, 16, 1, 1)}${bracket(CW - 16, 16, -1, 1)}
   ${bracket(16, CH - 16, 1, -1)}${bracket(CW - 16, CH - 16, -1, -1)}
   <text x="470" y="70" fill="${A}" fill-opacity="0.5" font-family="monospace" font-size="12" text-anchor="middle" letter-spacing="6">SYS // ONLINE</text>
+  ${led(12, 0.25)}${led(32, 0.6)}${led(52, 1)}
 </svg>`;
 }
 
@@ -101,9 +106,17 @@ function skin(id, name, accent, filters) {
     format: 'pza-skin/3',
     id, name, author: 'Paletweb',
     canvas: { w: CW, h: CH },
-    atlas: { image: svgUri(atlas), w: CW, h: CH },
-    parts: { body: { x: 0, y: 0, w: CW, h: CH } },
-    layers: [{ part: 'body', x: 0, y: 0, w: CW, h: CH }],
+    atlas: { image: svgUri(atlas), w: CW, h: AH },
+    parts: {
+      body: { x: 0, y: 0, w: CW, h: CH },
+      led0: { x: 6,  y: CH + 16, w: 12, h: 12 },
+      led1: { x: 26, y: CH + 16, w: 12, h: 12 },
+      led2: { x: 46, y: CH + 16, w: 12, h: 12 }
+    },
+    layers: [
+      { part: 'body', x: 0, y: 0, w: CW, h: CH },
+      { frames: ['led0', 'led1', 'led2'], fps: 2, x: 906, y: 22, w: 12, h: 12 }   // AnimatedLayer
+    ],
     regions: JSON.parse(JSON.stringify(REGIONS)),
     buttons: buttonsFor(accent),
     filters,                                  // { dark, light } → CSS filter (gammagroup)
