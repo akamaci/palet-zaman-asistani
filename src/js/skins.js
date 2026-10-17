@@ -387,6 +387,15 @@ PZA.setPreviewTheme = function (t) { previewTheme = t; PZA.applySkin(); };
 PZA.clearPreview = function () { preview = null; previewTheme = null; };
 PZA.activeTheme = function () { return previewTheme || PZA.settings.theme; };
 
+/* Winamp "ColorThemes"/gammagroup karşılığı: aktif plaka rengi temasını çöz.
+   `settings.plateTheme` geçerliyse onu, değilse listenin İLKİNİ döndürür. */
+PZA.plateThemeObj = function (skin) {
+  const list = (skin && skin.colorthemes) || [];
+  if (!list.length) return null;
+  const id = PZA.settings && PZA.settings.plateTheme;
+  return list.filter(t => t.id === id)[0] || list[0];
+};
+
 /** Şu an geçerli olan kullanıcı skini (taslak varsa o) */
 PZA.activeSkin = function () {
   if (preview) return preview;
@@ -450,7 +459,11 @@ PZA.plateKatmanlari = function (w, skin) {
     cont.className = 'plate-layers';
     w.insertBefore(cont, w.firstChild);
   }
-  const filt = (skin.filters || {})[PZA.activeTheme()];   // gammagroup karşılığı
+  const filt = (function () {
+    const ct = PZA.plateThemeObj(skin);                 // renk teması öncelikli (gammagroup)
+    if (ct) return ct.filter;
+    return (skin.filters || {})[PZA.activeTheme()];
+  })();
   cont.style.filter = (filt && filt !== 'none') ? filt : '';
   cont.innerHTML = '';
   (skin.layers || []).forEach(L => {
@@ -481,6 +494,12 @@ PZA.applyPlate = function (skin) {
   });
   if (skin.fontUI)  w.style.setProperty('--font-ui', skin.fontUI);
   if (skin.fontNum) w.style.setProperty('--font-num', skin.fontNum);
+
+  // Winamp "ColorThemes": seçili renk temasının aksanı token'ı EZER
+  if (skin.format === PZA.SKIN_FORMAT_V3) {
+    const ct = PZA.plateThemeObj(skin);
+    if (ct && ct.accent) { const c = PZA.parseColor(ct.accent); if (c) w.style.setProperty('--accent', PZA.toCss(c)); }
+  }
 
   w.dataset.skin = 'plaka';
   if (w.classList) w.classList.add('plaka');
@@ -686,6 +705,14 @@ PZA.importSkin = function (text) {
     });
     const filters = (o.filters && typeof o.filters === 'object')
       ? { dark: String(o.filters.dark || ''), light: String(o.filters.light || '') } : {};
+    const colorthemes = (Array.isArray(o.colorthemes) ? o.colorthemes : [])
+      .filter(t => t && (t.id || t.name))
+      .map(t => ({
+        id: String(t.id || t.name).slice(0, 24),
+        name: String(t.name || t.id).slice(0, 24),
+        filter: String(t.filter || 'none').slice(0, 120),
+        accent: (typeof t.accent === 'string' && PZA.parseColor(t.accent)) ? PZA.toCss(PZA.parseColor(t.accent)) : ''
+      }));
     const ad3 = String(o.name || 'İsimsiz').slice(0, 24);
     return { ok: true, skin: {
       format: PZA.SKIN_FORMAT_V3,
@@ -693,7 +720,8 @@ PZA.importSkin = function (text) {
       author: String(o.author || '').slice(0, 24),
       canvas: cv,
       atlas: { image: o.atlas.image, w: aw, h: ah },
-      parts: parts, layers: layers, regions: regions, buttons: buttons, filters: filters,
+      parts: parts, layers: layers, regions: regions, buttons: buttons,
+      filters: filters, colorthemes: colorthemes,
       tokens: cleanSet(o.tokens),
       fontUI: typeof o.fontUI === 'string' ? o.fontUI.slice(0, 120) : '',
       fontNum: typeof o.fontNum === 'string' ? o.fontNum.slice(0, 120) : ''

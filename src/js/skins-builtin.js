@@ -133,7 +133,33 @@ PZA.PLATE_SKINS = {
    "--ok": "#34d399"
   },
   "fontUI": "'Segoe UI', system-ui, sans-serif",
-  "fontNum": "'Cascadia Mono', 'Consolas', monospace"
+  "fontNum": "'Cascadia Mono', 'Consolas', monospace",
+  "colorthemes": [
+   {
+    "id": "cyan",
+    "name": "Cyan",
+    "filter": "none",
+    "accent": "#00f0ff"
+   },
+   {
+    "id": "amber",
+    "name": "Amber",
+    "filter": "hue-rotate(-140deg) saturate(1.35) brightness(1.05)",
+    "accent": "#ffb703"
+   },
+   {
+    "id": "violet",
+    "name": "Violet",
+    "filter": "hue-rotate(90deg) saturate(1.25)",
+    "accent": "#b57bff"
+   },
+   {
+    "id": "mono",
+    "name": "Mono",
+    "filter": "grayscale(1) brightness(1.15)",
+    "accent": "#cbd5e1"
+   }
+  ]
  },
  "nebula-amber": {
   "format": "pza-skin/3",

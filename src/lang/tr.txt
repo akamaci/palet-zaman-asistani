@@ -3,6 +3,7 @@
 settings_title = AYARLAR
 h_skin = GÖRÜNÜM / SKİN
 skin_lbl = Görünüm
+renk_lbl = Renk teması
 h_vis = GÖRÜNÜRLÜK
 h_theme = TEMA
 h_speech = SESLİ OKUMA

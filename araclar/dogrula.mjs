@@ -556,6 +556,33 @@ head('21 · Dugme DILIMLERI (normal/hover/basili) — Winamp playbut (v1.21.0)')
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
+head('22 · Renk temalari — Winamp ColorThemes / gammagroup (pza-skin/3)');
+{
+  /* Winamp modern skinlerinde `<color gammagroup>` + color-presets.xml ile
+     ayn\u0131 atlas yeniden renklenir. pza-skin/3 kar\u015f\u0131l\u0131\u011f\u0131: `colorthemes`. */
+  const s = src('skins.js');
+  if (!/PZA\.plateThemeObj\s*=/.test(s)) fail('skins.js: plateThemeObj yok (renk temasi cozulmuyor)');
+  else ok('skins.js: renk temasi cozucu var');
+  if (!/colorthemes/.test(s)) fail('skins.js: colorthemes destegi yok');
+  else ok('skins.js: colorthemes destegi var');
+  const st = src('settings.js');
+  if (!/PZA\.renderRenk\s*=/.test(st)) fail('settings.js: renderRenk yok');
+  else ok('settings.js: renk temasi cizici var');
+  if (!/id="skin-renk"/.test(html)) fail('index.html: renk temasi secici yok');
+  else ok('index.html: renk temasi secici var');
+  if (!/\$\('skin-renk'\)\?\.addEventListener\('change'/.test(src('app.js')))
+    fail('app.js: renk temasi secimi bagli DEGIL (olu kod)');
+  else ok('app.js: renk temasi secimi bagli');
+  try {
+    const txt = src('skins-builtin.js');
+    const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
+    const o = JSON.parse(m[1]);
+    const withTheme = Object.keys(o).filter(k => Array.isArray(o[k].colorthemes) && o[k].colorthemes.length >= 2);
+    if (!withTheme.length) fail('skins-builtin.js: hicbir skinde >=2 renk temasi yok');
+    else ok('skins-builtin.js: cok temali skinler: ' + withTheme.join(', '));
+  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.23.0';
+PZA.SURUM = '1.24.0';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -24,6 +24,7 @@ PZA.SKINS = [
 PZA.DEFAULTS = {
   skin: 'halo',
   theme: 'dark',
+  plateTheme: null,   // pza-skin/3 Winamp ColorThemes: seçili renk teması (null = skinin ilk teması)
   size: '2',          // 2 = 1/2 · 3 = 1/3 · 4 = 1/4 · 'bar' = görev çubuğu gibi tek satır
   /* v1.18.0 — BAR MODU: tek satırda tüm arayüz; üst/alt seçilebilir. Otomatik
      gizlemede açılış tetiği TAM ORTADA ince bir oktur ve TIKLAYINCA açılır
@@ -306,6 +307,28 @@ PZA.renderSkins = function () {
     }
   }
 
+  // Winamp ColorThemes: renk teması seçicisi (yalnız plaka skinlerinde, ≥2 tema)
+  PZA.renderRenk();
+};
+
+/* pza-skin/3 renk teması seçicisi — Winamp "ColorThemes"/gammagroup karşılığı.
+   Aktif plaka skininin `colorthemes` listesini <select>'e döker; seçim
+   `settings.plateTheme`'e yazılır ve motor filtresi/aksanı ona göre uygular. */
+PZA.renderRenk = function () {
+  const row = document.getElementById('skin-renk-row');
+  const sel = document.getElementById('skin-renk');
+  if (!row || !sel) return;
+  // Test/erken yükleme: motor (skins.js) henüz yoksa sessizce çık
+  if (typeof PZA.activeSkin !== 'function' || typeof PZA.plateThemeObj !== 'function') { row.hidden = true; return; }
+  const sk = PZA.activeSkin();
+  const list = (sk && sk.colorthemes) || [];
+  row.hidden = list.length < 2;
+  if (list.length < 2) { sel.innerHTML = ''; return; }
+  const cur = PZA.plateThemeObj(sk);
+  const E = PZA.escHtml;
+  sel.innerHTML = list.map(t =>
+    `<option value="${E(t.id)}"${cur && cur.id === t.id ? ' selected' : ''}>${E(t.name || t.id)}</option>`
+  ).join('');
 };
 
 /* ══ AYARLAR SEKMELERİ (v1.20.0) ══════════════════════════════

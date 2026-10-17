@@ -190,6 +190,10 @@ kartlarını boyar:
   "buttons": { "settings": { "normal": "data:image/webp;…", "hover": "…", "pressed": "…" } },
   "filters": { "dark": "none",
                "light": "invert(.9) hue-rotate(180deg) saturate(1.15)" },
+  "colorthemes": [
+    { "id": "cyan",  "name": "Cyan",  "filter": "none", "accent": "#00f0ff" },
+    { "id": "amber", "name": "Amber", "filter": "hue-rotate(-140deg) saturate(1.35)", "accent": "#ffb703" }
+  ],
   "tokens": { "--fg": "#e6f7ff", "--accent": "#00f0ff", … },
   "fontUI": "…", "fontNum": "…"
 }
@@ -204,6 +208,10 @@ kartlarını boyar:
   Plakaya/dekora canlı yazı basma (çift yazı olur).
 - `filters` = **gammagroup karşılığı**: açık/karanlık tema için CSS `filter`; aynı
   atlas, yeni görsel olmadan yeniden renklenir (ör. `hue-rotate`).
+- `colorthemes` = **renk ön ayarları** (Winamp `color-presets.xml` / `ColorThemes`):
+  her tema bir `filter` (+ isteğe bağlı `accent`) tanımlar. Seçim uygulamada
+  **Ayarlar → Görünüm → Renk teması** (`#skin-renk`) açılır listesinden yapılır;
+  `settings.plateTheme`'e yazılır, motor filtresi/aksanı ona göre uygular.
 - `buttons` = her bölge için **gerçek** `normal/hover/pressed` görselleri. Gömülü yazı
   **yok** — düğme etiketi canlı `<text>` olarak üstte kalır.
 

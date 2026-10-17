@@ -400,6 +400,8 @@
      tıpkı ses listesindeki Ece/Tolga gibi" + "+ yeni skin ekle". */
   $('skin-select')?.addEventListener('change', e => PZA.set('skin', e.target.value));
   $('skin-add')?.addEventListener('click', () => PZA.openStudioNew());
+  // Winamp ColorThemes: plaka rengi teması seçimi
+  $('skin-renk')?.addEventListener('change', e => PZA.set('plateTheme', e.target.value));
 
   /* Seçili kullanıcı skini: düzenle / sil */
   $('skin-edit')?.addEventListener('click', () => {

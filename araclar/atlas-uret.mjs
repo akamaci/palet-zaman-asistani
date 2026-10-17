@@ -120,6 +120,15 @@ function skin(id, name, accent, filters) {
 const cyan = skin('nebula', 'Nebula (Cyan)', '#00f0ff', { dark: 'none', light: 'invert(.9) hue-rotate(180deg) saturate(1.15)' });
 const amber = skin('nebula-amber', 'Nebula (Amber)', '#ffb703', { dark: 'hue-rotate(150deg) saturate(1.35) brightness(1.05)', light: 'invert(.9) hue-rotate(30deg) saturate(1.2)' });
 
+/* Winamp "ColorThemes"/gammagroup karşılığı: aynı atlas, farklı renk ön ayarları.
+   (Yalnız `nebula` skini çok temalıdır; `nebula-amber` tek filtreyle gelir.) */
+cyan.colorthemes = [
+  { id: 'cyan',   name: 'Cyan',   filter: 'none',                                               accent: '#00f0ff' },
+  { id: 'amber',  name: 'Amber',  filter: 'hue-rotate(-140deg) saturate(1.35) brightness(1.05)', accent: '#ffb703' },
+  { id: 'violet', name: 'Violet', filter: 'hue-rotate(90deg) saturate(1.25)',                    accent: '#b57bff' },
+  { id: 'mono',   name: 'Mono',   filter: 'grayscale(1) brightness(1.15)',                       accent: '#cbd5e1' }
+];
+
 const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
    Palet Zaman Asistanı · GPL-3.0 · © 2026 Paletweb Bilişim
    OTOMATİK üretilir: araclar/atlas-uret.mjs -> .pzaskin.json -> buraya.
