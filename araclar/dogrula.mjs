@@ -429,6 +429,8 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
     if (!s.includes(f)) fail('skins.js: ' + f + ' yok'); else ok('skins.js: ' + f + ' var');
   if (!/PZA\.SKIN_FORMAT_V2\s*=\s*'pza-skin\/2'/.test(s)) fail("skins.js: 'pza-skin/2' bicimi tanimli degil");
   else ok("skins.js: 'pza-skin/2' bicimi tanimli");
+  if (!/PZA\.SKIN_FORMAT_V3\s*=\s*'pza-skin\/3'/.test(s)) fail("skins.js: 'pza-skin/3' bicimi tanimli degil");
+  else ok("skins.js: 'pza-skin/3' bicimi tanimli (atlas+parca+katman)");
   if (!/o\.format === PZA\.SKIN_FORMAT_V2/.test(s)) fail('skins.js: v2 ice-aktarma dogrulamasi yok');
   else ok('skins.js: v2 ice-aktarma dogrulamasi var');
   if (!/PZA\.plateSize && PZA\.plateSize\(\)/.test(src('app.js'))) fail('app.js: pencere plakayi olcmuyor');
@@ -441,15 +443,25 @@ head('17 · pza-skin/2 katman+bolge motoru + gomulu skin (v1.19.0)');
       const txt = src('skins-builtin.js');
       const m = txt.match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/);
       const o = JSON.parse(m[1]); const sk = o[Object.keys(o)[0]];
-      if (sk.format !== 'pza-skin/2') fail('gomulu skin bicimi pza-skin/2 degil');
-      else ok('gomulu skin bicimi pza-skin/2');
-      if (!(typeof sk.plate === 'string' && sk.plate.indexOf('data:image/') === 0))
-        fail('gomulu skin plakasi data:image degil');
-      else ok('gomulu skin plakasi data:image gomulu');
+      if (sk.format !== 'pza-skin/2' && sk.format !== 'pza-skin/3') fail('gomulu skin bicimi taninmiyor: ' + sk.format);
+      else ok('gomulu skin bicimi ' + sk.format);
       if (!(sk.canvas && sk.canvas.w >= 100 && sk.canvas.h >= 60)) fail('gomulu skin tuvali gecersiz');
       else ok('gomulu skin tuvali gecerli (' + sk.canvas.w + 'x' + sk.canvas.h + ')');
       const rc = sk.regions ? Object.keys(sk.regions).length : 0;
       if (rc < 1) fail('gomulu skin bolgeleri yok'); else ok('gomulu skin bolgeleri var (' + rc + ')');
+      if (sk.format === 'pza-skin/3') {
+        if (!(sk.atlas && typeof sk.atlas.image === 'string' && sk.atlas.image.indexOf('data:image/') === 0))
+          fail('gomulu v3 skin atlas data:image degil');
+        else ok('gomulu v3 skin atlas data:image gomulu');
+        if (!(sk.parts && Object.keys(sk.parts).length >= 1)) fail('gomulu v3 skin parcasi yok');
+        else ok('gomulu v3 skin parcalari var (' + Object.keys(sk.parts).length + ')');
+        if (!(Array.isArray(sk.layers) && sk.layers.length >= 1)) fail('gomulu v3 skin katmani yok');
+        else ok('gomulu v3 skin katmanlari var (' + sk.layers.length + ')');
+      } else {
+        if (!(typeof sk.plate === 'string' && sk.plate.indexOf('data:image/') === 0))
+          fail('gomulu skin plakasi data:image degil');
+        else ok('gomulu skin plakasi data:image gomulu');
+      }
     } catch (e) { fail('skins-builtin.js JSON cozulemedi: ' + e.message); }
   }
 }

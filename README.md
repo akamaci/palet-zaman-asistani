@@ -243,13 +243,19 @@ skin kendi kendine yeter ve tema değişince yarım kalmaz.
 > Not: elle yazılmış kısmî bir skin içe aktarılabilir, ama stüdyonun ürettiği
 > dosya her zaman 27/27 token içerir — paylaşılan skin alıcıda eksik görünmesin.
 
-### Katmanlı skin — `pza-skin/2` (Winamp usulü, görsel tabanlı)
+### Katmanlı skin — `pza-skin/2` · `pza-skin/3` (Winamp usulü, görsel tabanlı)
 
 Renklerin yanında **gerçek bir tasarım** (şasi/çerçeve/pod) isteyenler için:
-statik bir **plaka** görseli (WebP/PNG) + canlı kontrollerin **bölge koordinatları**.
-BMP kullanılmaz. Biçim, bölgeler ve adım adım **yapay zekâ tarifi**:
-→ **[`SKIN-TARIFI.md`](SKIN-TARIFI.md)**. Gömülü örnek: `PZA.PLATE_SKINS.orbital`
-(`src/js/skins-builtin.js`). Plaka/koordinat üretici: `skin-araclari/plaka-uret.mjs`.
+statik bir görsel + canlı kontrollerin **bölge koordinatları**. BMP kullanılmaz.
+
+- **`pza-skin/2`** — tek parça **plaka** (WebP/PNG) + `regions`. *(Eski; git tarihinde.)*
+- **`pza-skin/3`** — Winamp "modern" (Wasabi) mantığı: **sprite atlası** + adlandırılmış
+  **parçalar** + **katman** kompozisyonu + tema **filtreleri** (gammagroup karşılığı) +
+  GERÇEK düğme durumları (normal/hover/basılı; gömülü yazı **YOK**).
+
+Biçim, bölgeler ve adım adım **yapay zekâ tarifi**: → **[`SKIN-TARIFI.md`](SKIN-TARIFI.md)**.
+Gömülü örnekler: `PZA.PLATE_SKINS.nebula` · `nebula-amber` (`src/js/skins-builtin.js`,
+**`araclar/atlas-uret.mjs`** ile üretilir).
 
 ### Yerleşik skin eklemek (geliştirici)
 

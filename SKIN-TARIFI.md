@@ -132,8 +132,10 @@ Bölgeleri **aynı bırak**, yalnız plakayı değiştir → yeni skin hazır.
   ```
   node skin-araclari/plaka-uret.mjs tasarim.html cikti.pzaskin.json <id> "<Ad>"
   ```
-- **Gömülü örnek:** `src/js/skins-builtin.js` → `PZA.PLATE_SKINS.orbital`
-  (gerçek `pza-skin/2`). Kopyala, plakayı/token'ları değiştir.
+- **Gömülü örnek:** `src/js/skins-builtin.js` → `PZA.PLATE_SKINS.nebula`
+  (gerçek `pza-skin/3`). Kopyala, atlası/token'ları değiştir.
+- **Üretici (v3):** `araclar/atlas-uret.mjs` — `node araclar/atlas-uret.mjs`
+  (atlas + parça + katman + düğme durumlarını üretip `skins-builtin.js`'i yazar).
 - **Doğrulayıcı:** `PZA.importSkin(text)` (uygulama içi) — §6 kurallarını uygular.
 
 ## 5. Lisans & sınırlar
@@ -156,3 +158,57 @@ kartlarını boyar:
   `body *{color:transparent!important} svg{visibility:hidden}`.
 - Üretici `plaka-uret.mjs` bu dilimleri **plakadan kırpar** (normal + `brightness(1.18)`
   hover + `brightness(0.82)` pressed) ve otomatik ekler.
+
+---
+
+## 7. `pza-skin/3` — ATLAS + PARÇA + KATMAN (Winamp **modern** usulü)
+
+> **Neden?** `pza-skin/2`'de plaka **tek parça** olduğundan: tema değişince şasi
+> renklenmiyordu, düğme durumları parlaklık taklidiydi, kullanıcı düğme etiketlerini
+> resme basınca dil/tema ile uyumsuz kalıyordu. Winamp'ın **modern** (Wasabi/freeform)
+> skin motoru bunu **sprite atlası + parça + katman + `gammagroup` renk grubu** ile
+> çözer. `pza-skin/3` bu mantığın Web karşılığıdır.
+
+| Winamp modern | `pza-skin/3` |
+|---|---|
+| `<bitmap id file x y w h gammagroup>` | `atlas.image` + `parts.{id:{x,y,w,h}}` |
+| `<layer image x y relat…>` | `layers:[{part,x,y,w,h}]` (z: alttan üste) |
+| `<color id value gammagroup>` + renk teması | `filters:{dark,light}` → CSS `filter` |
+| `<button image downImage hoverImage>` | `buttons.{k:{normal,hover,pressed}}` (data:image) |
+| `<text>` / `<button>` canlı kalır | plakaya/dekora **yazı basılmaz** |
+
+### Şema
+```json
+{
+  "format": "pza-skin/3",
+  "id": "nebula", "name": "Nebula (Cyan)", "author": "Paletweb",
+  "canvas": { "w": 940, "h": 430 },
+  "atlas":  { "image": "data:image/webp;base64,…", "w": 940, "h": 430 },
+  "parts":  { "body": { "x": 0, "y": 0, "w": 940, "h": 430 } },
+  "layers": [ { "part": "body", "x": 0, "y": 0, "w": 940, "h": 430 } ],
+  "regions": { "clock": {…}, "weather": {…}, "settings": {…}, "pa": {…} },
+  "buttons": { "settings": { "normal": "data:image/webp;…", "hover": "…", "pressed": "…" } },
+  "filters": { "dark": "none",
+               "light": "invert(.9) hue-rotate(180deg) saturate(1.15)" },
+  "tokens": { "--fg": "#e6f7ff", "--accent": "#00f0ff", … },
+  "fontUI": "…", "fontNum": "…"
+}
+```
+
+### Kurallar
+- `atlas.image` **`data:image/(webp|png|jpeg|gif|svg+xml);…`** (BMP **yok**). SVG de
+  geçerlidir (hafif, çözünürlükten bağımsız). `atlas.w/h` = atlasın kendi piksel ölçüsü.
+- Her `parts` parçası atlas içinde **dikdörtgen**; her `layers` katmanı var olan bir
+  parçayı **konumlar** (z sırası = dizi sırası). Kanvas: `canvas.w ≥ 100`, `h ≥ 60`.
+- `regions` = canlı kontroller (**saat/tarih/hava/notlar/tema/ayarlar/ezan/pa**).
+  Plakaya/dekora canlı yazı basma (çift yazı olur).
+- `filters` = **gammagroup karşılığı**: açık/karanlık tema için CSS `filter`; aynı
+  atlas, yeni görsel olmadan yeniden renklenir (ör. `hue-rotate`).
+- `buttons` = her bölge için **gerçek** `normal/hover/pressed` görselleri. Gömülü yazı
+  **yok** — düğme etiketi canlı `<text>` olarak üstte kalır.
+
+### Üretim
+```
+node araclar/atlas-uret.mjs        # -> src/js/skins-builtin.js (PZA.PLATE_SKINS)
+```
+İçe aktarma doğrulaması uygulama içinde **`PZA.importSkin(text)`** ile (aynı kurallar).

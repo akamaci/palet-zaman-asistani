@@ -1431,6 +1431,11 @@ select.skin-sel { flex: 1 1 auto; width: auto; min-width: 0; font-size: 11px; pa
   overflow: hidden;
   transition: none;
 }
+/* pza-skin/3 — atlas + parça + katman (Winamp <layer image x y>). Katmanlar
+   DEKOR; tema filtresi (gammagroup karşılığı) bu kaptan uygulanır; canlı
+   kontroller üstte kalır. Tıklamaları yutmaz (pointer-events:none). */
+.widget.plaka .plate-layers { position: absolute; inset: 0; z-index: 0; }
+.widget.plaka .plate-part { position: absolute; background-repeat: no-repeat; pointer-events: none; }
 /* Pencere tuvalden büyükse plakayı ORTAYA al (gerilmesin, yazı kutulara otursun). */
 body:has(.widget.plaka) { align-items: center !important; justify-content: center !important; padding: 0 !important; }
 .widget.plaka > .skin-bg { display: none; }
