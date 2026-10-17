@@ -368,7 +368,7 @@ head('14 · BAR modu Not/Hava paneli + Ezan menusu (v1.18.4)');
   if (!/barYuzeyHizala\(document\.getElementById\('panel-notes'\),\s*\$\('btn-notes'\),\s*'sag'\)/.test(app))
     fail('app.js: Notlar paneli btn-notes\'a hizalanmiyor');
   else ok('app.js: Notlar paneli Notlar dugmesine hizali');
-  if (!/ezanMenu\.style\.right\s*=/.test(app) || !/rb\.right/.test(app))
+  if (!/dropdownYerlestir\(ezanMenu,\s*ezanBtn\)/.test(app))
     fail('app.js: Ezan menusu ezan dugmesine hizalanmiyor');
   else ok('app.js: Ezan menusu tetikleyiciye hizali (yön konuma göre)');
 }
@@ -602,11 +602,17 @@ head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
      açılan pencereler olmalı." */
   if (/\.pa-box\s*\{[^}]*max-height/.test(css)) fail('widget.css: guncelleme kutusu hala kirpiliyor');
   else ok('widget.css: guncelleme kutusu TAM acilir (ic sinir yok)');
+  if (!/\.pa-box\s*\{[^}]*position:\s*absolute/.test(css)) fail('widget.css: guncelleme kutusu konumlanmiyor (dropdown degil)');
+  else ok('widget.css: guncelleme kutusu konumlanir (dropdown)');
   const a = src('app.js');
-  if (!/acikMi\('pa-modal'\)/.test(a)) fail('app.js: guncelleme popup kaplama sayilmiyor (pencere buyumez)');
-  else ok('app.js: guncelleme popup kaplama sayilir (pencere buyur)');
-  if (!/vh\s*-\s*rb\.bottom/.test(a)) fail('app.js: ezan menusu yonu KONUMA gore degil');
-  else ok('app.js: ezan menusu yonu KONUMA gore (altta yer yoksa yukari)');
+  if (!/PZA\.dropdownYerlestir\s*=/.test(a)) fail('app.js: ortak dropdown yerlesimi yok');
+  else ok('app.js: ortak dropdown yerlesimi var (tek kural)');
+  if (!/vh\s*-\s*rb\.bottom/.test(a)) fail('app.js: dropdown yonu KONUMA gore degil');
+  else ok('app.js: dropdown yonu KONUMA gore (altta yer yoksa yukari)');
+  if (!/dropdownYerlestir\(paModal\.querySelector\('\.pa-box'\)/.test(a)) fail('app.js: guncelleme popup tetikleyiciye hizalanmiyor');
+  else ok('app.js: guncelleme popup tetikleyiciye hizali (dropdown)');
+  if (!/dropdownYerlestir\(ezanMenu,\s*ezanBtn\)/.test(a)) fail('app.js: ezan menusu ortak kurali kullanmiyor');
+  else ok('app.js: ezan menusu ortak kurali kullaniyor');
   const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
   if (!/ornek-skinler/.test(uret) || !/kurgu/.test(uret))
     fail('atlas-uret.mjs: ilk tasarimlari yeniden kurgulama (v2->v3) yok');

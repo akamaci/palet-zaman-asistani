@@ -211,7 +211,7 @@
         document.getElementById('widget')?.classList.toggle('bar-kapali',
           PZA.settings.barGizli === true && PZA.__barAcik !== true);
 
-        const kapVar   = acikMi('settings') || acikMi('studio') || acikMi('pa-modal');   // kaplamalar
+        const kapVar   = acikMi('settings') || acikMi('studio');   // kaplamalar
         const panelVar = acikMi('panel-notes') || acikMi('panel-weather');
         const ezanVar  = acikMi('ezan-menu');   // bar modunda ezan dropdown'ı (fixed)
 
@@ -280,7 +280,7 @@
         const alt = alan.ust + alan.boy;
 
         const icVar = acikMi('panel-notes') || acikMi('panel-weather');
-        const kapVar = acikMi('settings') || acikMi('studio') || acikMi('pa-modal');
+        const kapVar = acikMi('settings') || acikMi('studio');
 
         // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
         // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
@@ -588,12 +588,16 @@
     if (yenile) yenile.hidden = !yeni;
   }
 
-  /* ── Popup aç/kapa ── */
+  /* ── Popup aç/kapa — tetikleyiciye hizalı DROPDOWN; yön KONUMA göre ── */
   const paModal = $('pa-modal');
+  function paYerlestir() {
+    if (paModal && !paModal.hidden) PZA.dropdownYerlestir(paModal.querySelector('.pa-box'), $('pa-btn'));
+  }
   function paAc() {
     if (!paModal) return;
     surumGoster();
     paModal.hidden = false;
+    paYerlestir();
     $('pa-kapat')?.focus();
   }
   function paKapa() { if (paModal) paModal.hidden = true; }
@@ -605,6 +609,7 @@
   $('pa-kapat')?.addEventListener('click', paKapa);
   $('pa-x')?.addEventListener('click', paKapa);
   paModal?.addEventListener('click', e => { if (e.target === paModal) paKapa(); });
+  window.addEventListener('resize', paYerlestir);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && paModal && !paModal.hidden) paKapa();
   });
@@ -907,32 +912,28 @@
     }
   };
 
+  /* Açılır yüzeyi (dropdown) TETİKLEYİCİYE hizala; YÖNÜ KONUMA GÖRE seç:
+     tetikleyicinin ALTINDA yer varsa AŞAĞI, yoksa YUKARI açılır (kullanıcı 2026-10-17).
+     Hem EZAN menüsü hem GÜNCELLEME popup'ı bu tek kuralı kullanır. */
+  PZA.dropdownYerlestir = function (el, tetik) {
+    if (!el || el.hidden) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rb = (tetik || el).getBoundingClientRect();
+    const mw = Math.round(el.getBoundingClientRect().width) || 220;
+    const mh = el.offsetHeight || Math.round(el.getBoundingClientRect().height) || 220;
+    el.style.left = 'auto';
+    el.style.right = Math.round(Math.max(8, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
+    if ((vh - rb.bottom) >= mh + 12) { el.style.top = Math.round(rb.bottom + 8) + 'px'; el.style.bottom = 'auto'; }
+    else { el.style.bottom = Math.round(vh - rb.top + 8) + 'px'; el.style.top = 'auto'; }
+  };
+
   PZA.ezanMenuYerlestir = function () {
     /* Bar modunda HAVA/NOTLAR panelleri tetikleyiciye YATAYDA hizalanır. */
     PZA.barYuzeyHizala(document.getElementById('panel-weather'), $('weather-tile'), 'sol');
     PZA.barYuzeyHizala(document.getElementById('panel-notes'), $('btn-notes'), 'sag');
-
-    /* EZAN MENÜSÜ — HER modda TAM AÇILIR; YÖNÜ KONUMA GÖRE (kullanıcı 2026-10-17):
-       butonun ALTINDA yer varsa AŞAĞI, yoksa YUKARI açılır. */
     if (!ezanMenu) return;
-    if (ezanMenu.hidden) {
-      ['top', 'bottom', 'left', 'right'].forEach(k => ezanMenu.style.removeProperty(k));
-      return;
-    }
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const rb = ezanBtn ? ezanBtn.getBoundingClientRect() : { right: vw - 20, top: 8, bottom: 40 };
-    const mw = Math.round(ezanMenu.getBoundingClientRect().width) || 200;
-    const mh = ezanMenu.offsetHeight || Math.round(ezanMenu.getBoundingClientRect().height) || 220;
-    const enSol = 8;
-    ezanMenu.style.left = 'auto';
-    ezanMenu.style.right = Math.round(Math.max(enSol, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
-    if ((vh - rb.bottom) >= mh + 12) {                 // altta yer VAR → aşağı aç
-      ezanMenu.style.top = Math.round(rb.bottom + 8) + 'px';
-      ezanMenu.style.bottom = 'auto';
-    } else {                                            // yoksa → yukarı aç
-      ezanMenu.style.bottom = Math.round(vh - rb.top + 8) + 'px';
-      ezanMenu.style.top = 'auto';
-    }
+    if (ezanMenu.hidden) { ['top', 'bottom', 'left', 'right'].forEach(k => ezanMenu.style.removeProperty(k)); return; }
+    PZA.dropdownYerlestir(ezanMenu, ezanBtn);
   };
 
   ezanBtn?.addEventListener('click', e => {

@@ -344,6 +344,26 @@ for (const k of Object.keys(WINAMP_PALETTES)) winampSkins[k] = winampSkin(k, WIN
    Kullanıcı (2026-10-17): "futuristik camsı skin" + "hepsi birbirine benziyor;
    görüntüsü FARKLI olsun." → Yalnız renk değil; KÖŞE BİÇİMİ + MOTİF + PALET
    değişir. Her görünüm ayrı bir "karakter" taşır. Köşeler saydam. */
+/* ── YERLEŞİMLER (kompozisyon) ────────────────────────────────────────────────
+   Kullanıcı (2026-10-17): "hepsi birbirine benziyor; görüntüsü FARKLI olsun."
+   Kök neden: bütün skinler aynı 8 bölge konumunu paylaşıyordu. Artık skin
+   KENDİ bölge yerleşimini taşır → kompozisyon da değişir. */
+const LAYOUTS = {
+  standart: REGIONS,
+  // SOL: büyük saat · SAĞ: hava/notlar/tema — "Odak"
+  odak: {
+    date: { x: 34, y: 40, w: 460, h: 28 }, clock: { x: 34, y: 80, w: 460, h: 196 },
+    settings: { x: 34, y: 296, w: 220, h: 52 }, ezan: { x: 268, y: 296, w: 60, h: 52 }, pa: { x: 340, y: 296, w: 154, h: 52 },
+    weather: { x: 520, y: 40, w: 386, h: 150 }, notes: { x: 520, y: 204, w: 386, h: 86 }, theme: { x: 520, y: 304, w: 386, h: 86 }
+  },
+  // İKİ SÜTUN — "İkili Panel"
+  ikili: {
+    weather: { x: 30, y: 44, w: 300, h: 176 }, notes: { x: 30, y: 236, w: 300, h: 78 }, theme: { x: 30, y: 328, w: 300, h: 64 },
+    clock: { x: 350, y: 44, w: 560, h: 196 }, date: { x: 350, y: 250, w: 560, h: 26 },
+    settings: { x: 350, y: 290, w: 300, h: 100 }, ezan: { x: 664, y: 290, w: 60, h: 100 }, pa: { x: 738, y: 290, w: 172, h: 100 }
+  }
+};
+
 const GELS = {
   aqua: {
     name: 'Aqua (Gel)', hi: '#f4fbff', mid: '#a7d7f4', lo: '#4f93cf', edge: '#2c6ba3',
@@ -360,6 +380,16 @@ const GELS = {
   sunset: {
     name: 'Sunset Pebble', hi: '#fff3e4', mid: '#ffb27a', lo: '#d9552f', edge: '#9c3822',
     accent: '#ffc07a', motif: 'sunburst', r: 150, pod: 999, ink: '#fff0e4', dim: '#dfa184', flip: '#2a140c', on: '#2a0f08'
+  },
+  odak: {
+    name: 'Odak (Focus)', hi: '#eafffb', mid: '#8fe3d8', lo: '#2f9e93', edge: '#1f6f68',
+    accent: '#57f2d6', motif: 'rings', r: 40, pod: 20, ink: '#e6fffb', dim: '#9fd6cf', flip: '#062a28', on: '#04211f',
+    regions: LAYOUTS.odak
+  },
+  ikili: {
+    name: 'İkili Panel', hi: '#eef0ff', mid: '#a9b3f0', lo: '#5a63c8', edge: '#3b4296',
+    accent: '#9aa6ff', motif: 'facets', r: 22, pod: 11, ink: '#eef0ff', dim: '#aab0dd', flip: '#141835', on: '#0f1230',
+    regions: LAYOUTS.ikili
   }
 };
 
@@ -393,10 +423,11 @@ function gelWell(x, y, w, h, clock, cfg) {
   ${g}`;
 }
 function gelButtons(cfg) {
+  const R = cfg.regions || REGIONS;
   const out = {};
-  for (const k of Object.keys(REGIONS)) {
+  for (const k of Object.keys(R)) {
     if (k === 'clock' || k === 'date') continue;
-    const r = REGIONS[k], rad = Math.min(cfg.pod, (r.h - 3) / 2);
+    const r = R[k], rad = Math.min(cfg.pod, (r.h - 3) / 2);
     const st = mode => {
       const pressed = mode === 'pressed', fo = mode === 'hover' ? 0.28 : 0;
       return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${r.w}" height="${r.h}" viewBox="0 0 ${r.w} ${r.h}">
@@ -409,9 +440,9 @@ function gelButtons(cfg) {
   return out;
 }
 function gelAtlas(cfg) {
-  const r = cfg.r;
+  const r = cfg.r, R = cfg.regions || REGIONS;
   let wells = '';
-  for (const k of Object.keys(REGIONS)) { const rr = REGIONS[k]; wells += gelWell(rr.x - 6, rr.y - 6, rr.w + 12, rr.h + 12, k === 'clock', cfg); }
+  for (const k of Object.keys(R)) { const rr = R[k]; wells += gelWell(rr.x - 6, rr.y - 6, rr.w + 12, rr.h + 12, k === 'clock', cfg); }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${AH}" viewBox="0 0 ${CW} ${AH}">
   <defs>
     <linearGradient id="gel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cfg.hi}"/><stop offset="0.45" stop-color="${cfg.mid}"/><stop offset="1" stop-color="${cfg.lo}"/></linearGradient>
@@ -434,7 +465,7 @@ function gelSkin(key, cfg) {
     atlas: { image: svgUri(gelAtlas(cfg)), w: CW, h: AH },
     parts: { body: { x: 0, y: 0, w: CW, h: CH }, led0: { x: 6, y: CH + 16, w: 12, h: 12 }, led1: { x: 26, y: CH + 16, w: 12, h: 12 }, led2: { x: 46, y: CH + 16, w: 12, h: 12 } },
     layers: [{ part: 'body', x: 0, y: 0, w: CW, h: CH }, { frames: ['led0', 'led1', 'led2'], fps: 1.6, x: CW - 50, y: 16, w: 12, h: 12 }],
-    regions: JSON.parse(JSON.stringify(REGIONS)),
+    regions: JSON.parse(JSON.stringify(cfg.regions || REGIONS)),
     buttons: gelButtons(cfg),
     filters: { dark: 'none', light: 'none' },
     tokens: {
