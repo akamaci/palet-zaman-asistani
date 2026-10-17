@@ -340,6 +340,75 @@ function winampSkin(key, p) {
 const winampSkins = {};
 for (const k of Object.keys(WINAMP_PALETTES)) winampSkins[k] = winampSkin(k, WINAMP_PALETTES[k]);
 
+/* ── AQUA / GEL görünümü (futuristik, camsı) ─────────────────────────────────
+   Kullanıcı (2026-10-17): "futuristik, camsı/gel (aqua) bir skin." Yuvarlak
+   JEL gövde + cam parıltısı (gloss) + iç tech deseni + GÖMME cam paneller +
+   JEL düğmeler. Köşeler SAYDAM → pencere arkası görünür (organik biçim). */
+function gelWell(x, y, w, h, clock) {
+  let g = '';
+  if (clock) {
+    for (let gx = x + 18; gx < x + w - 8; gx += 24) g += `<line x1="${gx}" y1="${y + 6}" x2="${gx}" y2="${y + h - 6}" stroke="#8fe9ff" stroke-opacity="0.05"/>`;
+    for (let gy = y + 18; gy < y + h - 8; gy += 24) g += `<line x1="${x + 6}" y1="${gy}" x2="${x + w - 6}" y2="${gy}" stroke="#8fe9ff" stroke-opacity="0.05"/>`;
+  }
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.min(28, h / 2)}" fill="url(#gelwell)" stroke="#0a3550"/>
+  <path d="M${x + 12} ${y + 1.6} H${x + w - 12}" stroke="#7fd0f5" stroke-opacity="0.35"/>
+  <path d="M${x + 1.6} ${y + 12} V${y + h - 12}" stroke="#7fd0f5" stroke-opacity="0.22"/>
+  <path d="M${x + 12} ${y + h - 1.6} H${x + w - 12}" stroke="#02121a"/>
+  ${g}`;
+}
+function gelButtons() {
+  const out = {};
+  for (const k of Object.keys(REGIONS)) {
+    if (k === 'clock' || k === 'date') continue;
+    const r = REGIONS[k], rad = Math.min(18, (r.h - 3) / 2);
+    const st = mode => {
+      const pressed = mode === 'pressed', fo = mode === 'hover' ? 0.28 : 0;
+      return svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="${r.w}" height="${r.h}" viewBox="0 0 ${r.w} ${r.h}">
+      <rect x="1.5" y="1.5" width="${r.w - 3}" height="${r.h - 3}" rx="${rad}" fill="#0a2c40" fill-opacity="${pressed ? 0.9 : 0.5}" stroke="#8fe9ff" stroke-opacity="${pressed ? 0.5 : 0.8}"/>
+      <rect x="3" y="2.5" width="${r.w - 6}" height="${(r.h - 6) / 2}" rx="${Math.max(6, rad - 4)}" fill="#ffffff" fill-opacity="${pressed ? 0.06 : 0.20}"/>
+      <rect x="1.5" y="1.5" width="${r.w - 3}" height="${r.h - 3}" rx="${rad}" fill="#ffffff" fill-opacity="${fo}"/></svg>`);
+    };
+    out[k] = { normal: st('normal'), hover: st('hover'), pressed: st('pressed') };
+  }
+  return out;
+}
+function gelAtlas() {
+  const r = 54;
+  let swirl = '';
+  for (let i = 0; i < 5; i++) swirl += `<circle cx="${CW * 0.42}" cy="${CH * 0.5}" r="${120 + i * 70}" fill="none" stroke="#ffffff" stroke-opacity="0.05"/>`;
+  let wells = '';
+  for (const k of Object.keys(REGIONS)) { const rr = REGIONS[k]; wells += gelWell(rr.x - 6, rr.y - 6, rr.w + 12, rr.h + 12, k === 'clock'); }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${AH}" viewBox="0 0 ${CW} ${AH}">
+  <defs>
+    <linearGradient id="gel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4fbff"/><stop offset="0.45" stop-color="#a7d7f4"/><stop offset="1" stop-color="#4f93cf"/></linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.12" r="0.95"><stop offset="0" stop-color="#ffffff" stop-opacity="0.6"/><stop offset="0.45" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gelwell" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#08283c"/><stop offset="1" stop-color="#04161f"/></linearGradient>
+  </defs>
+  <rect x="10" y="10" width="${CW - 20}" height="${CH - 20}" rx="${r}" fill="url(#gel)" stroke="#2c6ba3" stroke-width="3"/>
+  <rect x="10" y="10" width="${CW - 20}" height="${CH - 20}" rx="${r}" fill="url(#glow)"/>
+  <rect x="16" y="16" width="${CW - 32}" height="${CH - 32}" rx="${r - 6}" fill="none" stroke="#ffffff" stroke-opacity="0.45"/>
+  ${swirl}${wells}
+  <circle cx="12" cy="${CH + 22}" r="6" fill="#8fe9ff" fill-opacity="0.3"/>
+  <circle cx="32" cy="${CH + 22}" r="6" fill="#8fe9ff" fill-opacity="0.65"/>
+  <circle cx="52" cy="${CH + 22}" r="6" fill="#8fe9ff"/>
+</svg>`;
+}
+function gelSkin() {
+  return {
+    format: 'pza-skin/3', id: 'aqua', name: 'Aqua (Gel)', author: 'Paletweb',
+    canvas: { w: CW, h: CH },
+    atlas: { image: svgUri(gelAtlas()), w: CW, h: AH },
+    parts: { body: { x: 0, y: 0, w: CW, h: CH }, led0: { x: 6, y: CH + 16, w: 12, h: 12 }, led1: { x: 26, y: CH + 16, w: 12, h: 12 }, led2: { x: 46, y: CH + 16, w: 12, h: 12 } },
+    layers: [{ part: 'body', x: 0, y: 0, w: CW, h: CH }, { frames: ['led0', 'led1', 'led2'], fps: 1.6, x: CW - 50, y: 16, w: 12, h: 12 }],
+    regions: JSON.parse(JSON.stringify(REGIONS)),
+    buttons: gelButtons(),
+    filters: { dark: 'none', light: 'none' },
+    tokens: { '--fg': '#e6f8ff', '--fg-dim': '#9dc6dd', '--fg-mute': '#7fa6bd', '--accent': '#8fe9ff', '--accent-strong': '#8fe9ff', '--on-accent': '#062430', '--warn': '#ffd75e', '--ok': '#5ce0a8', '--flip-1': '#072232', '--flip-2': '#072232', '--flip-3': '#072232', '--flip-border': '#0a3550', '--pin': '#8fe9ff' },
+    fontUI: "'Segoe UI', system-ui, sans-serif", fontNum: "'Consolas', monospace"
+  };
+}
+const gelSkins = { aqua: gelSkin() };
+
 const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
    Palet Zaman Asistanı · GPL-3.0 · © 2026 Paletweb Bilişim
    OTOMATİK üretilir: araclar/atlas-uret.mjs -> .pzaskin.json -> buraya.
@@ -348,7 +417,7 @@ const header = `/* skins-builtin.js — gömülü plaka (pza-skin) skinleri.
 window.PZA = window.PZA || {};
 PZA.PLATE_SKINS = `;
 
-const body = JSON.stringify(Object.assign({ nebula: cyan, 'nebula-amber': amber }, ekSkins, winampSkins), null, 1);
+const body = JSON.stringify(Object.assign({ nebula: cyan, 'nebula-amber': amber }, ekSkins, winampSkins, gelSkins), null, 1);
 
 fs.writeFileSync(path.join(root, 'src', 'js', 'skins-builtin.js'), header + body + ';\n', 'utf8');
 console.log('yazıldı: src/js/skins-builtin.js (' + (header.length + body.length) + ' bayt)');

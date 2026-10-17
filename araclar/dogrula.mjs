@@ -634,6 +634,19 @@ head('24 · Winamp görünümleri (klasik / modern / bento)');
   } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
 }
 
+head('25 · Aqua (gel / camsı) görünümü');
+{
+  /* Kullanıcı (2026-10-17): "futuristik, camsı/gel (aqua) bir skin." */
+  const uret = fs.readFileSync(path.join(root, 'araclar', 'atlas-uret.mjs'), 'utf8');
+  if (!/gelAtlas/.test(uret)) fail('atlas-uret.mjs: Aqua (gel) görünümü tanimli degil');
+  else ok('atlas-uret.mjs: Aqua (gel) görünümü tanimli');
+  try {
+    const o = JSON.parse(src('skins-builtin.js').match(/PZA\.PLATE_SKINS\s*=\s*(\{[\s\S]*\});/)[1]);
+    if (!(o.aqua && o.aqua.format === 'pza-skin/3' && o.aqua.canvas)) fail('skins-builtin.js: aqua skini yok');
+    else ok('skins-builtin.js: aqua (gel) skini gomulu');
+  } catch (e) { fail('skins-builtin.js cozulemedi: ' + e.message); }
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
