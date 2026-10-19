@@ -27,8 +27,34 @@ console.log('\n1 · Açılır menü kırpılması (ezan menüsü / güncelleme p
   const fitBlok = app.slice(app.indexOf('const fit = async'), app.indexOf('if (window.ResizeObserver)'));
   kontrol('fit() açık dropdown YÜKSEKLİĞİNİ hesaba katıyor',
     /ezan-menu/.test(fitBlok) && /pa-modal/.test(fitBlok));
-  kontrol('dropdown yüksekliği pencereye EKLENİYOR (istenen = h + ekH)',
-    /const istenen = h \+ ekH/.test(fitBlok));
+  kontrol('dropdown yüksekliği pencereye EKLENİYOR (istenenH = h + ekH)',
+    /const istenenH = h \+ ekH/.test(fitBlok));
+  // KRİTİK (2. tur): ekH, titremeyi önleyen erken çıkıştan ÖNCE ölçülmeli.
+  // Aksi halde menü açılınca `h` değişmediği için fit() erken çıkıyor,
+  // pencere büyümüyor ve menü saati örtüyor.
+  kontrol('ekH erken çıkıştan ÖNCE ölçülüyor (menü saati örtüyordu)',
+    /let ekH = 0;[\s\S]*?const istenenH = h \+ ekH;/.test(fitBlok));
+  // Yorum satırlarını temizle ki açıklama metni eşleşmesin
+  const fitKod = fitBlok.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  kontrol('erken çıkış istenenH ile karşılaştırıyor (h değil)',
+    /Math\.abs\(istenenH - sonH\) < 3/.test(fitKod)
+    && !/Math\.abs\(h - sonH\) < 3/.test(fitKod));
+  kontrol('pencere yüksekliği istenenH kullanıyor',
+    /const hh = alan\.boy \? Math\.min\(istenenH/.test(fitBlok));
+
+  // Menüler OPAK olmalı (yarı saydamdı, arkasından saat rakamları görünüyordu)
+  const cssT = oku('src/styles/widget.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  kontrol('ezan menüsü OPAK zemin (saydamdı)',
+    /\.ezan-menu \{[\s\S]{0,400}?background:\s*var\(--menu-bg/.test(cssT));
+  kontrol('PA kutusu OPAK zemin (saydamdı)',
+    /\.pa-box \{[\s\S]{0,400}?background:\s*var\(--menu-bg/.test(cssT));
+  kontrol('açık temada menü açık renk (okunabilirlik)',
+    /\[data-theme="light"\] \.ezan-menu/.test(cssT) && /\[data-theme="light"\] \.pa-box/.test(cssT));
+  kontrol('pa-modal perdesi tıklamayı yutmuyor (pointer-events:none)',
+    /\.pa-modal \{[\s\S]{0,220}?pointer-events:\s*none/.test(cssT)
+    && /\.pa-modal > \.pa-box \{ pointer-events: auto/.test(cssT));
+  kontrol('PA kutusu dışına tıklayınca kapanıyor (perde hedef olamıyor)',
+    /!kutu\.contains\(e\.target\) && !paBtn\?\.contains\(e\.target\)/.test(app));
 
   // dropdownYerlestir üç kuralı
   const dd = app.slice(app.indexOf('PZA.dropdownYerlestir = function'), app.indexOf('PZA.ezanMenuYerlestir = function'));

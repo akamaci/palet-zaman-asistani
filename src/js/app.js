@@ -268,13 +268,35 @@
          genişlikte kalıyordu.) */
       const beklenenG = PZA.plateSize ? (PZA.plateSize() || {}).w : 0;
       if (beklenenG && Math.abs(beklenenG - sonG) > 0.5) { sonH = -1; sonG = -1; }
+      /* DÜŞEN YÜZEY YÜKSEKLİĞİ ÖNCE HESAPLANMALI (kritik düzeltme).
+         Hata (2026-10-19, 2. tur bildirimi): `ekH` hesabı titremeyi önleyen
+         erken çıkıştan SONRA yapılıyordu. Dropdown açılınca widget'ın kendi
+         yüksekliği `h` DEĞİŞMİYOR → `Math.abs(h - sonH) < 3` tutuyor →
+         `fit()` erken çıkıyor → pencere hiç büyümüyor → menü `position: fixed`
+         olduğu için saati ÜSTÜNE biniyor (ekran görüntüsü: ezan menüsü ve
+         PA kutusu saatin üstünde yarı saydam).
+
+         Düzeltme: dropdown yüksekliği ÖNCE ölçülür, `istenenH = h + ekH`
+         karşılaştırmaya girer. */
+      let ekH = 0;
+      if (acikMi('ezan-menu')) {
+        const em = document.getElementById('ezan-menu');
+        if (em) ekH = Math.max(ekH, em.offsetHeight || em.scrollHeight || 0);
+      }
+      if (acikMi('pa-modal')) {
+        const pm = document.getElementById('pa-modal');
+        const kutu = pm && pm.querySelector ? pm.querySelector('.pa-box') : null;
+        const o = kutu || pm;
+        if (o) ekH = Math.max(ekH, o.offsetHeight || o.scrollHeight || 0);
+      }
+      /* Açıkken ek yükseklik: menü düğmeye hizalanıp PENCERENİN ALTINDA
+         açılacağı için widget'ın altına eklenir. */
       const h = gerekliH();
+      const istenenH = h + ekH;
       const g = Math.max(EN_AZ_G, gerekliG());
-      // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma. Ölçülen pencere
-      // boyutuyla karşılaştırılsaydı kullanıcının elle yeniden
-      // boyutlandırması her turda geri alınırdı.
-      if (!h || (Math.abs(h - sonH) < 3 && Math.abs(g - sonG) < 3)) return;
-      sonH = h; sonG = g;
+      // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma.
+      if (!istenenH || (Math.abs(istenenH - sonH) < 3 && Math.abs(g - sonG) < 3)) return;
+      sonH = istenenH; sonG = g;
       try {
         const win = window.__TAURI__.window;
         const w = win.getCurrentWindow();
@@ -288,38 +310,10 @@
         const icVar = acikMi('panel-notes') || acikMi('panel-weather');
         const kapVar = acikMi('settings') || acikMi('studio');
 
-        /* DÜŞEN YÜZEYLER (ezan menüsü, güncelleme popup'ı) — HATA DÜZELTMESİ
-           (kullanıcı 2026-10-19, ekran görüntüsü): bu yüzeyler `position: fixed`
-           olduğu için pencere dışına taşıyor; `fit()` onları ÖLÇMEDEN pencereyi
-           boyutlandırdığı için ekranda PENÇERENİN ALTINDA kalıyor ve
-           pencerenin üst yarısı kırpılıyordu (ezan menüsünde İmsak satırı
-           ve ses kaydırıcısı görünmüyordu).
-
-           `fitBar()` bu ölçümü yapıyordu; NORMAL MODDA (`fit()`) eksikti —
-           iki ayrı kod yolu, biri düzeltilmiş diğeri unutulmuş.
-
-           Çözüm: açık dropdown'ların YÜKSEKLİĞİNİ de hesaba kat. Pencere
-           onların sığacağı kadar büyür → `dropdownYerlestir` yukarı/aşağı
-           seçimi doğru çalışır, hiçbir yüzey kırpılmaz. */
-        let ekH = 0;
-        if (acikMi('ezan-menu')) {
-          const em = document.getElementById('ezan-menu');
-          if (em) ekH = Math.max(ekH, em.offsetHeight || em.scrollHeight || 0);
-        }
-        if (acikMi('pa-modal')) {
-          /* `pa-modal` sarmalayıcıdır; konumlanan/ölçülen öğe içindeki
-             `.pa-box`'tir. Sarmalayıcıyı ölçmek yanlış yükseklik verir
-             (tam ekran yüzey olabilir). */
-          const pm = document.getElementById('pa-modal');
-          const kutu = pm && pm.querySelector ? pm.querySelector('.pa-box') : null;
-          const o = kutu || pm;
-          if (o) ekH = Math.max(ekH, o.offsetHeight || o.scrollHeight || 0);
-        }
-
+        /* `ekH` yukarıda (titremeyi önleyen erken çıkıştan ÖNCE) ölçüldü. */
         // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
         // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
-        const istenen = h + ekH;
-        const hh = alan.boy ? Math.min(istenen, Math.max(240, alan.boy - 8)) : istenen;
+        const hh = alan.boy ? Math.min(istenenH, Math.max(240, alan.boy - 8)) : istenenH;
 
         /* Saatin ekrandaki üst kenarı. Panel saatin üstünde duruyorsa
            saat, pencere tepesinden panelin yüksekliği kadar aşağıdadır.
@@ -680,7 +674,21 @@
   });
   $('pa-kapat')?.addEventListener('click', paKapa);
   $('pa-x')?.addEventListener('click', paKapa);
-  paModal?.addEventListener('click', e => { if (e.target === paModal) paKapa(); });
+  /* Perde `pointer-events: none` olduğu için tıklamayı ALMAZ; kutu dışına
+   tıklayınca kapanması için kutu DIŞINDAKİ tıklamaları dinle.
+   (Eskiden `e.target === paModal` idi; perde artık hedef olamaz.) */
+  if (paModal) {
+    paModal.addEventListener('click', e => {
+      const kutu = paModal.querySelector('.pa-box');
+      if (e.target === paModal || (kutu && !kutu.contains(e.target))) paKapa();
+    });
+    // Perde tıklamaları geçirdiği için belge düzeyinde de yakala
+    document.addEventListener('click', e => {
+      if (!paModal || paModal.hidden) return;
+      const kutu = paModal.querySelector('.pa-box');
+      if (kutu && !kutu.contains(e.target) && !paBtn?.contains(e.target)) paKapa();
+    });
+  }
   window.addEventListener('resize', paYerlestir);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && paModal && !paModal.hidden) paKapa();
