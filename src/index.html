@@ -31,7 +31,9 @@
 
     <!-- Sol: hava durumu (ayarlar alt bara taşındı — yer saat için) -->
     <div class="group-left">
-      <button id="weather-tile" class="tile" data-drag="1" data-tauri-drag-region>
+      <!-- Düğme: taşıma bölgesi DEĞİL (data-panel-tetik = hava panelini açar).
+           Taşıma bölgesi olsaydı Tauri tıklamayı sürüklemeye çevirirdi. -->
+      <button id="weather-tile" class="tile" data-panel-tetik="1">
         <span class="tile-glyph" id="weather-glyph">☀</span>
         <span class="tile-body">
           <span class="tile-line">
@@ -64,7 +66,7 @@
 
     <!-- Sağ: notlar + yerine kilit (sağ üst köşe) -->
     <div class="group-right">
-      <button id="btn-notes" class="btn-notes" aria-expanded="false">
+      <button id="btn-notes" class="btn-notes" aria-expanded="false" data-panel-tetik="1">
         <span>GÜNÜN NOTLARI</span>
         <span class="chev"><svg viewBox="0 0 24 24" class="ico"><path d="M19 9l-7 7-7-7"/></svg></span>
       </button>

@@ -65,11 +65,17 @@ console.log('\n1 · Açılır menü kırpılması (ezan menüsü / güncelleme p
   kontrol('dropdown: `top` piksel olarak veriliyor, `bottom` karışmıyor',
     /el\.style\.top = Math\.round/.test(dd) && !/el\.style\.bottom = Math\.round/.test(dd));
 
-  // sıra: önce fit() (pencere büyüsün) sonra konumlandırma
-  kontrol('ezan düğmesi: açarken ÖNCE fit() SONRA konumlandırma',
-    /fit\(\);\s*\n\s*PZA\.ezanMenuYerlestir\(\)/.test(app));
-  kontrol('PA düğmesi: açarken ÖNCE fit() SONRA konumlandırma',
-    /fit\(\);\s*\n\s*paYerlestir\(\)/.test(app));
+  /* sıra: ÖNCE pencereyi büyüt (fit) SONRA konumlandır.
+     `fit` `if (TAURI) {}` BLOĞU içinde tanımlı; dışarıdan çağrılabilmesi
+     için `PZA._fit`e bağlanır. Çıplak `fit()` çağrısı ReferenceError
+     verir (2026-10-19 canlı hatası) — bu yüzden aşağıdaki desenler
+     `PZA._fit?.()` bekler. */
+  kontrol('ezan düğmesi: açarken ÖNCE pencere fit SONRA konumlandırma',
+    /PZA\._fit\?\.\(\);\s*\n\s*PZA\.ezanMenuYerlestir\(\)/.test(app));
+  kontrol('PA düğmesi: açarken ÖNCE pencere fit SONRA konumlandırma',
+    /PZA\._fit\?\.\(\);\s*\n\s*paYerlestir\(\)/.test(app));
+  kontrol('blok içindeki fit() dışarıya bağlanıyor (çıplak fit() ReferenceError)',
+    /PZA\._fit = fit;/.test(app));
   kontrol('pencere boyutlandıktan sonra dropdown YENİDEN konumlanıyor',
     /dropdownYerlestir\?\./.test(app));
 

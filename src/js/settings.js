@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.36.3';
+PZA.SURUM = '1.36.4';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -259,8 +259,16 @@ PZA.apply = function () {
    hangi öğelerin taşınabilir olduğu bilinemezdi. */
 PZA.applyLock = function () {
   const kilitli = !!(PZA.settings && PZA.settings.locked);
+  /* Tıklanabilir öğelere (düğme, giriş, bağlantı) taşıma bölgesi
+     KONMAZ. Tauri 2 taşıma bölgesini `composedPath` üzerinde arar;
+     kendi kutusuna tıklanan bir `data-tauri-drag-region` düğmesi
+     tıklama yerine pencereyi sürükler ve düğme "çalışmıyor" gibi
+     görünür (kullanıcı: "hava durumu bölümü çalışmıyor"). */
+  const TIKLANIR = new Set(['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL', 'SUMMARY']);
   document.querySelectorAll('[data-drag]').forEach(el => {
-    if (kilitli) el.removeAttribute('data-tauri-drag-region');
+    const tiklanir = TIKLANIR.has(el.tagName) ||
+      (el.hasAttribute && el.hasAttribute('contenteditable'));
+    if (kilitli || tiklanir) el.removeAttribute('data-tauri-drag-region');
     else el.setAttribute('data-tauri-drag-region', '');
   });
   const w = document.getElementById('widget');

@@ -343,6 +343,19 @@ PZA.closeNotes = function () { PZA.toggleNotes(false); PZA.closeCal(); };
     const icinde = el => typeof el.contains === 'function' ? el.contains(hedef) : false;
     if (acikNot && icinde(p)) return;
     if (acikHva && icinde(pv)) return;
+
+    /* AÇAN DÜĞME panelin DIŞINDADIR: tıklama olayı düğmede paneli açar,
+       sonra document'e köpürür ve burada "dışına tıklandı" sayılıp
+       paneli hemen kapatırdı. Sonuç: panel açılır gibi olup bir an
+       içinde kayboluyordu (kullanıcı: "hava durumu bölümü çalışmıyor",
+       "randevu kaydı açılmıyor"). `data-panel-tetik` işaretli
+       öğelerden gelen tıklamalar bu yüzden yok sayılır. */
+    let d = hedef;
+    while (d) {
+      if (typeof d.getAttribute === 'function'
+          && d.getAttribute('data-panel-tetik') !== null) return;
+      d = d.parentElement || null;
+    }
     if (acikNot) PZA.closeNotes();
     if (acikHva) PZA.closeWeather?.();
   };
@@ -408,7 +421,7 @@ PZA.closeNotes = function () { PZA.toggleNotes(false); PZA.closeCal(); };
   };
   const yukleniyor = document.readyState === 'loading';
   const dinleyebilir = typeof document.addEventListener === 'function';
-  if (yukleniyor && dinlenebilir) document.addEventListener('DOMContentLoaded', calistir);
+  if (yukleniyor && dinleyebilir) document.addEventListener('DOMContentLoaded', calistir);
   else calistir();
 })();
 

@@ -409,7 +409,13 @@
            (aksi hâlde kırpılmış konumda kalır). */
         if (ekH > 0) {
           PZA.dropdownYerlestir?.(document.getElementById('ezan-menu'), $('ezan-ses-btn'));
-          PZA.dropdownYerlestir?.(document.getElementById('pa-modal'), $('pa-btn'));
+          /* PA: `.pa-modal` bir PERDEDİR (`inset: 0`, `pointer-events: none`);
+             yön/hiza ona değil GERÇEK kutuya (`.pa-box`) uygulanır. Perdeye
+             uygulanırsa kutu ESKİ `vh`'ye göre yerleşmiş kalır ve pencerenin
+             dışına taşabilir (kullanıcı: "PA güncelleme butonu tıklanmıyor"). */
+          const paPerde = document.getElementById('pa-modal');
+          const paKutu = paPerde && paPerde.querySelector ? paPerde.querySelector('.pa-box') : null;
+          if (paKutu) PZA.dropdownYerlestir?.(paKutu, $('pa-btn'));
         }
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
@@ -427,6 +433,15 @@
     });
     window.addEventListener('load', fit);
     window.addEventListener('bar-degisti', () => { sonH = sonG = -1; fit(); });
+
+    /* `fit`/`fitBar` bu BLOK İÇİNDE tanımlı (yalnız Tauri'de çalışır).
+       Dışarıdan (PA ve ezan düğmeleri) çağrılabilmesi için PZA'ya bağlanır.
+       HATA (2026-10-19, v1.36.3'te canlıya gitti): dışarıdan çıplak
+       `fit()` çağrılıyordu → "Uncaught ReferenceError: fit is not defined".
+       Sessiz ama gerçek sonuç: pencere menü için BÜYÜMÜYOR, menü kırpılıyor;
+       şans eseri MutationObserver `fit`i tetiklediği için tamamen kırılmıyordu. */
+    PZA._fit = fit;
+    PZA._fitBar = fitBar;
   }
 
   /* ── Başlat ─────────────────────────────────────────── */
@@ -682,7 +697,7 @@
        kadar BÜYÜMEDEN konumlandırma yapılırsa yanlış yön seçilir ve
        kutunun üst yarısı pencere kenarından kırpılır.
        Sıra: `fit()` (pencereyi büyüt) → `paYerlestir()` (yönü seç). */
-    fit();
+    PZA._fit?.();
     paYerlestir();
     $('pa-kapat')?.focus();
   }
@@ -706,6 +721,10 @@
    tıklayınca kapanması için kutu DIŞINDAKİ tıklamaları dinle.
    (Eskiden `e.target === paModal` idi; perde artık hedef olamaz.) */
   if (paModal) {
+    /* `paBtn` HİÇ TANIMLI DEĞİLDİ (v1.36.3'e kadar canlıda): dışına
+       tıklayınca `paBtn?.contains` bir ReferenceError atıyor ve PA
+       popup'ı kapanmıyordu. Artık tanımlı. */
+    const paBtn = $('pa-btn');
     paModal.addEventListener('click', e => {
       const kutu = paModal.querySelector('.pa-box');
       if (e.target === paModal || (kutu && !kutu.contains(e.target))) paKapa();
@@ -1090,7 +1109,7 @@
          büyümeden yapılırsa yanlış yön seçilir ve menü kırpılır.
          `fit()` ölçümü yapıp menüyü konumlar; sonraki çağrı
          konumu ikinci kez doğrular (ödümlü, zararsız). */
-      fit();
+      PZA._fit?.();
       PZA.ezanMenuYerlestir();
     } else {
       /* Kapandı: önceki "sığmayınca" durumundan kalan kaydırma

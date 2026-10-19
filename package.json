@@ -1,6 +1,6 @@
 {
   "name": "palet-zaman-asistani",
-  "version": "1.36.3",
+  "version": "1.36.4",
   "private": true,
   "description": "Windows masaüstü flip clock + günün notları + hava durumu widget'ı",
   "license": "GPL-3.0-or-later",
@@ -16,7 +16,9 @@
     "icon": "tauri icon assets/logo.png",
     "web": "node araclar/sunucu.mjs",
     "dogrula": "node araclar/dogrula.mjs",
-    "test": "node araclar/notlar-test.mjs && node araclar/ses-test.mjs && node araclar/anons-test.mjs && node araclar/ezan-test.mjs && node araclar/kilit-test.mjs && node araclar/yukari-test.mjs && node araclar/gcal-test.mjs && node araclar/hata-2026-10-19-test.mjs && node araclar/menu-uctan-uca-test.mjs && node araclar/gorsel-dogrula.mjs",
+    "test": "node araclar/yukleme-testi.mjs && node araclar/panel-tiklama-test.mjs && node araclar/notlar-test.mjs && node araclar/ses-test.mjs && node araclar/anons-test.mjs && node araclar/ezan-test.mjs && node araclar/kilit-test.mjs && node araclar/yukari-test.mjs && node araclar/gcal-test.mjs && node araclar/hata-2026-10-19-test.mjs && node araclar/menu-uctan-uca-test.mjs && node araclar/gorsel-dogrula.mjs",
+    "test:yukleme": "node araclar/yukleme-testi.mjs",
+    "test:tiklama": "node araclar/panel-tiklama-test.mjs",
     "test:hata-1019": "node araclar/hata-2026-10-19-test.mjs",
     "test:menu": "node araclar/menu-uctan-uca-test.mjs",
     "test:guvenilirlik": "node araclar/test-dogrulama.mjs",

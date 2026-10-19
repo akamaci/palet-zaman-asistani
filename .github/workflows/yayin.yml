@@ -10,7 +10,13 @@
 #   • Elle  → Actions sekmesi → "Yayın" → Run workflow
 #             Derler, dosyaları workflow çıktısına koyar (sürüm açmaz).
 #   • Etiket → `git tag v1.0.0 && git push origin v1.0.0`
-#             Derler + taslak (draft) GitHub sürümü açar.
+#             Derler + GitHub sürümünü YAYIMLAR (taslak değil).
+#
+# Neden TASLAK DEĞİL: uygulamanın güncelleme denetimi
+# `releases/latest/download/latest.json` adresini okur. Taslak sürüm
+# bu adresten GÖRÜNMEZ; kullanıcı "yeni sürüm var" uyarısını almaz
+# (2026-10-19 bildirimi). Testler derlemeden ÖNCE koştuğu için
+# doğrudan yayımlamak güvenlidir.
 # ══════════════════════════════════════════════════════════════
 name: Yayın
 
@@ -84,8 +90,17 @@ jobs:
             İmzasız derleme olduğu için Windows ilk açılışta "Windows korumalı
             bilgisayarınızı korudu" uyarısı gösterebilir:
             **Ek bilgi → Yine de çalıştır**.
-          releaseDraft: true          # yayımlamadan önce gözden geçir
+          releaseDraft: false         # doğrudan yayımla: güncelleme denetimi
+                                      # taslak sürümü GÖRMEZ (latest.json)
           prerelease: false
+
+      # Kemeri sıkı bağla: sürüm gerçekten "en son" olsun. Uygulamanın
+      # güncelleme denetimi `/releases/latest/download/latest.json` okur.
+      - name: Sürümü "en son" olarak işaretle
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --latest
 
       - name: Kurulum dosyalarını sakla (elle tetiklemede indirilebilsin)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
