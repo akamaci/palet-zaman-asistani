@@ -169,10 +169,13 @@ console.log('\n3 · Aurora\'da Notlar paneli: okunmuyor + kapanmıyor\n');
     /\.widget\.plaka > \.panel-notes[\s\S]*?background:\s*var\(--bg-1/.test(css));
   // Not: kural yorum satırı içinde olduğu için CSS yorumlarını temizle
   const cssTemiz = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  kontrol('plaka görseli panel açıkken kapatılıyor (metin okunur olsun)',
-    /\.widget\.plaka:has\(>\s*\.panel-notes:not\(\[hidden\]\)\),[\s\S]{0,90}?\.widget\.plaka:has\(>\s*\.panel-weather:not\(\[hidden\]\)\)\s*\{[^}]*background:\s*var\(--bg-1/.test(cssTemiz));
-  kontrol('panel açıkken alt/üst bar GİZLENİYOR (metin saati biniyordu)',
-    /\.widget\.plaka:has\(> \.panel-notes:not\(\[hidden\]\)\) \.bar-bottom/.test(css));
+  // v1.36.7: panel artık plakanın ÜSTÜNE binmiyor (pencere büyüyor) →
+  // v1.33'teki "plakayı düz renge çevir / barı gizle" yamaları KALDIRILDI.
+  // Kullanıcı: "menü açılınca saat üstünde logolar siliniyor ya da kayboluyor".
+  kontrol('plaka görseli panel açıkken KORUNUYOR (düz renge çevrilmiyor)',
+    !/\.widget\.plaka:has\(>\s*\.panel-(notes|weather):not\(\[hidden\]\)\)[^{]*\{[^}]*background:\s*var\(--bg-1/.test(cssTemiz));
+  kontrol('panel açıkken saat/düğmeler GÖRÜNÜR kalıyor (bar gizlenmiyor)',
+    !/\.widget\.plaka:has\(> \.panel-(notes|weather):not\(\[hidden\]\)\) \.bar-(top|bottom)/.test(cssTemiz));
   kontrol('panel yukarı yaslandığında yukarı çıkıyor (klasikle aynı)',
     /\.widget\.plaka\.yukari > \.panel-notes/.test(css));
   kontrol('hava paneli de aynı kuralları alıyor',

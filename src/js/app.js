@@ -126,6 +126,10 @@
        hesaba katılır — her skin modunda aynı davranış. */
     const gerekliH = () => {
       const ps = PZA.plateSize && PZA.plateSize();       // pza-skin/2: plaka tuvali
+      /* Plakada paneller/menüler plakanın DIŞINA açılır (üstüne değil) →
+         yükseklikleri PLAKA TEMELİNE EKLENİR. BAR modunda `fitBar()`
+         paneli/menüyü ayrıca ölçer → burada katılırsa ÇİFT sayım olur. */
+      const plakaMi = !!ps && (!PZA.settings || PZA.settings.size !== 'bar');
       let h = 0;
       if (ps) {
         h = Math.ceil(ps.h);
@@ -133,12 +137,21 @@
         const w = document.getElementById('widget');
         if (w) h = w.getBoundingClientRect().height;
       }
+      /* Plaka temeli: plaka (klasik/BAR'da widget) yüksekliği. Paneller
+         birbirinin ÜSTÜNE gelir → TOPLANMAZ, en büyüğü alınır. */
+      const plakaTemel = h;
       /* Kaplama paneller (Ayarlar/Stüdyo) HER ZAMAN hesaba katılır —
          plaka modunda da; `max` sayesinde widget'tan kısa olan panel
-         pencereyi gereksiz büyütmez. */
+         pencereyi gereksiz büyütmez.
+         KLASİK: panel pencerenin ORTASINDA durur (`position: fixed`) →
+         tek başına ölçülür. PLAKA: menü plakanın ALTINA açılır (plaka
+         görünür kalsın, v1.36.7) → TEMELE EKLENİR; aksi hâlde menü
+         plakayı örter (kullanıcı: "menü saatin üstünde değil altında
+         açılsın, neyi seçtiğimi göreyim"). */
       for (const id of ['settings', 'studio']) {
         const el = document.getElementById(id);
-        if (el && !el.hidden) h = Math.max(h, el.scrollHeight + 24);
+        if (!el || el.hidden) continue;
+        h = Math.max(h, plakaMi ? plakaTemel + el.scrollHeight : el.scrollHeight + 24);
       }
       /* ══ v1.36.6 — PLAKADA (Aurora) NOTLAR/HAVA PANELİ ═════════════════
          KULLANICI (2026-10-19, ekran görüntüsü): "Aurora kısmı hava durumu
@@ -153,11 +166,7 @@
          Klasik modda panel AKIŞA dahildir (widget yüksekliği onu ZATEN
          içerir) → çift saymamak için YALNIZ plakada eklenir. BAR modunda
          `fitBar()` paneli ayrıca ölçtüğü için burada ATLANIR. */
-      if (ps && (!PZA.settings || PZA.settings.size !== 'bar')) {
-        /* PANELLER BİRBİRİNİN ÜSTÜNE GELİR (`position: fixed; bottom: 0`) →
-           yükseklik TOPLANMAZ, EN BÜYÜĞÜ alınır (aksi hâlde pencere iki kat
-           büyürdü). `plakaTemel` plakadan (ve açıksa kaplama panelden) gelir. */
-        const plakaTemel = h;
+      if (plakaMi) {
         for (const id of ['panel-notes', 'panel-weather']) {
           const el = document.getElementById(id);
           if (el && !el.hidden) h = Math.max(h, plakaTemel + dogalYukseklik(el));
@@ -366,6 +375,15 @@
          plakada üst/alt yaslama kuralı bu sınıfa bağlı (v1.36.6). */
       document.body.classList.toggle('panel-acik',
         acikMi('panel-notes') || acikMi('panel-weather'));
+      /* v1.36.7 — KAPLAMA MENÜ (Ayarlar/Stüdyo): plaka ÜSTTE kalır, menü
+         plakanın ALTINA açılır (widget.css → `--plaka-h`). Kullanıcı:
+         "menü saatin üstünde değil ALTINDA açılsın, kullanıcı neyi
+         seçtiğini görmek ister." BAR modunda plaka çizilmediği için
+         (ve menü pencereyi kapladığı için) uygulanmaz. */
+      const plakaMi = !!PZA.plateSize && !!PZA.plateSize()
+        && (!PZA.settings || PZA.settings.size !== 'bar');
+      document.body.classList.toggle('kap-acik',
+        plakaMi && (acikMi('settings') || acikMi('studio')));
 
       const h = gerekliH();
       const istenenH = h + ekH;
@@ -418,11 +436,17 @@
             hedefY = Math.max(alan.ust, temelY - ekH);
           }
         } else if (kapVar) {
-          /* Kaplama panel (Ayarlar/Stüdyo, `position: fixed`): pencere
+          /* Kaplama panel (Ayarlar/Stüdyo, `position: fixed`). */
+          if (temelY === null) temelY = y;
+          const kapSigar = (temelY + hh) <= alt;
+          /* PLAKADA (Aurora) plaka menünün ÜSTÜNDE durur (v1.36.7) → plaka
+             EKRANDAKİ YERİNİ KORUR; pencere sığmıyorsa iş alanına yaslanır.
+             Kullanıcı: "ayarlara tıkladığımızda menü yaklaşık 5 cm aşağıda
+             açılıyor" (pencere her seferinde iş alanının dibine iniyordu).
+             Klasikte panel pencerenin ORTASINDA (top:50%) durur → pencere
              iş alanına sığsın diye gerekiyorsa yukarı çekilir; panel
              kapanınca temelY'ye dönülür. */
-          if (temelY === null) temelY = y;
-          hedefY = Math.max(alan.ust, alt - hh - 8);
+          hedefY = (plakaMi && kapSigar) ? temelY : Math.max(alan.ust, alt - hh - 8);
         } else if (icVar) {
           /* Widget içi panel (Notlar/Hava). KULLANICI (2026-10-16): "1/4'te
              hava simgesine tıklayınca aşağı kayıyor; devam edersem başka yere

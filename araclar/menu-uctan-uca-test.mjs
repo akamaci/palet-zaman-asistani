@@ -138,6 +138,16 @@ function fitKarari(ortam) {
   return { h, ekH, istenenH, hh: hh2, sığar, hedefY: sığar ? ortam.y : Math.max(ortam.alan.ust, ortam.y - ekH) };
 }
 
+/* `fit()` içindeki KAPLAMA MENÜ (Ayarlar/Stüdyo) konum kararının GERÇEK
+   bloğu — kopyalamıyoruz: kaynak bozulursa test düşer (v1.36.7). */
+function kapKarari({ plakaMi, temelY, y, hh, alt, alanUst = 0 }) {
+  const blok = app.match(/\} else if \(kapVar\) \{([\s\S]*?)\n        \}/);
+  if (!blok) return null;
+  const f = new Function('plakaMi', 'temelY', 'y', 'hh', 'alt', 'alan',
+    blok[1] + '\n        return { hedefY, temelY };');
+  return f(plakaMi, temelY, y, hh, alt, { ust: alanUst });
+}
+
 console.log('\nA · KLASİK SKİN — ezan menüsü\n');
 {
   // y=500: 500+446=946 <= 1040 → altta yer VAR
@@ -295,6 +305,47 @@ console.log('\nG · PLAKA (AURORA) — NOTLAR/HAVA PANELİ\n');
   const g = olcut(o);
   k('bar modunda gerekliH panele paneli EKLEMİYOR (çift sayım yok)',
     g.gH === 146, `gerekliH=${g.gH}`);
+}
+
+console.log('\nH · PLAKA (AURORA) — AYARLAR/STÜDYO MENÜSÜ PLAKANIN ALTINDA\n');
+{
+  /* v1.36.7 CANLI hatası (kullanıcı ekran görüntüsü + montaj): Aurora'da
+     Ayarlar düğmesine basınca plaka KAYBOLUYOR, menü ekranın dibinde
+     açılıyordu. ÖLÇÜM (430x474 emülasyonu): plaka `align-items: center`
+     ile y=164'te kalıyor, `.settings` (top:50% + translateY(-50%))
+     y=11..463 arasını kaplayarak plakayı TAMAMEN örtüyordu. Ayrıca
+     pencere iş alanının dibine yaslanıyordu → "menü yaklaşık 5 cm
+     aşağıda açılıyor". Kullanıcı isteği: "menü saatin üstünde değil
+     ALTINDA açılsın; kullanıcı neyi seçtiğini görmek ister." */
+  const o = ortam({ plaka: { w: 430, h: 146 }, settingsAcik: true,
+                    settingsH: 450, settingsG: 412, y: 40, alanBoy: 1040 });
+  const g = olcut(o);
+  k('plakada Ayarlar açıkken pencere = PLAKA + MENÜ (menü plakanın altında)',
+    g.gH === 146 + 450, `gerekliH=${g.gH} (146+450=596; eskiden max(146,474)=474 idi)`);
+
+  const bar = olcut(ortam({ plaka: { w: 430, h: 146 }, size: 'bar',
+                            settingsAcik: true, settingsH: 450 }));
+  k('BAR modunda menü plakaya EKLENMİYOR (fitBar ayrı ölçer, çift sayım yok)',
+    bar.gH === 450 + 24, `gerekliH=${bar.gH} (450+24=474)`);
+
+  const kl = olcut(ortam({ plaka: null, widgetH: 236, settingsAcik: true, settingsH: 450 }));
+  k('klasikte menü ölçümü DEĞİŞMEDİ (scrollHeight + 24)',
+    kl.gH === 450 + 24, `gerekliH=${kl.gH}`);
+
+  const c1 = kapKarari({ plakaMi: true, temelY: 40, y: 40, hh: 596, alt: 1040 });
+  k('plakada menü açılınca pencere EKRANDAKİ YERİNİ korur (aşağı kaymaz)',
+    !!c1 && c1.hedefY === 40, `hedefY=${c1 && c1.hedefY} (temelY=40; eskiden 436)`);
+
+  const c2 = kapKarari({ plakaMi: true, temelY: 900, y: 900, hh: 596, alt: 1040 });
+  k('plaka ekranın dibindeyse pencere iş alanına yaslanır (kırpılmaz)',
+    !!c2 && c2.hedefY === 1040 - 596 - 8, `hedefY=${c2 && c2.hedefY} (436)`);
+
+  const c3 = kapKarari({ plakaMi: false, temelY: 40, y: 40, hh: 596, alt: 1040 });
+  k('klasik davranış KORUNDU (pencere iş alanına yaslanır)',
+    !!c3 && c3.hedefY === 1040 - 596 - 8, `hedefY=${c3 && c3.hedefY}`);
+
+  k('fit() kaplama menü açıkken gövdeye `kap-acik` yazıyor',
+    /document\.body\.classList\.toggle\('kap-acik',\s*\n?\s*plakaMi && \(acikMi\('settings'\) \|\| acikMi\('studio'\)\)\);/.test(app));
 }
 
 console.log(`\nSONUC: ${kaldi === 0 ? 'temiz' : kaldi + ' BASARISIZ'} — ${gecti} kontrol`);

@@ -598,6 +598,12 @@ PZA.applyPlate = function (skin) {
   if (w.classList) w.classList.add('plaka');
   w.style.setProperty('--plate-w', ol.w + 'px');
   w.style.setProperty('--plate-h', ol.h + 'px');
+  /* Görünen plaka yüksekliğini KÖKE de yaz (v1.36.7): Ayarlar/Stüdyo
+     pencerenin kardeşidir (`position: fixed`) → plaka yüksekliğini
+     widget'tan MİRAS ALAMAZ. Menü bu değerden başlar (widget.css
+     `--plaka-h`) ki plaka görünür kalsın. */
+  if (typeof document !== 'undefined' && document.documentElement)
+    document.documentElement.style.setProperty('--plaka-h', ol.h + 'px');
   /* Ölçek bilgisini CSS'e de ver: `background-size` ve katman
      konumları orantılı kalsın. */
   w.style.setProperty('--plate-olan', String(ol.oran));
@@ -670,6 +676,10 @@ PZA.clearPlate = function () {
   if (w.removeAttribute) w.removeAttribute('data-tauri-drag-region');
   ['--plate-w', '--plate-h', '--plate-img', '--plate-olan',
     '--plate-canvas-w', '--plate-canvas-h'].forEach(k => w.style.removeProperty(k));
+  /* v1.36.7: kökteki plaka yüksekliği de temizlenir (klasik skinde
+     `--plaka-h` kalmamalı). */
+  if (typeof document !== 'undefined' && document.documentElement)
+    document.documentElement.style.removeProperty('--plaka-h');
   PZA.plateTemizle();
 };
 

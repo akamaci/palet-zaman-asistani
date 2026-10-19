@@ -143,9 +143,9 @@ console.log('\nPLAKA + PANEL — YÜKSEKLİK VE YASLAMA\n');
   const css = readFileSync(join(kok, 'src/styles/widget.css'), 'utf8');
 
   sonuc('app.js: gerekliH plakada NOTLAR/HAVA panelini ölçüyor',
-    /const plakaTemel = h;[\s\S]{0,320}?plakaTemel \+ dogalYukseklik\(el\)/.test(app));
+    /h = Math\.max\(h, plakaTemel \+ dogalYukseklik\(el\)\);/.test(app));
   sonuc('app.js: ölçüm BAR modunda atlanıyor (fitBar paneli ayrı ölçer)',
-    /if \(ps && \(!PZA\.settings \|\| PZA\.settings\.size !== 'bar'\)\) \{/.test(app));
+    /const plakaMi = !!ps && \(!PZA\.settings \|\| PZA\.settings\.size !== 'bar'\);/.test(app));
   sonuc('app.js: temelYukseklik() plakada paneli DÜŞMÜYOR (negatife inmez)',
     /if \(PZA\.plateSize && PZA\.plateSize\(\)\) return Math\.max\(0, Math\.round\(t\)\);/.test(app));
   sonuc('app.js: DOĞAL ölçüm eşiği `none` (CSS max-height de ezilir)',
@@ -159,6 +159,43 @@ console.log('\nPLAKA + PANEL — YÜKSEKLİK VE YASLAMA\n');
     /body:has\(\.widget\.plaka\)\.panel-acik\s*\{\s*align-items:\s*flex-start\s*!important/.test(css));
   sonuc('widget.css: yukarı açılan panelde plaka ALTA yaslanıyor',
     /body:has\(\.widget\.plaka\)\.panel-acik\.yukari\s*\{\s*align-items:\s*flex-end\s*!important/.test(css));
+}
+
+/* ══ PLAKA + MENÜ (v1.36.7) ═══════════════════════════════════════════
+   KULLANICI (2026-10-19, 4. tur):
+     · "menüler güzel çalışıyor ancak menü açılınca saat üstünde logolar
+        siliniyor ya da kayboluyor"
+     · "ayarlara tıkladığımızda menü yaklaşık 5 cm kadar aşağıda açılıyor"
+     · "Aurora tema rengini seçerken menü saatin üstünde değil ALTINDA
+        açılsın, kullanıcı neyi seçtiğini görmek ister"
+   Davranış (pencere kararı): menu-uctan-uca-test.mjs · H.
+   Bu bölüm SÖZLEŞMEYİ kaynak düzeyinde sabitler. */
+console.log('\nPLAKA + MENÜ — GÖRÜNÜRLÜK VE YASLAMA (v1.36.7)\n');
+{
+  const css = readFileSync(join(kok, 'src/styles/widget.css'), 'utf8');
+  const sk = readFileSync(join(kok, 'src/js/skins.js'), 'utf8');
+
+  sonuc('widget.css: panel açıkken bar/kadraj GİZLENMİYOR (saat + düğmeler kalır)',
+    !/\.widget\.plaka:has\(> \.panel-(notes|weather):not\(\[hidden\]\)\)[^{]*\.(bar-top|bar-bottom|plate-drag)[^{]*\{[^}]*display:\s*none/.test(css));
+  sonuc('widget.css: panel açıkken plaka görseli DÜZ RENGE çevrilmiyor',
+    !/\.widget\.plaka:has\(> \.panel-(notes|weather):not\(\[hidden\]\)\)[^{]*\{[^}]*background:\s*var\(--bg-1/.test(css));
+  sonuc('widget.css: panel yüksekliği plakaya göre (pencere dibine taşmaz)',
+    /max-height:\s*calc\(100vh - var\(--plaka-h, 0px\)\)/.test(css));
+  sonuc('widget.css: kaplama menü plakanın BİTİŞİNDEN başlıyor',
+    /\.kap-acik \.settings[\s\S]{0,220}?top:\s*var\(--plaka-h, 160px\)/.test(css));
+  sonuc('widget.css: kaplama menü pencere altına taşmıyor (max-height)',
+    /\.kap-acik \.settings[\s\S]{0,320}?max-height:\s*calc\(100vh - var\(--plaka-h, 160px\)\)/.test(css));
+  sonuc('widget.css: BAR modunda kaplama menü kuralı UYGULANMIYOR',
+    /\.widget\.plaka:not\(\[data-size="bar"\]\)/.test(css));
+
+  sonuc('app.js: plaka + Ayarlar yüksekliği TEMELE EKLENİYOR (menü plakayı örtmez)',
+    /plakaMi \? plakaTemel \+ el\.scrollHeight : el\.scrollHeight \+ 24/.test(app));
+  sonuc('app.js: kaplama menüde plaka EKRANDAKİ YERİNİ koruyor',
+    /hedefY = \(plakaMi && kapSigar\) \? temelY : Math\.max\(alan\.ust, alt - hh - 8\);/.test(app));
+  sonuc('app.js: kaplama menü açıkken gövdeye `kap-acik` yazılıyor',
+    /document\.body\.classList\.toggle\('kap-acik',\s*\n?\s*plakaMi && \(acikMi\('settings'\) \|\| acikMi\('studio'\)\)\);/.test(app));
+  sonuc('skins.js: görünen plaka yüksekliği köke yazılıyor (--plaka-h)',
+    /document\.documentElement\.style\.setProperty\('--plaka-h', ol\.h \+ 'px'\)/.test(sk));
 }
 
 console.log(hata === 0 ? '\nSONUC: temiz\n' : `\nSONUC: ${hata} BASARISIZ\n`);

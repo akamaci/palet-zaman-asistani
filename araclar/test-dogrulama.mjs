@@ -55,14 +55,34 @@ const H = {
        değişmez → `fit()` erken çıkar → pencere 148px'te kalır ve panel
        `max-height: calc(100vh-24px)` ile kırpılır
        ("Aurora'da hava durumu ve randevu bu kadar açılmıyor"). */
-    panelOlcum: /      if \(ps && \(!PZA\.settings \|\| PZA\.settings\.size !== 'bar'\)\) \{[\s\S]*?\n      \}/
+    panelOlcum: /      if \(plakaMi\) \{\n        for \(const id of \['panel-notes', 'panel-weather'\]\) \{[\s\S]*?\n        \}\n      \}/,
+    /* v1.36.7 CANLI hatası: plakada Ayarlar/Stüdyo menüsü plakayı örtüyordu
+       ("menü saatin üstünde açılıyor; plaka kayboluyor"). Menü plakanın
+       ALTINA açılmalı → yükseklik TEMELE EKLENİR. */
+    ayarOlcum: /      for \(const id of \['settings', 'studio'\]\) \{\n        const el = document\.getElementById\(id\);\n        if \(!el \|\| el\.hidden\) continue;\n        h = Math\.max\(h, plakaMi \? plakaTemel \+ el\.scrollHeight : el\.scrollHeight \+ 24\);\n      \}/,
+    /* v1.36.7 CANLI hatası: menü açılınca pencere iş alanının dibine
+       iniyordu ("menü yaklaşık 5 cm aşağıda açılıyor"). Plakada plaka
+       EKRANDAKİ YERİNİ korumalı. */
+    kapKarar: /\} else if \(kapVar\) \{[\s\S]*?\n        \}/,
+    /* v1.36.7: menü plakanın altına yerleşsin diye gövdeye `kap-acik`. */
+    kapSinif: /      document\.body\.classList\.toggle\('kap-acik',\n        plakaMi && \(acikMi\('settings'\) \|\| acikMi\('studio'\)\)\);/
+  },
+  'src/js/skins.js': {
+    /* v1.36.7: `--plaka-h` widget'a değil KÖKE yazılmalı — Ayarlar/Stüdyo
+       `#widget`ın kardeşi (`position: fixed`), değeri miras alamaz. */
+    plakaVar: /  if \(typeof document !== 'undefined' && document\.documentElement\)\n    document\.documentElement\.style\.setProperty\('--plaka-h', ol\.h \+ 'px'\);/
   },
   'src/styles/widget.css': {
     /* v1.36.6 CANLI hatası: panel açıkken pencere plaka + panel kadar büyür
        ama `body:has(.widget.plaka) { align-items: center !important }`
        plakayı pencerenin ORTASINDA bırakır → plaka panelin arkasına girer,
        üstte boş koyu şerit olur. Panel varken üste/alta yaslanmalı. */
-    plakaYaslama: /body:has\(\.widget\.plaka\)\.panel-acik \{[\s\S]*?align-items: flex-end !important; \}/
+    plakaYaslama: /body:has\(\.widget\.plaka\)\.panel-acik \{[\s\S]*?align-items: flex-end !important; \}/,
+    /* v1.36.7 — panel açıkken saat/düğmeler gizleniyordu ("menü açılınca
+       saat üstünde logolar siliniyor") ve plaka görseli düz renge
+       çevriliyordu. Bu iki yamanın GERİ KOYULDUĞU yer: yaslama kuralının
+       hemen altı (senaryolar buraya eski kuralları enjekte eder). */
+    panelYaslamaUst: /body:has\(\.widget\.plaka\)\.panel-acik \{ align-items: flex-start !important; \}/
   },
   'src/js/notes.js': {
     /* v1.36.3'te CANLIYA GİDEN yazım hatası: dosyanın geri kalanını
@@ -269,6 +289,67 @@ const senaryolar = [
       document.documentElement.lang = PZA.i18n.aktif;
       PZA.emit && PZA.emit('dil', PZA.i18n.aktif);
     },`
+    }]
+  },
+  {
+    ad: 'v1.36.7 CANLI hatası: panel açıkken saat/düğmeler gizleniyor ("logolar kayboluyor")',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [{
+      dosya: 'src/styles/widget.css', hedef: 'panelYaslamaUst',
+      yeni: `body:has(.widget.plaka).panel-acik { align-items: flex-start !important; }
+.widget.plaka:has(> .panel-notes:not([hidden])) .bar-top,
+.widget.plaka:has(> .panel-notes:not([hidden])) .bar-bottom,
+.widget.plaka:has(> .panel-notes:not([hidden])) .plate-drag,
+.widget.plaka:has(> .panel-weather:not([hidden])) .bar-top,
+.widget.plaka:has(> .panel-weather:not([hidden])) .bar-bottom { display: none; }`
+    }]
+  },
+  {
+    ad: 'v1.36.7 CANLI hatası: panel açıkken plaka görseli düz renge çevriliyor',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [{
+      dosya: 'src/styles/widget.css', hedef: 'panelYaslamaUst',
+      yeni: `body:has(.widget.plaka).panel-acik { align-items: flex-start !important; }
+.widget.plaka:has(> .panel-notes:not([hidden])),
+.widget.plaka:has(> .panel-weather:not([hidden])) { background: var(--bg-1, #0a1020); }`
+    }]
+  },
+  {
+    ad: 'v1.36.7 CANLI hatası: plakada Ayarlar menüsü plakayı örtüyor (plaka kayboluyor)',
+    test: 'araclar/menu-uctan-uca-test.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/app.js', hedef: 'ayarOlcum',
+      yeni: `      for (const id of ['settings', 'studio']) {
+        const el = document.getElementById(id);
+        if (el && !el.hidden) h = Math.max(h, el.scrollHeight + 24);
+      }`
+    }]
+  },
+  {
+    ad: 'v1.36.7 CANLI hatası: menü açılınca pencere iş alanının dibine iniyor ("5 cm aşağıda")',
+    test: 'araclar/menu-uctan-uca-test.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/app.js', hedef: 'kapKarar',
+      yeni: `} else if (kapVar) {
+          if (temelY === null) temelY = y;
+          hedefY = Math.max(alan.ust, alt - hh - 8);
+        }`
+    }]
+  },
+  {
+    ad: 'v1.36.7: kaplama menü sınıfı gövdeye yazılmıyor (menü plakanın altına inmez)',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/app.js', hedef: 'kapSinif',
+      yeni: '      /* kap-acik sinifi YOK (hata) */'
+    }]
+  },
+  {
+    ad: 'v1.36.7: plaka yüksekliği köke yazılmıyor (menü plakayı örter)',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/skins.js', hedef: 'plakaVar',
+      yeni: '  /* --plaka-h yazilmiyor (hata) */'
     }]
   }
 ];

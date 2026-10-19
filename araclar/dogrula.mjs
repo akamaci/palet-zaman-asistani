@@ -642,6 +642,37 @@ head('24 — Plaka (Aurora) acilir paneller pencerenin ICINE sigar (v1.36.6)');
   else ok('widget.css: plaka panel acikken uste/alta yaslaniyor');
 }
 
+head('25 — Plaka + menu: saat/dugmeler GORUNUR, menu plakanin ALTINDA (v1.36.7)');
+{
+  /* Kullanıcı (2026-10-19, 4. tur):
+       · "menu acilinca saat ustunde logolar siliniyor ya da kayboluyor"
+       · "ayarlara tikladigimizda menu yaklasik 5 cm kadar asagida aciliyor"
+       · "Aurora tema rengini secerken menu saatin ustunde degil ALTINDA
+          acilsin, kullanici neyi sectigini gormek ister" */
+  const a = src('app.js');
+  if (/\.widget\.plaka:has\(> \.panel-(notes|weather):not\(\[hidden\]\)\)[^{]*\.(bar-top|bar-bottom|plate-drag)[^{]*\{[^}]*display:\s*none/.test(css))
+    fail('widget.css: panel acikken saat/dugmeler GIZLENIYOR (logolar kaybolur)');
+  else ok('widget.css: panel acikken saat/dugmeler gorunur kaliyor');
+  if (/\.widget\.plaka:has\(> \.panel-(notes|weather):not\(\[hidden\]\)\)[^{]*\{[^}]*background:\s*var\(--bg-1/.test(css))
+    fail('widget.css: panel acikken plaka gorseli DUZ RENGE cevriliyor');
+  else ok('widget.css: panel acikken plaka gorseli korunuyor');
+  if (!/plakaMi \? plakaTemel \+ el\.scrollHeight : el\.scrollHeight \+ 24/.test(a))
+    fail('app.js: plakada Ayarlar/Study menusu TEMELE EKLENMIYOR (plaka ortulur)');
+  else ok('app.js: plakada menu temele ekleniyor (plaka gorunur)');
+  if (!/document\.body\.classList\.toggle\('kap-acik'/.test(a))
+    fail('app.js: kap-acik sinifi yazilmiyor (menü plakanin altina inmez)');
+  else ok('app.js: kap-acik sinifi govdeye yaziliyor');
+  if (!/top:\s*var\(--plaka-h, 160px\)/.test(css) || !/max-height:\s*calc\(100vh - var\(--plaka-h, 160px\)\)/.test(css))
+    fail('widget.css: menu plakanin bitisinden baslamiyor / pencere altina tasiyor');
+  else ok('widget.css: menu plakanin bitisinden basliyor ve tasmiyor');
+  if (!/--plaka-h/.test(src('skins.js')))
+    fail('skins.js: --plaka-h koke yazilmiyor (menu plakayi orter)');
+  else ok('skins.js: --plaka-h koke yaziliyor');
+  if (!/max-height:\s*calc\(100vh - var\(--plaka-h, 0px\)\)/.test(css))
+    fail('widget.css: not/hava paneli plaka payini birakmiyor (pencere dibine tasar)');
+  else ok('widget.css: not/hava paneli plaka payini birakiyor');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }
