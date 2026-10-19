@@ -126,6 +126,22 @@ function tikla(el) {
   const e1 = tikla(paDugme);
   if (e1 && !e1._hata) ok('PA düğmesine tıklama hata vermedi');
   esit(pa.hidden, false, 'PA düğmesine tıklayınca sürüm/güncelleme popup\'ı açılıyor');
+
+  /* KÖK NEDEN (2026-10-19, v1.36.4 bildirimi "güncelleme menüsü açılmıyor"):
+     `.pa-box` CSS'inde YEDEK olarak `bottom: 46px` var. JS yalnız inline
+     `top` yazıp inline `bottom`'u SİLİYORSA (removeProperty) CSS kuralı
+     geçerli kalır → kutu `top`+`bottom`+`height:auto` ile AŞIRI KISITLI
+     olur → pencere dibine UZAR, içerik tepede kalır, `offsetHeight`
+     anlamsızlaşır (~200px yerine ~28px) → pencere büyümez, kutu kırpılır.
+     Çözüm: inline `bottom: auto` (CSS'i EZER). */
+  const paKutu = pa.querySelector('.pa-box');
+  if (paKutu) {
+    esit(paKutu.style.bottom, 'auto',
+      'PA kutusu CSS `bottom` yedeğini inline `auto` ile EZİYOR (aşırı kısıt = kırpılma)');
+    if (/^\d+px$/.test(String(paKutu.style.top))) ok('PA kutusu `top` değeri piksel cinsinden');
+    else x('PA kutusu `top` piksel değil: ' + paKutu.style.top);
+  } else x('PA kutusu (.pa-box) bulunamadı');
+
   const e2 = tikla(belge.body);          // kutu dışına tıklama
   if (e2 && !e2._hata) ok('PA açıkken dışına tıklama hata vermedi');
   esit(pa.hidden, true, 'PA popup\'ı kutu dışına tıklayınca kapanıyor');

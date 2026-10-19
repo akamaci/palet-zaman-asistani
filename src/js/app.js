@@ -238,6 +238,7 @@
         const kapVar   = acikMi('settings') || acikMi('studio');   // kaplamalar
         const panelVar = acikMi('panel-notes') || acikMi('panel-weather');
         const ezanVar  = acikMi('ezan-menu');   // bar modunda ezan dropdown'ı (fixed)
+        const paVar    = acikMi('pa-modal');    // bar modunda PA (güncelleme) kutusu (fixed)
 
         let W, H, x, y;
         if (kapVar) {
@@ -258,12 +259,23 @@
           ph = Math.min(ph, Math.round(alan.boy * 0.72));
           W = sw; H = Math.min(alan.boy - 4, barH + ph + 16); x = 0;
           y = ust ? alan.ust : Math.max(alan.ust, alan.ust + alan.boy - H);
-        } else if (ezanVar) {
-          /* Ezan dropdown'ı da barın DIŞINA taşar (fixed) → pencere, menünün
-             sığacağı kadar bar yönünde büyür (üst bar: aşağı, alt bar: yukarı). */
+        } else if (ezanVar || paVar) {
+          /* Ezan dropdown'ı ve PA (güncelleme) kutusu barın DIŞINA taşar
+             (fixed) → pencere, sığacak kadar bar yönünde büyür (üst bar:
+             aşağı, alt bar: yukarı).
+             HATA DÜZELTMESİ (2026-10-19, 3. tur — "güncelleme menüsü
+             açılmıyor"): BAR MODUNDA PA kutusu HİÇ hesaba katılmıyordu →
+             pencere bar yüksekliğinde kalıyor, kutu pencerenin dışına
+             taşıyor ve yalnız üst şeridi görünüyordu. */
           const barH = Math.max(46, gerekliH());
+          let eh = 60;
           const em = document.getElementById('ezan-menu');
-          const eh = Math.max(60, em ? em.scrollHeight : 60);
+          if (ezanVar) eh = Math.max(eh, em ? em.scrollHeight : 60);
+          if (paVar) {
+            const pm = document.getElementById('pa-modal');
+            const kb = pm && pm.querySelector ? pm.querySelector('.pa-box') : null;
+            eh = Math.max(eh, dogalYukseklik(kb) || 60);
+          }
           W = sw; H = Math.min(alan.boy - 4, barH + eh + 16); x = 0;
           y = ust ? alan.ust : Math.max(alan.ust, alan.ust + alan.boy - H);
         } else {
@@ -279,6 +291,7 @@
         await w.setPosition(new win.LogicalPosition(x, y));
         sonG = W; sonH = H; sonY = y;
         PZA.ezanMenuYerlestir?.();                              // menü düğmeye hizalanır
+        PZA._paYerlestir?.();                                   // PA kutusu da yeni pencereye göre
       } catch (e) { /* yetki yoksa sessiz */ }
     };
 
@@ -306,13 +319,13 @@
       let ekH = 0;
       if (acikMi('ezan-menu')) {
         const em = document.getElementById('ezan-menu');
-        if (em) ekH = Math.max(ekH, em.offsetHeight || em.scrollHeight || 0);
+        if (em) ekH = Math.max(ekH, dogalYukseklik(em));
       }
       if (acikMi('pa-modal')) {
         const pm = document.getElementById('pa-modal');
         const kutu = pm && pm.querySelector ? pm.querySelector('.pa-box') : null;
         const o = kutu || pm;
-        if (o) ekH = Math.max(ekH, o.offsetHeight || o.scrollHeight || 0);
+        if (o) ekH = Math.max(ekH, dogalYukseklik(o));
       }
       /* Pencere = widget + menü (TOPLAM). Menü widget'ın ALTINA yerleşir;
          `dropdownYerlestir` onu düğmenin altına sabitler, üstüne binmez.
@@ -413,9 +426,7 @@
              yön/hiza ona değil GERÇEK kutuya (`.pa-box`) uygulanır. Perdeye
              uygulanırsa kutu ESKİ `vh`'ye göre yerleşmiş kalır ve pencerenin
              dışına taşabilir (kullanıcı: "PA güncelleme butonu tıklanmıyor"). */
-          const paPerde = document.getElementById('pa-modal');
-          const paKutu = paPerde && paPerde.querySelector ? paPerde.querySelector('.pa-box') : null;
-          if (paKutu) PZA.dropdownYerlestir?.(paKutu, $('pa-btn'));
+          PZA._paYerlestir?.();
         }
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
@@ -640,6 +651,10 @@
       PZA.logYaz?.('uyari', 'Güncelleme denetlenemedi', { hata: dur.hata });
     }
     surumGoster();
+    /* İçerik güncellendi → PA kutusunun yüksekliği değişmiş olabilir
+       ("Denetleniyor…" → sonuç). Pencereyi yeniden ölç ki kutu kırpılmasın. */
+    const pmAcik = $('pa-modal');
+    if (pmAcik && !pmAcik.hidden) PZA._fit?.();
     return dur;
   }
 
@@ -689,6 +704,9 @@
   function paYerlestir() {
     if (paModal && !paModal.hidden) PZA.dropdownYerlestir(paModal.querySelector('.pa-box'), $('pa-btn'));
   }
+  /* `fit`/`fitBar` pencereyi büyüttükten SONRA kutuyu yeniden konumlandırabilsin
+     (fonksiyon bildirimi hoist edilir; atama burada açıkça yapılır). */
+  PZA._paYerlestir = paYerlestir;
   function paAc() {
     if (!paModal) return;
     surumGoster();
@@ -696,10 +714,14 @@
     /* Ezan menüsüyle AYNI sorun (2026-10-19): pencere kutuya sığacak
        kadar BÜYÜMEDEN konumlandırma yapılırsa yanlış yön seçilir ve
        kutunun üst yarısı pencere kenarından kırpılır.
-       Sıra: `fit()` (pencereyi büyüt) → `paYerlestir()` (yönü seç). */
-    PZA._fit?.();
+       Sıra: görünür kıl → HEMEN yerleştir (kutu daima pencerenin İÇİNDE
+       kalır) → `fit()` ile pencereyi büyüt → yeni pencereye göre DÜZELT.
+       `fit()` SENKRON çağrılır (senkron hata tıklama yolunda görünür
+       kalsın); düzeltme async olduğu için `.then` ile bağlanır. */
     paYerlestir();
     $('pa-kapat')?.focus();
+    const s = PZA._fit?.();
+    if (s && typeof s.then === 'function') s.then(() => paYerlestir(), () => {});
   }
   function paKapa() {
     if (!paModal) return;
@@ -1044,6 +1066,29 @@
     }
   };
 
+  /* Bir elemanın DOĞAL (kırpılmamış) yüksekliği.
+     ÖNEMLİ (v1.36.5): açılır yüzeyler sığmadığında `max-height` +
+     `overflow:auto` alır. Kırpılmış bir kutuyu YENİDEN ölçmek yüksekliği
+     küçük gösterir → `fit()` pencereyi hiç büyütmez (kısır döngü: her tur
+     kutu biraz daha küçülür). Bu yüzden ölçümden önce inline sınır
+     geçici olarak kaldırılır, sonra AYNEN geri konur. */
+  function dogalYukseklik(el) {
+    if (!el) return 0;
+    const st = el.style;                     // sahte DOM'da olmayabilir
+    const eskiMax = st ? st.maxHeight : undefined;
+    const eskiOvf = st ? st.overflowY : undefined;
+    if (st && (eskiMax || eskiOvf)) {
+      st.maxHeight = '';
+      st.removeProperty('overflowY');
+    }
+    const h = el.offsetHeight || el.scrollHeight || 0;
+    if (st) {
+      if (eskiMax) st.maxHeight = eskiMax;
+      if (eskiOvf) st.overflowY = eskiOvf;
+    }
+    return h;
+  }
+
   /* Açılır yüzeyi (dropdown) TETİKLEYİCİYE hizala; YÖNÜ KONUMA GÖRE seç:
      tetikleyicinin ALTINDA yer varsa AŞAĞI, yoksa YUKARI açılır (kullanıcı 2026-10-17).
      Hem EZAN menüsü hem GÜNCELLEME popup'ı bu tek kuralı kullanır. */
@@ -1052,9 +1097,19 @@
     const vw = window.innerWidth, vh = window.innerHeight;
     const rb = (tetik || el).getBoundingClientRect();
     const mw = Math.round(el.getBoundingClientRect().width) || 220;
-    const mh = el.offsetHeight || Math.round(el.getBoundingClientRect().height) || 220;
+    const mh = dogalYukseklik(el) || Math.round(el.getBoundingClientRect().height) || 220;
     el.style.left = 'auto';
     el.style.right = Math.round(Math.max(8, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
+    /* ══ KÖK NEDEN (2026-10-19, v1.36.5 — "güncelleme menüsü açılmıyor") ══
+       `.pa-box` CSS'inde YEDEK olarak `bottom: 46px` var (JS gelmezse kutu
+       dursun diye). Yalnız inline `top` yazıp inline `bottom`'u SİLMEK
+       (removeProperty) YETMEZ: CSS kuralı hâlâ geçerlidir → kutu AŞIRI
+       KISITLI olur (`top` + `bottom` + `height:auto`) → pencere dibine
+       kadar UZAR, içerik tepede kalır ve ölçülen yüksekliği ANLAMSIZLAŞIR.
+       Sonuç: `fit()` kutuyu ~200px yerine ~28px ölçüyordu → pencere
+       büyümüyor, kutu 148px'lik pencerede kırpılıyordu.
+       Doğru yol: inline `bottom: auto` yazmak (inline stil CSS'i EZER). */
+    el.style.bottom = 'auto';
 
     /* HATA DÜZELTMESİ (2026-10-19, 2. tur): menü widget'ın ÜSTÜNE
        biniyordu. `fit()` artık pencereyi menü kadar büyüttüğü için
@@ -1069,20 +1124,27 @@
     const uste = rb.top;
     if (alta >= mh + 12) {
       el.style.top = Math.round(rb.bottom + 8) + 'px';
-      el.style.removeProperty('bottom');
       el.style.maxHeight = '';
       el.style.removeProperty('overflowY');
     } else if (uste >= mh + 12) {
       el.style.top = Math.round(Math.max(8, rb.top - mh - 8)) + 'px';
-      el.style.removeProperty('bottom');
       el.style.maxHeight = '';
       el.style.removeProperty('overflowY');
     } else {
-      /* Sığmıyor → sığdır + kaydır (kırpma yerine). */
-      const kap = Math.max(80, alta - 16);
-      el.style.top = Math.round(rb.bottom + 8) + 'px';
-      el.style.removeProperty('bottom');
-      el.style.maxHeight = kap + 'px';
+      /* Sığmıyor → sığdır + kaydır (kırpma yerine).
+         HATA DÜZELTMESİ (2026-10-19, 3. tur — "güncelleme menüsü açılmıyor"):
+         pencere menü kadar büyüyemediğinde (bar modu / kısa pencere) `top`
+         düğmenin altına (rb.bottom+8) yazılıyordu ve bu değer pencerenin
+         ALTINA düşüyordu → kutunun yalnız ~20px'i görünüyordu. Artık kutu
+         HER ZAMAN pencerenin İÇİNDE kalır: üst/alt 8px pay bırakılır,
+         sığmayan içerik kaydırılır. */
+      const pay = 8;
+      const kap = Math.max(60, vh - pay * 2);
+      const yuk = Math.min(mh, kap);
+      let t = rb.bottom + 8;
+      if (t + yuk > vh - pay) t = vh - yuk - pay;
+      el.style.top = Math.round(Math.max(pay, t)) + 'px';
+      el.style.maxHeight = yuk + 'px';
       el.style.overflowY = 'auto';
     }
   };

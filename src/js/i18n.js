@@ -60,20 +60,25 @@ window.PZA = window.PZA || {};
       return (v != null) ? v : (varsayilan != null ? varsayilan : anahtar);
     },
 
-    /** data-i18n / data-i18n-html / data-i18n-ph taşıyan DOM'u doldurur. */
+    /** data-i18n / data-i18n-html / data-i18n-ph taşıyan DOM'u doldurur.
+        ÖNEMLİ (2026-10-19, v1.36.5): sözlükte anahtar YOKSA elemanın HTML
+        yedek metni OLDUĞU GİBİ kalır. Eskiden `t(anahtar, null)` çağrılıyor
+        ve anahtar bulunamayınca HAM ANAHTAR yazılıyordu → paket içinde
+        `lang/*.txt` okunamadığında (CSP `connect-src` içinde 'self' yoktu)
+        arayüzde "pa_kapat", "pa_baslik" gibi anahtarlar görünüyordu.
+        Kullanıcı bildirimi: "güncelleme menüsü" içinde ham anahtarlar. */
     uygula: function () {
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const v = PZA.i18n.t(el.getAttribute('data-i18n'), null);
-        if (v != null) el.textContent = v;
-      });
-      document.querySelectorAll('[data-i18n-html]').forEach(el => {
-        const v = PZA.i18n.t(el.getAttribute('data-i18n-html'), null);
-        if (v != null) el.innerHTML = v;
-      });
-      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-        const v = PZA.i18n.t(el.getAttribute('data-i18n-ph'), null);
-        if (v != null) el.setAttribute('placeholder', v);
-      });
+      const yaz = (el, attr, nasil) => {
+        const k = el.getAttribute(attr);
+        const v = PZA.i18n.sozluk[k];
+        if (v == null) return;               // yedek (HTML) metin kalsın
+        if (nasil === 'html') el.innerHTML = v;
+        else if (nasil === 'ph') el.setAttribute('placeholder', v);
+        else el.textContent = v;
+      };
+      document.querySelectorAll('[data-i18n]').forEach(el => yaz(el, 'data-i18n', 'text'));
+      document.querySelectorAll('[data-i18n-html]').forEach(el => yaz(el, 'data-i18n-html', 'html'));
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => yaz(el, 'data-i18n-ph', 'ph'));
       const sel = document.getElementById('lang-select');
       if (sel) sel.value = PZA.i18n.kod();
       document.documentElement.lang = PZA.i18n.aktif;

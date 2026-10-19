@@ -101,9 +101,15 @@ function fitKarari(ortam) {
      gibi bir bozulma testi DÜŞÜRÜR. */
   const ekBlok = app.match(/let ekH = 0;([\s\S]*?)\n      const h = gerekliH\(\);/);
   if (!ekBlok) { console.log('  FAIL ekH hesabı kaynak kodda bulunamadı — test geçersiz'); kaldi++; return { h: 0, ekH: 0, istenenH: 0, hh: 0, sığar: true, hedefY: 0 }; }
+  /* Ölçüm artık `dogalYukseklik()` kullanıyor (kırpılmış kutu yeniden
+     ölçülünce pencere hiç büyümüyordu) — YARDIMCININ GERÇEK kaynağını al. */
+  const dyKaynak = app.match(/function dogalYukseklik\(el\) \{[\s\S]*?\n  \}/);
+  if (!dyKaynak) { console.log('  FAIL dogalYukseklik kaynak kodda bulunamadı — test geçersiz'); kaldi++; return { h: 0, ekH: 0, istenenH: 0, hh: 0, sığar: true, hedefY: 0 }; }
+  const dogalYukseklik = new Function('return (' +
+    dyKaynak[0].replace('function dogalYukseklik', 'function') + ')')();
   const ekGovde = 'let ekH = 0;' + ekBlok[1].replace(/acikMi\(/g, 'acilanMi(');
-  const ekH = new Function('acilanMi', 'document', 'PZA',
-    ekGovde + ' return ekH;')(acilanMi, globalThis.document, globalThis.PZA);
+  const ekH = new Function('acilanMi', 'document', 'PZA', 'dogalYukseklik',
+    ekGovde + ' return ekH;')(acilanMi, globalThis.document, globalThis.PZA, dogalYukseklik);
 
   const h = gerekliH();
   const istenenH = h + ekH;

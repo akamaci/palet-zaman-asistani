@@ -14,6 +14,8 @@ const oku = y => readFileSync(join(kok, y), 'utf8');
 const app = oku('src/js/app.js');
 const skins = oku('src/js/skins.js');
 const settings = oku('src/js/settings.js');
+const i18n = oku('src/js/i18n.js');
+const conf = oku('src-tauri/tauri.conf.json');
 
 let gecti = 0, kaldi = 0;
 const kontrol = (baslik, kosul) => {
@@ -62,8 +64,11 @@ console.log('\n1 · Açılır menü kırpılması (ezan menüsü / güncelleme p
   kontrol('dropdown: yukarı dalı da SINIRLI (eskiden sınırsızdı)', /else if \(uste >= mh \+ 12\)/.test(dd));
   kontrol('dropdown: hiçbir yön sığmıyorsa KAYDIRMA (kırpma değil)',
     /overflowY = 'auto'/.test(dd));
-  kontrol('dropdown: `top` piksel olarak veriliyor, `bottom` karışmıyor',
-    /el\.style\.top = Math\.round/.test(dd) && !/el\.style\.bottom = Math\.round/.test(dd));
+  kontrol('dropdown: `top` piksel; CSS `bottom` yedeğini EZEN inline `bottom:auto` (aşırı kısıt = kırpılma)',
+    /el\.style\.top = Math\.round/.test(dd)
+    && /el\.style\.bottom = 'auto'/.test(dd)
+    && !/el\.style\.bottom = Math\.round/.test(dd)
+    && !/removeProperty\('bottom'\)/.test(dd));
 
   /* sıra: ÖNCE pencereyi büyüt (fit) SONRA konumlandır.
      `fit` `if (TAURI) {}` BLOĞU içinde tanımlı; dışarıdan çağrılabilmesi
@@ -72,8 +77,16 @@ console.log('\n1 · Açılır menü kırpılması (ezan menüsü / güncelleme p
      `PZA._fit?.()` bekler. */
   kontrol('ezan düğmesi: açarken ÖNCE pencere fit SONRA konumlandırma',
     /PZA\._fit\?\.\(\);\s*\n\s*PZA\.ezanMenuYerlestir\(\)/.test(app));
-  kontrol('PA düğmesi: açarken ÖNCE pencere fit SONRA konumlandırma',
-    /PZA\._fit\?\.\(\);\s*\n\s*paYerlestir\(\)/.test(app));
+  kontrol('PA düğmesi: önce HEMEN yerleştir, SONRA pencereyi büyüt, sonra DÜZELT',
+    /paYerlestir\(\);\s*\n\s*\$\('pa-kapat'\)[\s\S]{0,200}?const s = PZA\._fit\?\.\(\);[\s\S]{0,200}?s\.then\(\(\) => paYerlestir\(\)/.test(app));
+  kontrol('PA kutusunu fit/fitBar yeniden konumlandırabiliyor (PZA._paYerlestir)',
+    /PZA\._paYerlestir = paYerlestir;/.test(app) && /PZA\._paYerlestir\?\.\(\)/.test(app));
+  kontrol('bar modu fitBar PA kutusunu da hesaba katıyor',
+    /const paVar\s*= acikMi\('pa-modal'\)/.test(app) && /ezanVar \|\| paVar/.test(app));
+  kontrol('i18n: eksik anahtar HAM ANAHTAR yazmaz (HTML yedeği kalır)',
+    /const v = PZA\.i18n\.sozluk\[k\];\s*\n\s*if \(v == null\) return;/.test(i18n));
+  kontrol('CSP connect-src \'self\' içeriyor (pakette lang/*.txt okunabiliyor)',
+    /connect-src 'self'/.test(conf));
   kontrol('blok içindeki fit() dışarıya bağlanıyor (çıplak fit() ReferenceError)',
     /PZA\._fit = fit;/.test(app));
   kontrol('pencere boyutlandıktan sonra dropdown YENİDEN konumlanıyor',

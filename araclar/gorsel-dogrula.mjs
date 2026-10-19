@@ -15,9 +15,16 @@ const app = readFileSync(join(kok, 'src/js/app.js'), 'utf8');
 const ddKaynak = app.match(/PZA\.dropdownYerlestir = function \(el, tetik\) \{[\s\S]*?\n  \};/);
 if (!ddKaynak) { console.log('dropdownYerlestir bulunamadı'); process.exit(1); }
 
+/* dropdownYerlestir ölçümü `dogalYukseklik()` yardımcısını kullanır
+   (v1.36.5: kırpılmış kutuyu yeniden ölçmek pencereyi hiç büyütmüyordu).
+   YARDIMCININ GERÇEK kaynağını da al — taklit değil. */
+const dyKaynak = app.match(/function dogalYukseklik\(el\) \{[\s\S]*?\n  \}/);
+if (!dyKaynak) { console.log('dogalYukseklik bulunamadı'); process.exit(1); }
+
 globalThis.window = { innerWidth: 800, innerHeight: 300 };
 const PZA = {};
 globalThis.PZA = PZA;
+eval(dyKaynak[0].replace('function dogalYukseklik', 'globalThis.dogalYukseklik = function'));
 eval(ddKaynak[0]);
 
 /** Sahte dropdown + tetikleyici */
@@ -52,25 +59,30 @@ console.log('\nDROPDOWN YÖN KURALI (pencere 800x300)\n');
 
 {
   // 1) Altta yer var → aşağı
+  //    `bottom` ARTIK `auto` (v1.36.5): `.pa-box` CSS'inde `bottom: 46px`
+  //    yedeği var; inline `bottom: auto` onu EZMEZSE kutu aşırı kısıtlı
+  //    (top+bottom+height:auto) olur ve pencerenin dibine UZAR → kırpılır.
   const s = sahne({ vh: 300, tetikTop: 60, tetikBottom: 80, mh: 150 });
   sonuc('altta 220px yer var → AŞAĞI açılıyor',
-    s.top === '88px' && s.bottom === undefined, `top=${s.top} bottom=${s.bottom}`);
+    s.top === '88px' && s.bottom === 'auto', `top=${s.top} bottom=${s.bottom}`);
 }
 {
   // 2) Altta yok, üstte var → yukarı, düğmenin hizasında
   const s = sahne({ vh: 300, tetikTop: 240, tetikBottom: 260, mh: 100 });
   sonuc('altta yok, üstte 240px var → YUKARI (sınırlı)',
-    s.top === '132px' && s.bottom === undefined, `top=${s.top}`);
+    s.top === '132px' && s.bottom === 'auto', `top=${s.top} bottom=${s.bottom}`);
 }
 {
   // ESKİ HATA: yukarı dalı sınırsızdı, menü pencerenin dışına çıkardı
   // vh=300, düğme tepede (bottom=40) → alta 260px var, menü 400px.
-  // maxHeight = 260-16 = 244 olmalı; kaydırma açılmalı; üst kenar >= 0.
+  // v1.36.5: hiçbir yön sığmazsa kutu PENCERE İÇİNE sabitlenir
+  // (8px pay) ve içerik kaydırılır: maxHeight = 300-16 = 284, top >= 8.
   const s = sahne({ vh: 300, tetikTop: 20, tetikBottom: 40, mh: 400 });
   const kap = parseInt(s.maxHeight, 10);
+  const beklenen = 300 - 16;              // pencerenin İÇİ (üst+alt 8px pay)
   sonuc('menü pencereye SIĞMIYOR → max-height + kaydırma (kırpma değil)',
-    s.overflowY === 'auto' && kap === 244 && parseInt(s.top, 10) >= 0,
-    `top=${s.top} maxHeight=${s.maxHeight} (beklenen 244) overflowY=${s.overflowY}`);
+    s.overflowY === 'auto' && kap === beklenen && parseInt(s.top, 10) >= 8,
+    `top=${s.top} maxHeight=${s.maxHeight} (beklenen ${beklenen}) overflowY=${s.overflowY}`);
 }
 {
   // Kırpılmama garantisi: menü TEPE noktası asla pencere dışına çıkmamalı
@@ -85,9 +97,11 @@ console.log('\nDROPDOWN YÖN KURALI (pencere 800x300)\n');
     const s = sahne({ vh: k.vh, tetikTop: k.tt, tetikBottom: k.tb, mh: k.mh });
     const top = parseInt(s.top, 10);
     if (top < 0) ihtilaf.push(`top=${top}`);
-    if (s.bottom !== undefined) ihtilaf.push('bottom kullanıldı');
+    if (s.bottom !== 'auto') ihtilaf.push('bottom CSS yedeği ezilmedi: ' + s.bottom);
+    const yuk = parseInt(s.maxHeight, 10);
+    if (!(yuk > 0) || top + yuk > k.vh) ihtilaf.push(`kutu pencereyi aşıyor: ${top}+${yuk} > ${k.vh}`);
   }
-  sonuc('4 uç durumda menü tepesi ASLA pencere dışına çıkmıyor',
+  sonuc('4 uç durumda kutu TAMAMEN pencere içinde (kırpılma yok)',
     ihtilaf.length === 0, ihtilaf.join(', '));
 }
 

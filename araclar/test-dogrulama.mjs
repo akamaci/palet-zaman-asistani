@@ -39,7 +39,17 @@ const H = {
        "Uncaught ReferenceError: fit is not defined" → pencere büyümüyor. */
     paFitCagrisi: /    PZA\._fit\?\.\(\);\n    paYerlestir\(\);/,
     /* `paBtn` hiç tanımlı değildi → PA popup'ı dışına tıklayınca kapanmıyordu. */
-    paBtnTanimi: /    const paBtn = \$\(.pa-btn.\);\n/
+    paBtnTanimi: /    const paBtn = \$\(.pa-btn.\);\n/,
+    /* v1.36.3 CANLI hatası: PA düğmesi blok içindeki `fit`i ÇIPLAK çağırıyordu
+       ("Uncaught ReferenceError: fit is not defined") → pencere büyümüyor,
+       menü kırpılıyor. Doğrusu: `PZA._fit?.()` (opsiyonel zincir). */
+    paFitCagrisi: /    const s = PZA\._fit\?\.\(\);\n/,
+    /* v1.36.4 CANLI hatası: `.pa-box` CSS'inde `bottom: 46px` YEDEĞİ var.
+       JS yalnız inline `top` yazıp inline `bottom`'u silerse kutu AŞIRI
+       KISITLI olur (`top`+`bottom`+`height:auto`) → pencere dibine uzar,
+       `offsetHeight` ~200px yerine ~28px ölçülür → pencere büyümez,
+       kutu 148px'lik pencerede kırpılır ("menü açılmıyor"). */
+    paBottom: /\n    el\.style\.bottom = 'auto';\n/
   },
   'src/js/notes.js': {
     /* v1.36.3'te CANLIYA GİDEN yazım hatası: dosyanın geri kalanını
@@ -49,6 +59,11 @@ const H = {
   },
   'src/js/settings.js': {
     tiklanirKurali: /    const tiklanir = TIKLANIR\.has\(el\.tagName\) \|\|\n      \(el\.hasAttribute && el\.hasAttribute\('contenteditable'\)\);\n    if \(kilitli \|\| tiklanir\) el\.removeAttribute\('data-tauri-drag-region'\);\n    else el\.setAttribute\('data-tauri-drag-region', ''\);/
+  },
+  'src/js/i18n.js': {
+    /* v1.36.4 CANLI hatası: sözlük boşken `t(anahtar, null)` HAM ANAHTARI
+       ekrana yazıyordu ("pa_kapat", "pa_baslik"). */
+    uygula: /    uygula: function \(\) \{[\s\S]*?\n    \},/
   },
   'src/index.html': {
     notlarTetik: /<button id="btn-notes" class="btn-notes" aria-expanded="false" data-panel-tetik="1">/,
@@ -178,7 +193,7 @@ const senaryolar = [
     test: 'araclar/panel-tiklama-test.mjs',
     degisiklikler: [{
       dosya: 'src/js/app.js', hedef: 'paFitCagrisi',
-      yeni: '    fit();\n    paYerlestir();'
+      yeni: '    const s = fit();\n'
     }]
   },
   {
@@ -187,6 +202,45 @@ const senaryolar = [
     degisiklikler: [
       { dosya: 'src/js/app.js', hedef: 'paBtnTanimi', yeni: '' }
     ]
+  },
+  {
+    ad: 'v1.36.4 CANLI hatası: CSS `bottom` yedeği ezilmiyor → PA kutusu uzuyor/kırpılıyor',
+    test: 'araclar/panel-tiklama-test.mjs',
+    degisiklikler: [
+      { dosya: 'src/js/app.js', hedef: 'paBottom', yeni: '\n' }
+    ]
+  },
+  {
+    ad: 'v1.36.4 CANLI hatası: kutu geometrisi pencere dışına çıkıyor (görsel doğrulama)',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [
+      { dosya: 'src/js/app.js', hedef: 'paBottom', yeni: '\n' }
+    ]
+  },
+  {
+    ad: 'v1.36.4 CANLI hatası: sözlük boşken ekrana HAM ANAHTAR yazılıyor',
+    test: 'araclar/i18n-yedek-test.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/i18n.js', hedef: 'uygula',
+      yeni: `    uygula: function () {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const v = PZA.i18n.t(el.getAttribute('data-i18n'), null);
+        if (v != null) el.textContent = v;
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const v = PZA.i18n.t(el.getAttribute('data-i18n-html'), null);
+        if (v != null) el.innerHTML = v;
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const v = PZA.i18n.t(el.getAttribute('data-i18n-ph'), null);
+        if (v != null) el.setAttribute('placeholder', v);
+      });
+      const sel = document.getElementById('lang-select');
+      if (sel) sel.value = PZA.i18n.kod();
+      document.documentElement.lang = PZA.i18n.aktif;
+      PZA.emit && PZA.emit('dil', PZA.i18n.aktif);
+    },`
+    }]
   }
 ];
 

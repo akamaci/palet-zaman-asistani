@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Palet Zaman Asistanı",
-  "version": "1.36.4",
+  "version": "1.36.5",
   "identifier": "com.paletweb.zamanasistani",
   "build": {
     "frontendDist": "../src"
@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src https://api.open-meteo.com https://geocoding-api.open-meteo.com https://ezanvakti.emushaf.net https://oauth2.googleapis.com https://www.googleapis.com https://raw.githubusercontent.com; object-src 'none'"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com https://ezanvakti.emushaf.net https://oauth2.googleapis.com https://www.googleapis.com https://raw.githubusercontent.com; object-src 'none'"
     }
   },
   "plugins": {
