@@ -314,6 +314,104 @@ PZA.toggleNotes = function (force) {
 
 PZA.closeNotes = function () { PZA.toggleNotes(false); PZA.closeCal(); };
 
+/* Panel KAPANMA YOLLARI (hata düzeltmesi 2026-10-19).
+   Sorun: `closeNotes` tanımlıydı ama HİÇBİR YERDEN çağrılmıyordu.
+   Notlar panelinin tek çıkışı `btn-notes`'e tekrar basmaktı — ama
+   Aurora/plaka modunda o düğme alt bardadır ve panel açılınca gizlenir,
+   dolayısıyla kullanıcı paneli bir daha kapatamıyordu ("açılınca
+   kapanmıyor"). Hava panelinde de aynı eksiklik vardı.
+
+   Üç kurtarma yolu eklendi:
+     1) Escape tuşu
+     2) Panelin dışına tıklama
+     3) Panel içindeki görünür KAPAT düğmesi (aşağıda oluşturulur) */
+(function panelKapatmaYollari() {
+  // Gerçek DOM yoksa hiçbir şey yapma (test/sahte ortam).
+  if (typeof document === 'undefined'
+      || typeof document.getElementById !== 'function'
+      || typeof document.addEventListener !== 'function') return;
+
+  const dokun = ev => {
+    const p  = document.getElementById('panel-notes');
+    const pv = document.getElementById('panel-weather');
+    if (!p && !pv) return;
+    const acikNot = p && !p.hidden;
+    const acikHva = pv && !pv.hidden;
+    if (!acikNot && !acikHva) return;
+    // Tıklama zaten panelin İÇİNDEYSE dokunma
+    const hedef = ev && ev.target;
+    const icinde = el => typeof el.contains === 'function' ? el.contains(hedef) : false;
+    if (acikNot && icinde(p)) return;
+    if (acikHva && icinde(pv)) return;
+    if (acikNot) PZA.closeNotes();
+    if (acikHva) PZA.closeWeather?.();
+  };
+  document.addEventListener('click', dokun);
+
+  document.addEventListener('keydown', ev => {
+    if (!ev || ev.key !== 'Escape') return;
+    if (PZA.calOpen && PZA.calOpen()) { PZA.closeCal(); return; }
+    const p  = document.getElementById('panel-notes');
+    const pv = document.getElementById('panel-weather');
+    if (p && !p.hidden) { PZA.closeNotes(); return; }
+    if (pv && !pv.hidden) { PZA.closeWeather?.(); }
+  });
+})();
+
+/* Panel başlığına KAPAT düğmesi ekle — hem plakada hem klasikte.
+   `aria-label` ile erişilebilir; mevcut panel başlığına eklenir. */
+(function kapatDugmesiEkle() {
+  /* Gerçek DOM yoksa (test/sahte ortam) hiçbir şeye dokunma. */
+  const domVar = typeof document !== 'undefined'
+    && typeof document.getElementById === 'function'
+    && typeof document.createElement === 'function';
+
+  const kur = (panelId, sel, etiket) => {
+    if (!domVar) return;
+    const p = document.getElementById(panelId);
+    if (!p) return;
+    const sorguVar = typeof p.querySelector === 'function';
+    let bas = sorguVar ? p.querySelector(sel) : null;
+    if (!bas) {
+      // Başlık yoksa panelin en üstüne sarmalayıcı aç (yerleşim bozulmasın)
+      bas = document.createElement('div');
+      bas.className = 'panel-kapat-satir';
+      if (typeof bas.setAttribute === 'function') bas.setAttribute('data-drag', '0');
+      if (typeof p.insertBefore === 'function') p.insertBefore(bas, p.firstChild);
+      else if (typeof p.appendChild === 'function') p.appendChild(bas);
+    }
+    if (sorguVar && bas.querySelector && bas.querySelector('.panel-kapat')) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'panel-kapat';
+    if (typeof b.setAttribute === 'function') b.setAttribute('aria-label', etiket);
+    b.title = etiket;
+    b.textContent = '×';
+    if (b.style) {
+      b.style.cssText = 'float:right;background:transparent;border:0;color:var(--fg-mute);'
+        + 'font-size:20px;line-height:1;cursor:pointer;padding:2px 6px;margin:-2px -4px 0 0;';
+      b.style.pointerEvents = 'auto';
+    }
+    if (typeof b.addEventListener === 'function') {
+      b.addEventListener('click', ev => {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        PZA.closeNotes();
+      });
+    }
+    if (typeof bas.appendChild === 'function') bas.appendChild(b);
+  };
+  // DOM hazır olduğunda çalıştır.
+  // `document.addEventListener` yoksa (test/sahte DOM) doğrudan çalıştır.
+  const calistir = () => {
+    kur('panel-notes', '.nt-head', 'Notlar panelini kapat');
+    kur('panel-weather', null, 'Hava panelini kapat');
+  };
+  const yukleniyor = document.readyState === 'loading';
+  const dinleyebilir = typeof document.addEventListener === 'function';
+  if (yukleniyor && dinlenebilir) document.addEventListener('DOMContentLoaded', calistir);
+  else calistir();
+})();
+
 /* ── Takvim ──────────────────────────────────────────────
    Açılır pencere değil, akış içinde bir bölme: `.widget`
    `overflow: hidden` olduğu için dışarı taşan bir popover

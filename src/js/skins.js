@@ -405,10 +405,31 @@ PZA.activeSkin = function () {
   return null;
 };
 
-/** Aktif skin bir pza-skin/2 (plaka) ise {w,h}; değilse null. */
+/* Plaka skin'lerinin TUÇAL boyutu — 1/2, 1/3, 1/4 ayarı yok sayılıyordu
+   (HATA 2026-10-19: Aurora 940×320'de SABİT kalıyor, kullanıcı 1/4
+   seçse bile widget 940px genişlikte açılıyordu; "tema normal boyutundan
+   çok büyük" şikâyeti). Bu değerler widget.css'teki
+   `.widget[data-size=…]` `max-width` değerleriyle BİREBİR aynıdır. */
+PZA.PLAKA_GENISLIK = { '2': 800, '3': 700, '4': 430 };
+
+/** Hedef genişlikten plaka ölçüsü türet (oranı koru). */
+PZA.plakaOlcek = function (canvas) {
+  const cv = canvas || { w: 940, h: 430 };
+  const boyut = String((PZA.settings && PZA.settings.size) || '2');
+  const hedef = PZA.PLAKA_GENISLIK[boyut] || PZA.PLAKA_GENISLIK['2'];
+  /* Genişlik zaten hedefe eşit/yeniden büyükse çıplak tuvali kullan
+     (küçültme yapma; 430'a sığdırmak metni okunmaz hale getirirdi). */
+  if (!cv.w || cv.w <= hedef) return { w: cv.w, h: cv.h, oran: 1 };
+  const o = cv.h / cv.w;
+  return { w: hedef, h: Math.round(hedef * o), oran: hedef / cv.w };
+};
+
+/** Aktif skin bir pza-skin/2 (plaka) ise {w,h}; değilse null.
+    Artık ÖLÇEKLENMİŞ ölçü döner — boyut ayarı plakada da çalışır. */
 PZA.plateSize = function () {
   const sk = PZA.activeSkin();
-  if (sk && (sk.format === PZA.SKIN_FORMAT_V2 || sk.format === PZA.SKIN_FORMAT_V3) && sk.canvas) return sk.canvas;
+  if (sk && (sk.format === PZA.SKIN_FORMAT_V2 || sk.format === PZA.SKIN_FORMAT_V3) && sk.canvas)
+    return PZA.plakaOlcek(sk.canvas);
   return null;
 };
 
@@ -475,11 +496,26 @@ PZA.plateKatmanlari = function (w, skin) {
   if (animStil) animStil.textContent = '';
   let animCss = '';
 
+  /* Sprite (atlas parçası) — HATA DÜZELTMESİ (2026-10-19):
+       Atlas ve parça koordinatları skin'in ORİJİNAL tuvelindeki
+       (940px) mutlak piksel değerlerdir. Widget küçültülünce
+       (`--plate-w` 800/700/430) bu pikseller ÖLÇEKLENMEZSE parçalar
+       kutudan taşar. Bu yüzden sprite pozisyonu/ölçüsü `oran` ile
+       çarpılır. `oran` = 1 ise hiç değişiklik olmaz. */
+  const ol = PZA.plakaOlcek(skin.canvas);
   const sprite = (d, p) => {
+    const aw = (A.w || p.w), ah = (A.h || p.h);
     d.style.backgroundImage = 'url("' + A.image + '")';
-    d.style.backgroundPosition = (-p.x) + 'px ' + (-p.y) + 'px';
-    d.style.backgroundSize = (A.w || p.w) + 'px ' + (A.h || p.h) + 'px';
+    if (ol.oran === 1) {
+      d.style.backgroundPosition = (-p.x) + 'px ' + (-p.y) + 'px';
+      d.style.backgroundSize = aw + 'px ' + ah + 'px';
+    } else {
+      d.style.backgroundPosition = (-p.x * ol.oran) + 'px ' + (-p.y * ol.oran) + 'px';
+      d.style.backgroundSize = (aw * ol.oran) + 'px ' + (ah * ol.oran) + 'px';
+    }
   };
+  /* Katman KUTUSU da aynı ölçekle küçülmeli. */
+  const px = v => (ol.oran === 1 ? (v || 0) : (v || 0) * ol.oran);
 
   (skin.layers || []).forEach((L, idx) => {
     // ANIMASYONLU KATMAN (Winamp AnimatedLayer): frames:[partId,...]
@@ -489,17 +525,19 @@ PZA.plateKatmanlari = function (w, skin) {
       const first = P[fr[0]];
       const d = document.createElement('div');
       d.className = 'plate-part';
-      d.style.left = (L.x || 0) + 'px';
-      d.style.top = (L.y || 0) + 'px';
-      d.style.width = (L.w || first.w) + 'px';
-      d.style.height = (L.h || first.h) + 'px';
+      d.style.left = px(L.x) + 'px';
+      d.style.top = px(L.y) + 'px';
+      d.style.width = px(L.w || first.w) + 'px';
+      d.style.height = px(L.h || first.h) + 'px';
       sprite(d, first);
       const name = 'pla' + String(skin.id || 'skin').replace(/[^a-z0-9]/gi, '') + idx;
       const n = fr.length, step = 100 / n;
       let kf = '';
       fr.forEach((f, i) => {
         const p = P[f];
-        kf += (i * step) + '%,' + ((i + 1) * step) + '%{background-position:' + (-p.x) + 'px ' + (-p.y) + 'px}';
+        /* Keyframe içindeki pozisyon da aynı ölçekle çarpılmalı. */
+        kf += (i * step) + '%,' + ((i + 1) * step) + '%{background-position:'
+              + (-p.x * ol.oran) + 'px ' + (-p.y * ol.oran) + 'px}';
       });
       const dur = Math.max(0.05, n / (L.fps || 8));
       animCss += '@keyframes ' + name + '{' + kf + '}';
@@ -512,10 +550,10 @@ PZA.plateKatmanlari = function (w, skin) {
     const part = P[L.part]; if (!part) return;
     const d = document.createElement('div');
     d.className = 'plate-part';
-    d.style.left = (L.x || 0) + 'px';
-    d.style.top = (L.y || 0) + 'px';
-    d.style.width = (L.w || part.w) + 'px';
-    d.style.height = (L.h || part.h) + 'px';
+    d.style.left = px(L.x) + 'px';
+    d.style.top = px(L.y) + 'px';
+    d.style.width = px(L.w || part.w) + 'px';
+    d.style.height = px(L.h || part.h) + 'px';
     sprite(d, part);
     if (L.alpha != null) d.style.opacity = L.alpha;
     cont.appendChild(d);
@@ -535,6 +573,13 @@ PZA.applyPlate = function (skin) {
   const w = document.getElementById('widget');
   if (!w) return;
   const cv = skin.canvas || { w: 940, h: 430 };
+  /* GÖRÜNTÜLENEN ölçü: boyut ayarına göre ölçeklenmiş (bkz. plakaOlcek).
+     `cv` = skin'in kendi tuvali (bölge koordinatlarının kaynağı),
+     `ol` = ekranda görünecek ölçü. Bölgeler YÜZDEDE konumlandığı için
+     `ol` üzerinden de doğru oranı korurlar. */
+  const ol = PZA.plakaOlcek(cv);
+  /* `orij` = skin'in orijinal tuvali; saat ölçeği buna göre hesaplanır. */
+  const orij = cv;
 
   Object.keys(skin.tokens || {}).forEach(k => {
     const c = PZA.parseColor(skin.tokens[k]);
@@ -551,8 +596,13 @@ PZA.applyPlate = function (skin) {
 
   w.dataset.skin = 'plaka';
   if (w.classList) w.classList.add('plaka');
-  w.style.setProperty('--plate-w', cv.w + 'px');
-  w.style.setProperty('--plate-h', cv.h + 'px');
+  w.style.setProperty('--plate-w', ol.w + 'px');
+  w.style.setProperty('--plate-h', ol.h + 'px');
+  /* Ölçek bilgisini CSS'e de ver: `background-size` ve katman
+     konumları orantılı kalsın. */
+  w.style.setProperty('--plate-olan', String(ol.oran));
+  w.style.setProperty('--plate-canvas-w', cv.w + 'px');
+  w.style.setProperty('--plate-canvas-h', cv.h + 'px');
   if (skin.format !== PZA.SKIN_FORMAT_V3)
     w.style.setProperty('--plate-img', 'url("' + skin.plate + '")');
 
@@ -575,7 +625,10 @@ PZA.applyPlate = function (skin) {
   });
 
   /* SAAT: bölgeye SIĞDIRILIR. Flip kartları sabit ölçülü olduğundan
-     kutuya sığmaz; merkezi bölge merkezine konur ve ölçekle oturtulur. */
+     kutuya sığmaz; merkezi bölge merkezine konur ve ölçekle oturtulur.
+     HATA DÜZELTMESİ (2026-10-19): ölçek `r.w`/`r.h` ile HESAPLANIYORDU
+     (skin'in 940px'lik orijinal tuvali) ama ekranda GÖRÜNEN kutu küçülmüş
+     → saat bölgeden taşıyordu. Artık ekranda görünen ölçü (`ol`) kullanılır. */
   if (R.clock) {
     const el = PZA.q1(PZA.PLATE_MAP.clock);
     if (el) {
@@ -584,8 +637,12 @@ PZA.applyPlate = function (skin) {
       el.style.left = ((r.x + r.w / 2) * 100 / cv.w) + '%';
       el.style.top  = ((r.y + r.h / 2) * 100 / cv.h) + '%';
       el.style.width = ''; el.style.height = '';
+      /* Bölgeyi ekrandaki (ölçeklenmiş) ölçüye indirge. */
+      const gw = r.w * ol.oran, gh = r.h * ol.oran;
       const nw = el.offsetWidth || 1, nh = el.offsetHeight || 1;
-      const s = Math.min(r.w / nw, r.h / nh) * 0.94;   // hafif iç boşluk
+      /* `data-size` ölçekleri kartları zaten küçülttüğü için iki kez
+         küçültmeyelim: oran `min(1, …)` ile sınırlanır. */
+      const s = Math.min(gw / nw, gh / nh) * 0.94;
       el.style.transform = 'translate(-50%, -50%) scale(' + (Math.round(s * 1000) / 1000) + ')';
     }
   }
@@ -611,7 +668,8 @@ PZA.clearPlate = function () {
   if (!w) return;
   if (w.classList) w.classList.remove('plaka');
   if (w.removeAttribute) w.removeAttribute('data-tauri-drag-region');
-  ['--plate-w', '--plate-h', '--plate-img'].forEach(k => w.style.removeProperty(k));
+  ['--plate-w', '--plate-h', '--plate-img', '--plate-olan',
+    '--plate-canvas-w', '--plate-canvas-h'].forEach(k => w.style.removeProperty(k));
   PZA.plateTemizle();
 };
 

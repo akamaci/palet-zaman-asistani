@@ -1445,6 +1445,23 @@ body:has(.widget.plaka) { align-items: center !important; justify-content: cente
 .widget.plaka .group-right,
 .widget.plaka .group-bottom-left { display: contents; }
 .widget.plaka .bar-preview { display: none; }
+
+/* Panel AÇIKKEN alt barı gizle: `display: contents` yüzünden bar
+   öğeleri plakanın üstüne saçılıyor ve panelin metni/ızgara çizgileri
+   alt barla ÇAKIŞIYORDU (ekran görüntüsü: "Toplam 0 hatırlatmanız
+   bulunuyor" yazısı saatin üstüne biniyordu). Panel açıkken bar
+   düğmeleri gizlenir, panel tek başına pencereyi kaplar. */
+.widget.plaka:has(> .panel-notes:not([hidden])) .bar-bottom,
+.widget.plaka:has(> .panel-weather:not([hidden])) .bar-bottom,
+.widget.plaka:has(> .panel-notes:not([hidden])) .bar-top,
+.widget.plaka:has(> .panel-weather:not([hidden])) .bar-top,
+.widget.plaka:has(> .panel-notes:not([hidden])) .plate-drag,
+.widget.plaka:has(> .panel-weather:not([hidden])) .plate-drag { display: none; }
+
+/* Panel kendi sürükleme alanını alsın (plaka `plate-drag`ı üstte
+   26px'de duruyordu; panel açıkken pencere taşıma çubuğu çalışmıyordu). */
+.widget.plaka > .panel-notes,
+.widget.plaka > .panel-weather { cursor: default; }
 /* Çerçeveyi PLAKA çizer → canlı kontroller KROMSUZ (yalnız değer/ikon). */
 .widget.plaka #weather-tile,
 .widget.plaka #btn-notes,
@@ -1484,6 +1501,51 @@ body:has(.widget.plaka) { align-items: center !important; justify-content: cente
 .widget.plaka .btn-lock { display: none; }
 /* Plaka tam pencereyi doldurur → tarayıcı önizlemesinde kaydırma çubuğu olmasın. */
 html:has(.widget.plaka), body:has(.widget.plaka) { overflow: hidden; }
+
+/* ── pza-skin/2 & /3 (PLAKA) — AÇILIR PANELLER ────────────────────
+   HATA DÜZELTMESİ (kullanıcı 2026-10-19, ekran görüntüsü):
+   Aurora'da Notlar paneli AÇILMIYORDU: metin plakanın üstüne biniyor,
+   üst yarısı kırpılıyor ve panel KAPANAMIYORDU.
+
+   KÖK NEDEN: `.widget.plaka .bar { display: contents }` — sarmalayıcı
+   yok oluyor, böylece `.panel-notes` doğrudan `.widget` (plaka kutusu)
+   içine düşüyor. Plaka ise `position: relative; overflow: hidden` ve
+   `background: var(--plate-img)` → panel saydam zeminin ÜSTÜNDE,
+   plaka görselinin altında kalıyor; koyu metin koyu zeminde
+   okunmuyor. Ayrıca panel `min-height` yerine kendi yüksekliğini
+   alıp kutudan taşıyor ve tıklama hedefi kayboluyor → kapanmıyor.
+
+   ÇÖZÜM: plakada paneller `position: fixed` (pencere dışına taşabilir,
+   `fit()` pencereyi büyütür) + opak zemin + widget'ın ALTINA yaslama.
+   Klasik davranışla birebir aynı: `fit()` zaten `icVar` dalında
+   panel yüksekliğini ölçüp pencereyi büyütüyor. */
+.widget.plaka > .panel-notes,
+.widget.plaka > .panel-weather {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0; top: auto;
+  z-index: 8;
+  /* OPAK zemin: plaka görseli yarı saydam olduğu için yarı saydam
+     panel metni okunmaz hâle getiriyordu. */
+  background: var(--bg-1, #0a1020);
+  border-top: 1px solid var(--edge-soft);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  animation: none;              /* plaka zaten sabit duruyor */
+}
+/* Pencere yukarı yaslandığında panel widget'ın ÜSTÜNE çıkar
+   (klasikle aynı `order: -1` davranışı, ama flex yerine konum). */
+.widget.plaka.yukari > .panel-notes,
+.widget.plaka.yukari > .panel-weather {
+  top: 0; bottom: auto;
+  border-top: 1px solid var(--edge-soft);
+  border-bottom: 0;
+}
+/* Panel açıkken plaka görseli arkasında kalmasın, metni okunur olsun. */
+.widget.plaka:has(> .panel-notes:not([hidden])),
+.widget.plaka:has(> .panel-weather:not([hidden])) {
+  background: var(--bg-1, #0a1020);
+}
 
 /* ── AYARLAR SEKMELERİ (v1.20.0) ─────────────────────────────
    Kullanıcı: "ayarlar içinde sekme yapalım; uzadıkça en aşağı kadar uzuyor,

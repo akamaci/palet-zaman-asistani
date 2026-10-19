@@ -9,7 +9,7 @@ window.PZA = window.PZA || {};
    yayımlandığı hâlde panelde "v1.0" kalıyordu.
    Üç dosyayla eşleşme `npm run dogrula` (kontrol 8) ile denetlenir —
    sürüm yükseltmesi unutulursa yayın durur. */
-PZA.SURUM = '1.36.0';
+PZA.SURUM = '1.36.1';
 
 /* ── Skin kataloğu ──────────────────────────────────────
    Winamp mantığı: her skin bir token seti. Kullanıcı skin'i
@@ -160,6 +160,13 @@ PZA.apply = function () {
   w.classList.toggle('hide-weather', !s.weather);
   w.classList.toggle('hide-preview', !s.preview);
   w.classList.toggle('hide-seconds', !s.seconds);
+
+  /* Boyut değişince PLAKA YENİDEN HESAPLANMALI (2026-10-19): Aurora gibi
+     pza-skin/2/3 skinlerde `--plate-w/h` skin'in kendi tuvalinden
+     sabit yazılıyordu, `data-size` yok sayılıyordu → 1/4 seçilse bile
+     widget 940px açılıyordu. `applySkin()` yeni ölçüyü uygular
+     (`plakaOlcek`), bölgeleri ve katmanları ölçekler. */
+  if (PZA.applySkin) PZA.applySkin();
 
   /* v1.18.0 — Alt bardaki "Tema: Karanlık" yazısı kaldırıldı (kullanıcı:
      gereksiz); yerine ezan ses düğmesi geldi. Tema durumu zaten soldaki

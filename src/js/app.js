@@ -262,6 +262,12 @@
     const fit = async () => {
       if (PZA.settings && PZA.settings.size === 'bar') { await fitBar(); return; }
       if (!konumYuklendi) { konumYuklendi = true; await konumGeriYukle(); }
+      /* Boyut/skin DEĞİŞTİYSE ölçüm bayatlamış olabilir → yeniden ölç.
+         (2026-10-19: Aurora'da 1/2→1/4 geçişi `sonG`'deki eski değerle
+         karşılaştırıldığı için `fit()` erken çıkıyor, pencere eski
+         genişlikte kalıyordu.) */
+      const beklenenG = PZA.plateSize ? (PZA.plateSize() || {}).w : 0;
+      if (beklenenG && Math.abs(beklenenG - sonG) > 0.5) { sonH = -1; sonG = -1; }
       const h = gerekliH();
       const g = Math.max(EN_AZ_G, gerekliG());
       // Titremeyi önle: hedef DEĞİŞMEDİYSE dokunma. Ölçülen pencere
@@ -282,9 +288,38 @@
         const icVar = acikMi('panel-notes') || acikMi('panel-weather');
         const kapVar = acikMi('settings') || acikMi('studio');
 
+        /* DÜŞEN YÜZEYLER (ezan menüsü, güncelleme popup'ı) — HATA DÜZELTMESİ
+           (kullanıcı 2026-10-19, ekran görüntüsü): bu yüzeyler `position: fixed`
+           olduğu için pencere dışına taşıyor; `fit()` onları ÖLÇMEDEN pencereyi
+           boyutlandırdığı için ekranda PENÇERENİN ALTINDA kalıyor ve
+           pencerenin üst yarısı kırpılıyordu (ezan menüsünde İmsak satırı
+           ve ses kaydırıcısı görünmüyordu).
+
+           `fitBar()` bu ölçümü yapıyordu; NORMAL MODDA (`fit()`) eksikti —
+           iki ayrı kod yolu, biri düzeltilmiş diğeri unutulmuş.
+
+           Çözüm: açık dropdown'ların YÜKSEKLİĞİNİ de hesaba kat. Pencere
+           onların sığacağı kadar büyür → `dropdownYerlestir` yukarı/aşağı
+           seçimi doğru çalışır, hiçbir yüzey kırpılmaz. */
+        let ekH = 0;
+        if (acikMi('ezan-menu')) {
+          const em = document.getElementById('ezan-menu');
+          if (em) ekH = Math.max(ekH, em.offsetHeight || em.scrollHeight || 0);
+        }
+        if (acikMi('pa-modal')) {
+          /* `pa-modal` sarmalayıcıdır; konumlanan/ölçülen öğe içindeki
+             `.pa-box`'tir. Sarmalayıcıyı ölçmek yanlış yükseklik verir
+             (tam ekran yüzey olabilir). */
+          const pm = document.getElementById('pa-modal');
+          const kutu = pm && pm.querySelector ? pm.querySelector('.pa-box') : null;
+          const o = kutu || pm;
+          if (o) ekH = Math.max(ekH, o.offsetHeight || o.scrollHeight || 0);
+        }
+
         // Panel iş alanından uzun olabilir (Ayarlar/Stüdyo). Kırp:
         // panel kendi içinde kaydırılır, pencere ekrandan taşmaz.
-        const hh = alan.boy ? Math.min(h, Math.max(240, alan.boy - 8)) : h;
+        const istenen = h + ekH;
+        const hh = alan.boy ? Math.min(istenen, Math.max(240, alan.boy - 8)) : istenen;
 
         /* Saatin ekrandaki üst kenarı. Panel saatin üstünde duruyorsa
            saat, pencere tepesinden panelin yüksekliği kadar aşağıdadır.
@@ -295,7 +330,24 @@
         let pay = 0;              // panelin saatin üstüne eklediği yükseklik
         let hedefY = y;
 
-        if (kapVar) {
+        if (ekH > 0) {
+          /* Açık DÜŞEN YÜZEY (ezan menüsü / güncelleme popup'ı): pencere
+             `ekH` kadar büyüdü ama widget'ın EKRANDAKİ YERİ KORUNMALI.
+             Konumu sabit tutarsak pencere AŞAĞI doğru büyür ve menü
+             widget'ın ALTINDA (aşağıda yer olduğu için) tam görünür.
+             Yukarıda kalmak yerine aşağıda açılması tercih edilir:
+             ezan düğmesi barın ALTINDA olduğundan menü zaten oraya
+             hizalanır ve tepedeki saat görünür kalır. */
+          if (temelY === null) temelY = y;
+          /* Altta yer yoksa (widget ekranın dibinde) → yukarı aç. */
+          const sığar = (temelY + hh) <= alt;
+          if (sığar) {
+            yukari = false; pay = 0; hedefY = temelY;
+          } else {
+            yukari = true; pay = ekH;
+            hedefY = Math.max(alan.ust, temelY - ekH);
+          }
+        } else if (kapVar) {
           /* Kaplama panel (Ayarlar/Stüdyo, `position: fixed`): pencere
              iş alanına sığsın diye gerekiyorsa yukarı çekilir; panel
              kapanınca temelY'ye dönülür. */
@@ -330,6 +382,13 @@
         sonY = hedefY;
         sonYukari = yukari;
         sonPay = yukari ? pay : 0;
+        /* Pencere boyutlandı → `vh` değişti. Dropdown'ın yön seçimi
+           ESKİ `vh`'ye göre yapılmıştı; menüyü YENİDEN konumlandır
+           (aksi hâlde kırpılmış konumda kalır). */
+        if (ekH > 0) {
+          PZA.dropdownYerlestir?.(document.getElementById('ezan-menu'), $('ezan-ses-btn'));
+          PZA.dropdownYerlestir?.(document.getElementById('pa-modal'), $('pa-btn'));
+        }
       } catch (e) { /* yetki yoksa sessizce geç */ }
     };
 
@@ -597,10 +656,23 @@
     if (!paModal) return;
     surumGoster();
     paModal.hidden = false;
+    /* Ezan menüsüyle AYNI sorun (2026-10-19): pencere kutuya sığacak
+       kadar BÜYÜMEDEN konumlandırma yapılırsa yanlış yön seçilir ve
+       kutunun üst yarısı pencere kenarından kırpılır.
+       Sıra: `fit()` (pencereyi büyüt) → `paYerlestir()` (yönü seç). */
+    fit();
     paYerlestir();
     $('pa-kapat')?.focus();
   }
-  function paKapa() { if (paModal) paModal.hidden = true; }
+  function paKapa() {
+    if (!paModal) return;
+    paModal.hidden = true;
+    const kutu = paModal.querySelector ? paModal.querySelector('.pa-box') : null;
+    if (kutu) {
+      ['maxHeight', 'overflowY', 'top', 'bottom', 'left', 'right']
+        .forEach(k => kutu.style.removeProperty(k));
+    }
+  }
 
   $('pa-btn')?.addEventListener('click', () => {
     paAc();
@@ -879,7 +951,12 @@
 
   const ezanMenu = $('ezan-menu'), ezanBtn = $('ezan-ses-btn');
   function menuKapat() {
-    if (ezanMenu) ezanMenu.hidden = true;
+    if (ezanMenu) {
+      ezanMenu.hidden = true;
+      /* Sığmayınca verilen kaydırma/maxHeight kalıntısını temizle. */
+      ['maxHeight', 'overflowY', 'top', 'bottom', 'left', 'right']
+        .forEach(k => ezanMenu.style.removeProperty(k));
+    }
     if (ezanBtn) ezanBtn.setAttribute('aria-expanded', 'false');
   }
 
@@ -923,8 +1000,37 @@
     const mh = el.offsetHeight || Math.round(el.getBoundingClientRect().height) || 220;
     el.style.left = 'auto';
     el.style.right = Math.round(Math.max(8, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
-    if ((vh - rb.bottom) >= mh + 12) { el.style.top = Math.round(rb.bottom + 8) + 'px'; el.style.bottom = 'auto'; }
-    else { el.style.bottom = Math.round(vh - rb.top + 8) + 'px'; el.style.top = 'auto'; }
+
+    /* HATA DÜZELTMESİ (2026-10-19): eski hâli "aşağıda mh+12 yer varsa
+       aşağı, YOKSA yukarı" idi ve yukarı dalı konumu hiç sınırlama
+       yapmıyordu → menü pencerenin ÜST kenarının dışına kayıp üst
+       yarısı kırpılıyordu (ekran görüntüsü).
+
+       Yeni kural:
+         1) Altta yer varsa → AŞAĞI (düğmenin altı).
+         2) Altta yoksa AMA üstte varsa → YUKARI, DÜĞMENİN HIZASINDA.
+         3) İki tarafta da yoksa → iç kaydırma aç, pencere yeterince
+            büyüyene kadar AŞAĞI sabit tut (kırpma yerine kaydırma).
+       `top` her zaman piksel olarak verilir; `bottom` kullanılmaz —
+       iki yönlü kurulum birbirini geçersiz kılıyordu. */
+    const alta = (vh - rb.bottom);
+    const uste = rb.top;
+    if (alta >= mh + 12) {
+      el.style.top = Math.round(rb.bottom + 8) + 'px';
+      el.style.removeProperty('bottom');
+      el.style.maxHeight = '';
+    } else if (uste >= mh + 12) {
+      el.style.top = Math.round(Math.max(8, rb.top - mh - 8)) + 'px';
+      el.style.removeProperty('bottom');
+      el.style.maxHeight = '';
+    } else {
+      /* Hiçbir yön sığmıyor → sığdır + kendi içinde kaydır. */
+      const kap = Math.max(80, alta - 16);
+      el.style.top = Math.round(rb.bottom + 8) + 'px';
+      el.style.removeProperty('bottom');
+      el.style.maxHeight = kap + 'px';
+      el.style.overflowY = 'auto';
+    }
   };
 
   PZA.ezanMenuYerlestir = function () {
@@ -942,7 +1048,22 @@
     const acikti = !ezanMenu.hidden;
     ezanMenu.hidden = acikti;
     ezanBtn.setAttribute('aria-expanded', acikti ? 'false' : 'true');
-    if (!acikti) { PZA.ezanMenuCiz(); PZA.ezanMenuYerlestir(); }
+    if (!acikti) {
+      PZA.ezanMenuCiz();
+      /* Önce pencereyi büyüt, SONRA konumlandır. Sıra önemli:
+         `dropdownYerlestir` `window.innerHeight` ölçer; pencere
+         büyümeden yapılırsa yanlış yön seçilir ve menü kırpılır.
+         `fit()` ölçümü yapıp menüyü konumlar; sonraki çağrı
+         konumu ikinci kez doğrular (ödümlü, zararsız). */
+      fit();
+      PZA.ezanMenuYerlestir();
+    } else {
+      /* Kapandı: önceki "sığmayınca" durumundan kalan kaydırma
+         ve maxHeight TEMİZLENMEZSE bir sonraki açılışta menü
+         kaydırılabilir görünür. */
+      ['maxHeight', 'overflowY'].forEach(k => ezanMenu.style.removeProperty(k));
+      PZA.ezanMenuYerlestir();
+    }
   });
   window.addEventListener('resize', () => PZA.ezanMenuYerlestir());
   document.addEventListener('click', e => {
