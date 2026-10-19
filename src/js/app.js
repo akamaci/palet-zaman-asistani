@@ -140,6 +140,29 @@
         const el = document.getElementById(id);
         if (el && !el.hidden) h = Math.max(h, el.scrollHeight + 24);
       }
+      /* ══ v1.36.6 — PLAKADA (Aurora) NOTLAR/HAVA PANELİ ═════════════════
+         KULLANICI (2026-10-19, ekran görüntüsü): "Aurora kısmı hava durumu
+         ve randevu kısımları bu kadar aşağı kısmı açılmıyor."
+         ÖLÇÜM (430x148 emülasyonu): panel 357px istiyor, pencere onu
+         `max-height: calc(100vh - 24px)` = 124px'e kırpıyordu (üçte biri).
+
+         KÖK NEDEN: plakada paneller `position: fixed` (widget.css) ve SABİT
+         konumlu çocuk ebeveynin kutusunu BÜYÜTMEZ. `gerekliH()` plakada
+         sabit `plateSize().h` döndürdüğü için panel açılınca hedef yükseklik
+         DEĞİŞMİYORDU → `fit()` erken çıkıyor, pencere 148px kalıyordu.
+         Klasik modda panel AKIŞA dahildir (widget yüksekliği onu ZATEN
+         içerir) → çift saymamak için YALNIZ plakada eklenir. BAR modunda
+         `fitBar()` paneli ayrıca ölçtüğü için burada ATLANIR. */
+      if (ps && (!PZA.settings || PZA.settings.size !== 'bar')) {
+        /* PANELLER BİRBİRİNİN ÜSTÜNE GELİR (`position: fixed; bottom: 0`) →
+           yükseklik TOPLANMAZ, EN BÜYÜĞÜ alınır (aksi hâlde pencere iki kat
+           büyürdü). `plakaTemel` plakadan (ve açıksa kaplama panelden) gelir. */
+        const plakaTemel = h;
+        for (const id of ['panel-notes', 'panel-weather']) {
+          const el = document.getElementById(id);
+          if (el && !el.hidden) h = Math.max(h, plakaTemel + dogalYukseklik(el));
+        }
+      }
       return Math.ceil(h);
     };
 
@@ -210,6 +233,10 @@
       const el = document.getElementById('widget');
       if (!el) return 0;
       let t = el.getBoundingClientRect().height;
+      /* PLAKADA panel `position: fixed` → widget kutusuna GİRMEZ. Düşülürse
+         yükseklik negatife iner, `pay` şişer ve pencere gereksiz yere
+         yukarı kayardı (v1.36.6). */
+      if (PZA.plateSize && PZA.plateSize()) return Math.max(0, Math.round(t));
       for (const id of ['panel-notes', 'panel-weather']) {
         if (acikMi(id)) t -= document.getElementById(id).getBoundingClientRect().height;
       }
@@ -332,6 +359,14 @@
          Widget zaten menüden uzunsa menü widget'ın içinde kalır — bu
          durumda `dropdownYerlestir` "altta yer var" demez, "sığmıyor"
          deyip iç kaydırmaya geçer. */
+      /* Plaka (Aurora) CSS'i plakayı `align-items: center !important` ile
+         pencerenin ORTASINA koyar (widget.css). Panel açılınca pencere
+         (plaka + panel) kadar büyüdüğü için plaka ortada kalıp panelin
+         ARKASINA giriyordu. Panel varlığını gövdeye SINIF olarak bildir;
+         plakada üst/alt yaslama kuralı bu sınıfa bağlı (v1.36.6). */
+      document.body.classList.toggle('panel-acik',
+        acikMi('panel-notes') || acikMi('panel-weather'));
+
       const h = gerekliH();
       const istenenH = h + ekH;
       const g = Math.max(EN_AZ_G, gerekliG());
@@ -433,10 +468,15 @@
 
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(fit);
-      ['widget', 'settings', 'studio', 'pa-modal'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) ro.observe(el);
-      });
+      /* Paneller de gözlenir: plakada panel `position: fixed` olduğu için
+         içeriği büyüyünce (hava verisi geldi, liste çizildi, takvim katmanı
+         açıldı) WIDGET'ın kutusu DEĞİŞMEZ → gözlemci tetiklenmez, pencere
+         büyümez ve panel kırpılırdı (v1.36.6). */
+      ['widget', 'settings', 'studio', 'pa-modal', 'panel-notes', 'panel-weather']
+        .forEach(id => {
+          const el = document.getElementById(id);
+          if (el) ro.observe(el);
+        });
     }
     // Ayarlar/Stüdyo açılıp kapandığında (hidden değişimi) yeniden ölç.
     new MutationObserver(fit).observe(document.body, {
@@ -1070,20 +1110,25 @@
      ÖNEMLİ (v1.36.5): açılır yüzeyler sığmadığında `max-height` +
      `overflow:auto` alır. Kırpılmış bir kutuyu YENİDEN ölçmek yüksekliği
      küçük gösterir → `fit()` pencereyi hiç büyütmez (kısır döngü: her tur
-     kutu biraz daha küçülür). Bu yüzden ölçümden önce inline sınır
-     geçici olarak kaldırılır, sonra AYNEN geri konur. */
+     kutu biraz daha küçülür). Bu yüzden ölçümden önce sınır geçici olarak
+     kaldırılır, sonra AYNEN geri konur.
+
+     DİKKAT (v1.36.6): eşik **`none`** olmalı, `''` DEĞİL. `''` yalnız
+     INLINE değeri siler; sınır CSS'ten geliyorsa (plaka paneli:
+     `max-height: calc(100vh - 24px)`) yürürlükte kalır ve ölçüm yine
+     kırpılmış çıkar. `none` inline olarak CSS kuralını EZER. */
   function dogalYukseklik(el) {
     if (!el) return 0;
     const st = el.style;                     // sahte DOM'da olmayabilir
     const eskiMax = st ? st.maxHeight : undefined;
     const eskiOvf = st ? st.overflowY : undefined;
-    if (st && (eskiMax || eskiOvf)) {
-      st.maxHeight = '';
+    if (st) {
+      st.maxHeight = 'none';
       st.removeProperty('overflowY');
     }
     const h = el.offsetHeight || el.scrollHeight || 0;
     if (st) {
-      if (eskiMax) st.maxHeight = eskiMax;
+      if (eskiMax) st.maxHeight = eskiMax; else st.removeProperty('maxHeight');
       if (eskiOvf) st.overflowY = eskiOvf;
     }
     return h;

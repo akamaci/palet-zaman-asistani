@@ -49,7 +49,20 @@ const H = {
        KISITLI olur (`top`+`bottom`+`height:auto`) → pencere dibine uzar,
        `offsetHeight` ~200px yerine ~28px ölçülür → pencere büyümez,
        kutu 148px'lik pencerede kırpılır ("menü açılmıyor"). */
-    paBottom: /\n    el\.style\.bottom = 'auto';\n/
+    paBottom: /\n    el\.style\.bottom = 'auto';\n/,
+    /* v1.36.6 CANLI hatası: plakada paneller `position: fixed` → widget
+       kutusunu BÜYÜTMEZ. `gerekliH()` paneli saymazsa hedef yükseklik
+       değişmez → `fit()` erken çıkar → pencere 148px'te kalır ve panel
+       `max-height: calc(100vh-24px)` ile kırpılır
+       ("Aurora'da hava durumu ve randevu bu kadar açılmıyor"). */
+    panelOlcum: /      if \(ps && \(!PZA\.settings \|\| PZA\.settings\.size !== 'bar'\)\) \{[\s\S]*?\n      \}/
+  },
+  'src/styles/widget.css': {
+    /* v1.36.6 CANLI hatası: panel açıkken pencere plaka + panel kadar büyür
+       ama `body:has(.widget.plaka) { align-items: center !important }`
+       plakayı pencerenin ORTASINDA bırakır → plaka panelin arkasına girer,
+       üstte boş koyu şerit olur. Panel varken üste/alta yaslanmalı. */
+    plakaYaslama: /body:has\(\.widget\.plaka\)\.panel-acik \{[\s\S]*?align-items: flex-end !important; \}/
   },
   'src/js/notes.js': {
     /* v1.36.3'te CANLIYA GİDEN yazım hatası: dosyanın geri kalanını
@@ -215,6 +228,22 @@ const senaryolar = [
     test: 'araclar/gorsel-dogrula.mjs',
     degisiklikler: [
       { dosya: 'src/js/app.js', hedef: 'paBottom', yeni: '\n' }
+    ]
+  },
+  {
+    ad: 'v1.36.6 CANLI hatası: plakada panel ölçülmüyor (Aurora hava/randevu kırpılıyor)',
+    test: 'araclar/menu-uctan-uca-test.mjs',
+    degisiklikler: [
+      { dosya: 'src/js/app.js', hedef: 'panelOlcum',
+        yeni: '      /* v1.36.5 durumu: plakada panel ölçümü YOK (hata) */' }
+    ]
+  },
+  {
+    ad: 'v1.36.6 CANLI hatası: plaka panel açıkken ortalanıyor (panel plakayı örtüyor)',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [
+      { dosya: 'src/styles/widget.css', hedef: 'plakaYaslama',
+        yeni: '/* v1.36.5 durumu: yaslama kuralı YOK (hata) */' }
     ]
   },
   {

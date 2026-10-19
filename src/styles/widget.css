@@ -1516,6 +1516,19 @@ body:has(.widget.plaka) { align-items: center !important; justify-content: cente
 /* Plaka tam pencereyi doldurur → tarayıcı önizlemesinde kaydırma çubuğu olmasın. */
 html:has(.widget.plaka), body:has(.widget.plaka) { overflow: hidden; }
 
+/* ══ PLAKA + AÇIK PANEL — PLAKA PENCEREYE YASLANIR (v1.36.6) ═══════════
+   KULLANICI (2026-10-19): "Aurora kısmı hava durumu ve randevu kısımları
+   bu kadar aşağı kısmı açılmıyor."
+   Panel açılınca pencere `plaka + panel` kadar büyür (app.js `gerekliH()`).
+   Ama yukarıdaki `body:has(.widget.plaka) { align-items: center !important }`
+   plakayı pencerenin ORTASINA koyuyordu → büyüyen pencerede plaka ortada
+   kalıp panelin arkasına giriyor, üstte boş koyu şerit oluşuyordu.
+   Panel varken klasik davranış geçerli: aşağı açılan panel (varsayılan)
+   → plaka ÜSTTE; yukarı kaydırılan panel (`.yukari`) → plaka ALTTA.
+   Sınıfı `fit()` gövdeye yazar (`body.panel-acik`). */
+body:has(.widget.plaka).panel-acik { align-items: flex-start !important; }
+body:has(.widget.plaka).panel-acik.yukari { align-items: flex-end !important; }
+
 /* ── pza-skin/2 & /3 (PLAKA) — AÇILIR PANELLER ────────────────────
    HATA DÜZELTMESİ (kullanıcı 2026-10-19, ekran görüntüsü):
    Aurora'da Notlar paneli AÇILMIYORDU: metin plakanın üstüne biniyor,

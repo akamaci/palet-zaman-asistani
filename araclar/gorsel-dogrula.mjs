@@ -132,5 +132,34 @@ console.log('\nPLAKA ÖLÇEKLEME (Aurora 940x320)\n');
   sonuc('saat bölgesi de ölçekleniyor', Math.abs(gorunenW - 629) < 2, `${clock.w}px → ${gorunenW.toFixed(0)}px`);
 }
 
+/* ══ PLAKA + AÇIK PANEL (v1.36.6) ══════════════════════════════════════
+   KULLANICI (2026-10-19): "Aurora kısmı hava durumu ve randevu kısımları
+   bu kadar aşağı kısmı açılmıyor." Panel `position: fixed` olduğu için
+   widget kutusunu büyütmüyordu → pencere 148px'te kalıyor, panel
+   `max-height: calc(100vh-24px)` ile kırpılıyordu. Bu bölüm SÖZLEŞMEYİ
+   kaynak düzeyinde sabitler (davranış: menu-uctan-uca-test.mjs · G). */
+console.log('\nPLAKA + PANEL — YÜKSEKLİK VE YASLAMA\n');
+{
+  const css = readFileSync(join(kok, 'src/styles/widget.css'), 'utf8');
+
+  sonuc('app.js: gerekliH plakada NOTLAR/HAVA panelini ölçüyor',
+    /const plakaTemel = h;[\s\S]{0,320}?plakaTemel \+ dogalYukseklik\(el\)/.test(app));
+  sonuc('app.js: ölçüm BAR modunda atlanıyor (fitBar paneli ayrı ölçer)',
+    /if \(ps && \(!PZA\.settings \|\| PZA\.settings\.size !== 'bar'\)\) \{/.test(app));
+  sonuc('app.js: temelYukseklik() plakada paneli DÜŞMÜYOR (negatife inmez)',
+    /if \(PZA\.plateSize && PZA\.plateSize\(\)\) return Math\.max\(0, Math\.round\(t\)\);/.test(app));
+  sonuc('app.js: DOĞAL ölçüm eşiği `none` (CSS max-height de ezilir)',
+    /st\.maxHeight = 'none';/.test(app));
+  sonuc('app.js: panel açıkken gövdeye `panel-acik` sınıfı yazılıyor',
+    /document\.body\.classList\.toggle\('panel-acik',/.test(app));
+  sonuc('app.js: paneller ResizeObserver ile gözleniyor (içerik sonradan gelir)',
+    /'widget', 'settings', 'studio', 'pa-modal', 'panel-notes', 'panel-weather'/.test(app));
+
+  sonuc('widget.css: panel açıkken plaka ÜSTE yaslanıyor',
+    /body:has\(\.widget\.plaka\)\.panel-acik\s*\{\s*align-items:\s*flex-start\s*!important/.test(css));
+  sonuc('widget.css: yukarı açılan panelde plaka ALTA yaslanıyor',
+    /body:has\(\.widget\.plaka\)\.panel-acik\.yukari\s*\{\s*align-items:\s*flex-end\s*!important/.test(css));
+}
+
 console.log(hata === 0 ? '\nSONUC: temiz\n' : `\nSONUC: ${hata} BASARISIZ\n`);
 process.exit(hata === 0 ? 0 : 1);

@@ -624,6 +624,24 @@ head('23 · Menüler TAM açılır + yön konuma göre (v1.26.0)');
   else ok('app.js: ezan menusu ortak kurali kullaniyor');
 }
 
+head('24 — Plaka (Aurora) acilir paneller pencerenin ICINE sigar (v1.36.6)');
+{
+  /* Kullanıcı (2026-10-19): "Aurora kısmı hava durumu ve randevu kısımları
+     bu kadar aşağı kısmı açılmıyor." Paneller `position: fixed` olduğu için
+     widget kutusunu büyütmüyordu → pencere 148px'te kalıyor, panel
+     `max-height: calc(100vh - 24px)` = 124px'e kırpılıyordu. */
+  const a = src('app.js');
+  if (!/plakaTemel \+ dogalYukseklik\(el\)/.test(a)) fail('app.js: plakada notlar/hava paneli olcusu HESABA KATILMIYOR (panel kirpilir)');
+  else ok('app.js: plakada panel penceresi olcusu hesaplaniyor');
+  if (!/st\.maxHeight = 'none'/.test(a)) fail('app.js: dogal olcum CSS max-height sinirini EZMIYOR (olcum kirpik cikar)');
+  else ok('app.js: dogal olcum siniri `none` ile eziyor');
+  if (!/classList\.toggle\('panel-acik'/.test(a)) fail('app.js: panel-acik sinifi govdeye yazilmiyor');
+  else ok('app.js: panel-acik sinifi govdeye yaziliyor (yaslama icin)');
+  if (!/panel-acik\s*\{\s*align-items:\s*flex-start\s*!important/.test(css) || !/panel-acik\.yukari/.test(css))
+    fail('widget.css: plaka panel acikken yaslanmiyor (panel plagayi orter)');
+  else ok('widget.css: plaka panel acikken uste/alta yaslaniyor');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

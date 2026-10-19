@@ -21,10 +21,20 @@ const k = (et, kosul, det = '') => {
   else { console.log('  FAIL ' + et + '  ' + det); kaldi++; }
 };
 
+/* `gerekliH` artık `dogalYukseklik()` kullanıyor (plakada panel ölçümü).
+   ÇIKARILAN fonksiyonlar `eval` ile modül kapsamında oluşturulur → yardımcı
+   orada tanımlı olmalı. Kaynağı TAKLİT ETME, `app.js`ten al. */
+const dyKaynak = app.match(/function dogalYukseklik\(el\) \{[\s\S]*?\n  \}/);
+if (!dyKaynak) { console.log('dogalYukseklik kaynak kodda bulunamadı'); process.exit(1); }
+const dogalYukseklik = new Function('return (' +
+  dyKaynak[0].replace('function dogalYukseklik', 'function') + ')')();
+
 /* ── Sahte pencere ortamı ───────────────────────────────── */
 function ortam({ plaka = null, widgetH = 236, widgetG = 800,
                  settingsH = 1125, settingsG = 412, settingsAcik = false,
                  ezanH = 210, ezanAcik = false, paH = 300, paAcik = false,
+                 panelH = 357, panelAcik = false, panelId = 'panel-notes',
+                 size = '4',
                  alanBoy = 1040, alanUst = 0, y = 700 } = {}) {
   const st = { hidden: !settingsAcik, scrollHeight: settingsH,
                getBoundingClientRect: () => ({ width: settingsG, height: settingsH }) };
@@ -33,8 +43,15 @@ function ortam({ plaka = null, widgetH = 236, widgetG = 800,
   const kutu = { hidden: !paAcik, offsetHeight: paH, scrollHeight: paH,
                  getBoundingClientRect: () => ({ width: 330, height: paH }) };
   const pa = { hidden: !paAcik, querySelector: s => (s === '.pa-box' ? kutu : null) };
-  return { st, em, kutu, pa, y, alan: { ust: alanUst, boy: alanBoy },
-           widgetH, widgetG, plaka };
+  /* Notlar/Hava paneli (plakada `position: fixed`). `style` nesnesi var:
+     `dogalYukseklik()` sınırı geçici kaldırır. Ölçülen DOĞAL yükseklik
+     `offsetHeight` — kırpılmış pencerede `scrollHeight` gerçeği verir. */
+  const pn = { hidden: !panelAcik, offsetHeight: panelH, scrollHeight: panelH,
+               style: { maxHeight: '', overflowY: '', removeProperty() {} },
+               getBoundingClientRect: () => ({ width: 430, height: panelH }) };
+  const panelVer = id => (id === 'panel-notes' || id === 'panel-weather') ? pn : null;
+  return { st, em, kutu, pa, pn, panelVer, y, alan: { ust: alanUst, boy: alanBoy },
+           widgetH, widgetG, plaka, size };
 }
 
 /* `gerekliH` / `gerekliG` kaynağını çıkar, sahte DOM ile çalıştır */
@@ -50,16 +67,17 @@ function olcut(ortam) {
       : id === 'settings' ? ortam.st
       : id === 'studio' ? null
       : id === 'ezan-menu' ? ortam.em
-      : id === 'pa-modal' ? ortam.pa : null),
+      : id === 'pa-modal' ? ortam.pa : ortam.panelVer(id)),
     querySelector: () => null,
     readyState: 'complete',
     addEventListener: () => {},
+    body: { classList: { toggle() {}, add() {}, remove() {} } },
   };
   globalThis.getComputedStyle = () => ({ maxWidth: ortam.widgetG + 'px' });
   globalThis.getBoundingClientRect = () => ({ width: 0, height: 0 });
 
   const PZA = {
-    settings: {}, plateSize: () => ortam.plaka, activeSkin: () => null,
+    settings: { size: ortam.size }, plateSize: () => ortam.plaka, activeSkin: () => null,
   };
   globalThis.PZA = PZA;
 
@@ -81,13 +99,14 @@ function fitKarari(ortam) {
   globalThis.document = {
     getElementById: id => (id === 'widget' ? { getBoundingClientRect: () => ({ height: ortam.widgetH, width: ortam.widgetG }) }
       : id === 'settings' ? ortam.st : id === 'studio' ? null
-      : id === 'ezan-menu' ? ortam.em : id === 'pa-modal' ? ortam.pa : null),
+      : id === 'ezan-menu' ? ortam.em : id === 'pa-modal' ? ortam.pa : ortam.panelVer(id)),
     querySelector: s => (s === '.pa-box' ? ortam.kutu : null),
     readyState: 'complete', addEventListener: () => {},
+    body: { classList: { toggle() {}, add() {}, remove() {} } },
   };
   globalThis.getComputedStyle = () => ({ maxWidth: ortam.widgetG + 'px' });
   globalThis.window = { innerWidth: ortam.widgetG, innerHeight: ortam.widgetH };
-  globalThis.PZA = { settings: {}, plateSize: () => ortam.plaka, activeSkin: () => null };
+  globalThis.PZA = { settings: { size: ortam.size }, plateSize: () => ortam.plaka, activeSkin: () => null };
 
   const hh = app.match(/const gerekliH = \(\) => \{[\s\S]*?\n    \};/)[0];
   const gerekliH = eval('(' + hh.replace(/^const gerekliH = /, '').replace(/;$/, '') + ')');
@@ -237,6 +256,45 @@ console.log('\nF · ERKEN ÇIKIŞ (titremeyi önleme)\n');
   const f = fitKarari(o);
   k('menü açınca pencere hedefi widget\'tan FARKLAŞIYOR (erken çıkış yakalamaz)',
     f.istenenH !== f.h, `istenenH=${f.istenenH} ≠ h=${f.h}`);
+}
+
+console.log('\nG · PLAKA (AURORA) — NOTLAR/HAVA PANELİ\n');
+{
+  /* v1.36.6 CANLI hatası (kullanıcı ekran görüntüsü): "Aurora kısmı hava
+     durumu ve randevu kısımları bu kadar aşağı kısmı açılmıyor."
+     ÖLÇÜM (430x148 emülasyonu): panel 357px istiyor, pencere onu
+     `max-height: calc(100vh-24px)` = 124px'e kırpıyordu.
+     KÖK NEDEN: plakada panel `position: fixed` → widget kutusunu
+     büyütmez → `gerekliH()` sabit 146px dönüyordu → `fit()` erken
+     çıkıyor, pencere 148px kalıyordu. */
+  const o = ortam({ plaka: { w: 430, h: 146 }, panelAcik: true, panelH: 357,
+                    y: 400, alanBoy: 1040 });
+  const g = olcut(o);
+  k('plakada panel açıkken gerekliH paneli KATIYOR (146 değil)',
+    g.gH >= 146 + 357, `gerekliH=${g.gH} (plaka 146 + panel 357 = 503)`);
+  const kapali = olcut(ortam({ plaka: { w: 430, h: 146 }, panelAcik: false }));
+  k('plakada panel kapalıyken plaka ölçüsü aynen kalıyor (şişmiyor)',
+    kapali.gH === 146, `gerekliH=${kapali.gH}`);
+
+  const f = fitKarari(o);
+  k('plakada panel açılınca pencere plaka + panel kadar BÜYÜYOR',
+    f.hh >= 146 + 357, `pencere=${f.hh}px (gerekli 503) — eskiden 148'de kalıyordu`);
+  k('pencere 148px\'te KILITLİ değil (panel tam görünür)',
+    f.hh > 400, `pencere=${f.hh} > 400`);
+}
+{
+  /* KLASİK modda panel AKIŞA dahildir → widget yüksekliği onu ZATEN içerir;
+     ikinci kez eklenirse pencere gereksiz büyür (çift sayım). */
+  const o = ortam({ plaka: null, widgetH: 236 + 357, panelAcik: true, panelH: 357 });
+  const g = olcut(o);
+  k('klasikte panel ÇİFT SAYILMIYOR', g.gH === 236 + 357, `gerekliH=${g.gH} (widget ${236 + 357})`);
+}
+{
+  /* BAR modunda paneli `fitBar()` ayrıca ölçer → gerekliH katmamalı. */
+  const o = ortam({ plaka: { w: 430, h: 146 }, size: 'bar', panelAcik: true, panelH: 357 });
+  const g = olcut(o);
+  k('bar modunda gerekliH panele paneli EKLEMİYOR (çift sayım yok)',
+    g.gH === 146, `gerekliH=${g.gH}`);
 }
 
 console.log(`\nSONUC: ${kaldi === 0 ? 'temiz' : kaldi + ' BASARISIZ'} — ${gecti} kontrol`);
