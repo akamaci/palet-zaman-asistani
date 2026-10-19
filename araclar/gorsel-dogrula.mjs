@@ -198,5 +198,34 @@ console.log('\nPLAKA + MENÜ — GÖRÜNÜRLÜK VE YASLAMA (v1.36.7)\n');
     /document\.documentElement\.style\.setProperty\('--plaka-h', ol\.h \+ 'px'\)/.test(sk));
 }
 
+/* ══ BAR (ÇUBUK) MODU — plaka yerleşimi UYGULANMAZ (v1.36.8) ════════════
+   KULLANICI (2026-10-19, 4. tur): "yalnızca Aurora çubuk çalışmıyor;
+   menü 1/2 1/3 1/4 çalışıyor."
+   Plaka sınıfı/dalı JS tarafından atlanıyor (davranış: bar-mode-testi
+   · 17 kontrol). Burada ÇUBUK CSS'inin hâlâ geçerli ve bozulmadığı
+   sözleşmesi kaynak düzeyinde sabitlenir. */
+console.log('\nBAR MODU — PLAKA YOK, ÇUBUK CSS\'İ GEÇERLİ (v1.36.8)\n');
+{
+  const css = readFileSync(join(kok, 'src/styles/widget.css'), 'utf8');
+  const sk = readFileSync(join(kok, 'src/js/skins.js'), 'utf8');
+
+  sonuc('skins.js: bar modunda PLAKA YERLEŞİMİ atlanıyor (yalnız renk)',
+    /if \(PZA\.settings && PZA\.settings\.size === 'bar'\) \{\n      PZA\.clearPlate\(\);/.test(sk));
+  sonuc('skins.js: plateSize() bar modunda NULL (çubuk ince kalır)',
+    /if \(PZA\.settings && PZA\.settings\.size === 'bar'\) return null;/.test(sk));
+  sonuc('skins.js: token uygulaması PAYLAŞILIYOR (plateRenkleri)',
+    /PZA\.plateRenkleri\(w, skin\);/.test(sk));
+
+  sonuc('widget.css: bar yayılma kuralı var (fixed + left/right 0)',
+    /\.widget\[data-size="bar"\] \{\s*max-width:\s*none;\s*position:\s*fixed;\s*left:\s*0;\s*right:\s*0;/.test(css));
+  sonuc('widget.css: bar satır düzeni var (flex row + bar yan yana)',
+    /\.widget\[data-size="bar"\] \{[\s\S]{0,300}?flex-direction:\s*row/.test(css) &&
+    /\.widget\[data-size="bar"\] \.bar-top,[\s\S]{0,120}?flex:\s*1 1 auto/.test(css));
+  sonuc('widget.css: bar panelleri sabit + 412px kaplama',
+    /\.widget\[data-size="bar"\] \.panel-notes,[\s\S]{0,240}?position:\s*fixed;/.test(css));
+  sonuc('widget.css: bar üst/alt konum kuralı var',
+    /\[data-bar-konum="ust"\]/.test(css));
+}
+
 console.log(hata === 0 ? '\nSONUC: temiz\n' : `\nSONUC: ${hata} BASARISIZ\n`);
 process.exit(hata === 0 ? 0 : 1);

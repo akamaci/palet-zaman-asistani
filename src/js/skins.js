@@ -425,8 +425,16 @@ PZA.plakaOlcek = function (canvas) {
 };
 
 /** Aktif skin bir pza-skin/2 (plaka) ise {w,h}; değilse null.
-    Artık ÖLÇEKLENMİŞ ölçü döner — boyut ayarı plakada da çalışır. */
+    Artık ÖLÇEKLENMİŞ ölçü döner — boyut ayarı plakada da çalışır.
+    BAR modunda NULL döner (v1.36.8): çubukta plaka YOK. */
 PZA.plateSize = function () {
+  /* ══ v1.36.8 — BAR MODUNDA PLAKA YOK ═════════════════════════════════
+     KULLANICI (2026-10-19, 4. tur): "yalnızca Aurora çubuk çalışmıyor;
+     menü 1/2 1/3 1/4 çalışıyor."
+     ÖLÇÜM (emülasyon, Aurora + bar): buradan 1/2 ölçüsü (800×272) dönüyordu
+     → `fitBar` bar yüksekliğini `max(46, 272) = 272` yapıyor, widget da
+     800×272'lik PLAKA dilimine dönüşüyordu (ince çubuk değil). */
+  if (PZA.settings && PZA.settings.size === 'bar') return null;
   const sk = PZA.activeSkin();
   if (sk && (sk.format === PZA.SKIN_FORMAT_V2 || sk.format === PZA.SKIN_FORMAT_V3) && sk.canvas)
     return PZA.plakaOlcek(sk.canvas);
@@ -568,6 +576,24 @@ PZA.plateKatmanlari = function (w, skin) {
   }
 };
 
+/** Plaka skin'inin RENK token'larını uygula — YERLEŞİM YOK (v1.36.8).
+    `applyPlate` ile BAR modu PAYLAŞIR: bar modunda plaka çizilmez ama
+    renkler (aksan, flip kartları, kenarlık, yazı tipi) korunur. */
+PZA.plateRenkleri = function (w, skin) {
+  Object.keys(skin.tokens || {}).forEach(k => {
+    const c = PZA.parseColor(skin.tokens[k]);
+    if (c) w.style.setProperty(k, PZA.toCss(c));
+  });
+  if (skin.fontUI)  w.style.setProperty('--font-ui', skin.fontUI);
+  if (skin.fontNum) w.style.setProperty('--font-num', skin.fontNum);
+
+  // Winamp "ColorThemes": seçili renk temasının aksanı token'ı EZER
+  if (skin.format === PZA.SKIN_FORMAT_V3) {
+    const ct = PZA.plateThemeObj(skin);
+    if (ct && ct.accent) { const c = PZA.parseColor(ct.accent); if (c) w.style.setProperty('--accent', PZA.toCss(c)); }
+  }
+};
+
 /** pza-skin/2 (plaka) ve pza-skin/3 (atlas+parça+katman) uygula. */
 PZA.applyPlate = function (skin) {
   const w = document.getElementById('widget');
@@ -581,18 +607,7 @@ PZA.applyPlate = function (skin) {
   /* `orij` = skin'in orijinal tuvali; saat ölçeği buna göre hesaplanır. */
   const orij = cv;
 
-  Object.keys(skin.tokens || {}).forEach(k => {
-    const c = PZA.parseColor(skin.tokens[k]);
-    if (c) w.style.setProperty(k, PZA.toCss(c));
-  });
-  if (skin.fontUI)  w.style.setProperty('--font-ui', skin.fontUI);
-  if (skin.fontNum) w.style.setProperty('--font-num', skin.fontNum);
-
-  // Winamp "ColorThemes": seçili renk temasının aksanı token'ı EZER
-  if (skin.format === PZA.SKIN_FORMAT_V3) {
-    const ct = PZA.plateThemeObj(skin);
-    if (ct && ct.accent) { const c = PZA.parseColor(ct.accent); if (c) w.style.setProperty('--accent', PZA.toCss(c)); }
-  }
+  PZA.plateRenkleri(w, skin);
 
   w.dataset.skin = 'plaka';
   if (w.classList) w.classList.add('plaka');
@@ -700,6 +715,26 @@ PZA.applySkin = function () {
       Aurora/Klasik aynı görünüyordu.) */
   if (skin && (skin.format === PZA.SKIN_FORMAT_V2 || skin.format === PZA.SKIN_FORMAT_V3)) {
     if (bgEl) { bgEl.style.backgroundImage = 'none'; bgEl.hidden = true; }
+    /* ══ v1.36.8 — BAR MODUNDA PLAKA YERLEŞİMİ UYGULANMAZ ═══════════════
+       KULLANICI (2026-10-19, 4. tur): "yalnızca Aurora çubuk çalışmıyor;
+       menü 1/2 1/3 1/4 çalışıyor."
+       ÖLÇÜM (emülasyon, Aurora + bar): `.widget` 800×272 PLAKA dilimine
+       dönüşüyordu — `.widget.plaka` `position: relative` verdiği için
+       `[data-size="bar"]`ın `fixed`ini eziyor, `.bar-top` da `display:
+       contents` kalıyordu (çubuk düzeni tamamen kayıp).
+       KÖK NEDEN: plaka 940×320'lik bir TUVAL; çubuk ~46px'lik ince şerit.
+       Bölge koordinatları (yüzde) çubuğa oturamaz.
+       ÇÖZÜM: bar modunda yalnız RENK token'ları uygulanır; çubuk klasik
+       düzenle, Aurora renkleriyle çizilir. */
+    if (PZA.settings && PZA.settings.size === 'bar') {
+      PZA.clearPlate();                    // plaka sınıfı/değişkenleri kalmasın
+      PZA.plateRenkleri(w, skin);
+      const türev = PZA.derive(skin.tokens || {});
+      Object.keys(türev).forEach(k => w.style.setProperty(k, türev[k]));
+      w.dataset.skin = 'plaka';            // Ayarlar listesinde doğru ad görünsün
+      PZA.emit('skin', skin);
+      return;
+    }
     PZA.applyPlate(skin);
     return;
   }

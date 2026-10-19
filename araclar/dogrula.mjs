@@ -673,6 +673,31 @@ head('25 — Plaka + menu: saat/dugmeler GORUNUR, menu plakanin ALTINDA (v1.36.7
   else ok('widget.css: not/hava paneli plaka payini birakiyor');
 }
 
+head('26 — Bar (cubuk) modu: plaka YOK, cubuk CSS\'i gecerli (v1.36.8)');
+{
+  /* Kullanıcı (2026-10-19, 4. tur): "yaptigimiz en stabil sürüm bunu notlara
+     ilave etmeli; yalnizca Aurora çubuk çalışmiyor ama menü 1/2 1/3 1/4
+     çalışiyor."
+     Davranış: bar-mode-testi.mjs (18 kontrol, GERÇEK skins.js kodu).
+     Burada kaynak düzeyi lint + CSS sözleşmesi. */
+  const sk = src('skins.js');
+  if (!/if \(PZA\.settings && PZA\.settings\.size === 'bar'\) \{\n      PZA\.clearPlate\(\);/.test(sk))
+    fail('skins.js: bar modinda plaka yerlesimi UYGULANIYOR (cubuk plaka dilimine donusur)');
+  else ok('skins.js: bar modinda plaka yerlesimi atlaniyor');
+  if (!/if \(PZA\.settings && PZA\.settings\.size === 'bar'\) return null;/.test(sk))
+    fail('skins.js: plateSize() bar modinda null donmuyor (cubuk plaka yuksekligine cikar)');
+  else ok('skins.js: plateSize() bar modinda null');
+  if (!/PZA\.plateRenkleri\(w, skin\);/.test(sk))
+    fail('skins.js: token uygulaması paylasilmiyor (bar rengi uygulanmaz)');
+  else ok('skins.js: token uygulaması paylasiliyor (plateRenkleri)');
+  if (!/position:\s*fixed; left: 0; right: 0;[\s\S]*?\n  display:\s*flex;[\s\S]*?\n  flex-direction:\s*row;/.test(css))
+    fail('widget.css: bar satır duzeni yok (cubuk ikiye bolunur)');
+  else ok('widget.css: bar satır duzeni var');
+  if (!/\[data-bar-konum="ust"\]/.test(css))
+    fail('widget.css: bar ust/alt konum kuralı yok');
+  else ok('widget.css: bar ust/alt konum kuralı var');
+}
+
 /* ── Sonuç ─────────────────────────────────────────────── */
 console.log('');
 if (bad) { console.log('\x1b[31mSONUC: ' + bad + ' SORUN' + (warn ? ' · ' + warn + ' uyari' : '') + '\x1b[0m'); process.exit(1); }

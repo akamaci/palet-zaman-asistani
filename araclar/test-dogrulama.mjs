@@ -70,7 +70,13 @@ const H = {
   'src/js/skins.js': {
     /* v1.36.7: `--plaka-h` widget'a değil KÖKE yazılmalı — Ayarlar/Stüdyo
        `#widget`ın kardeşi (`position: fixed`), değeri miras alamaz. */
-    plakaVar: /  if \(typeof document !== 'undefined' && document\.documentElement\)\n    document\.documentElement\.style\.setProperty\('--plaka-h', ol\.h \+ 'px'\);/
+    plakaVar: /  if \(typeof document !== 'undefined' && document\.documentElement\)\n    document\.documentElement\.style\.setProperty\('--plaka-h', ol\.h \+ 'px'\);/,
+    /* v1.36.8 CANLI hatası: bar modunda plaka yerleşimi uygulanıyordu →
+       Aurora "çubuk" 800×272 plaka dilimine dönüşüyordu. Tüm DAL geri
+       alınır (senaryo dalı siler). */
+    barDali: /    if \(PZA\.settings && PZA\.settings\.size === 'bar'\) \{[\s\S]*?\n      return;\n    \}/,
+    /* v1.36.8: bar modunda plateSize() NULL olmalı (plaka YOK). */
+    plateSizeBar: /if \(PZA\.settings && PZA\.settings\.size === 'bar'\) return null;/
   },
   'src/styles/widget.css': {
     /* v1.36.6 CANLI hatası: panel açıkken pencere plaka + panel kadar büyür
@@ -82,7 +88,9 @@ const H = {
        saat üstünde logolar siliniyor") ve plaka görseli düz renge
        çevriliyordu. Bu iki yamanın GERİ KOYULDUĞU yer: yaslama kuralının
        hemen altı (senaryolar buraya eski kuralları enjekte eder). */
-    panelYaslamaUst: /body:has\(\.widget\.plaka\)\.panel-acik \{ align-items: flex-start !important; \}/
+    panelYaslamaUst: /body:has\(\.widget\.plaka\)\.panel-acik \{ align-items: flex-start !important; \}/,
+    /* v1.36.8: çubuk CSS'i kırılmasın — bar satır düzeni (flex row). */
+    barSatir: /position:\s*fixed; left: 0; right: 0;[\s\S]*?\n  display:\s*flex;[\s\S]*?\n  flex-direction:\s*row;/
   },
   'src/js/notes.js': {
     /* v1.36.3'te CANLIYA GİDEN yazım hatası: dosyanın geri kalanını
@@ -350,6 +358,35 @@ const senaryolar = [
     degisiklikler: [{
       dosya: 'src/js/skins.js', hedef: 'plakaVar',
       yeni: '  /* --plaka-h yazilmiyor (hata) */'
+    }]
+  },
+  {
+    ad: 'v1.36.8 CANLI hatası: bar modunda plaka yerleşimi uygulanıyor (Aurora çubuk bozuk)',
+    test: 'araclar/bar-mode-testi.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/skins.js', hedef: 'barDali',
+      yeni: '    PZA.applyPlate(skin);   // HATA: bar modunda plaka yerleşimi uygulanıyor'
+    }]
+  },
+  {
+    ad: 'v1.36.8 CANLI hatası: bar modunda plateSize() plaka ölçüsü dönüyor (çubuk kalınlaşıyor)',
+    test: 'araclar/bar-mode-testi.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/skins.js', hedef: 'plateSizeBar',
+      yeni: '  // bar kontrolu YOK (hata)'
+    }]
+  },
+  {
+    ad: 'v1.36.8: bar satır düzeni bozuluyor (flex-direction kayboluyor)',
+    test: 'araclar/gorsel-dogrula.mjs',
+    degisiklikler: [{
+      dosya: 'src/styles/widget.css', hedef: 'barSatir',
+      yeni: `.widget[data-size="bar"] {
+  max-width: none;
+  position: fixed; left: 0; right: 0;
+  display: flex;
+  align-items: stretch;
+}`
     }]
   }
 ];
