@@ -76,7 +76,9 @@ const H = {
        alınır (senaryo dalı siler). */
     barDali: /    if \(PZA\.settings && PZA\.settings\.size === 'bar'\) \{[\s\S]*?\n      return;\n    \}/,
     /* v1.36.8: bar modunda plateSize() NULL olmalı (plaka YOK). */
-    plateSizeBar: /if \(PZA\.settings && PZA\.settings\.size === 'bar'\) return null;/
+    plateSizeBar: /if \(PZA\.settings && PZA\.settings\.size === 'bar'\) return null;/,
+    /* v1.36.9: bar modunda ATLAS görseli çubuk arka planına taşınmalı. */
+    barAtlas: /const img = \(skin\.atlas && skin\.atlas\.image\) \? skin\.atlas\.image[\s\S]*?w\.style\.setProperty\('background-image', 'url\("' \+ img \+ '"\)'\);/
   },
   'src/styles/widget.css': {
     /* v1.36.6 CANLI hatası: panel açıkken pencere plaka + panel kadar büyür
@@ -387,6 +389,14 @@ const senaryolar = [
   display: flex;
   align-items: stretch;
 }`
+    }]
+  },
+  {
+    ad: 'v1.36.9 CANLI hatası: bar modunda ATLAS görseli çubuk arka planına taşınmıyor (çubuk SİYAH)',
+    test: 'araclar/bar-mode-testi.mjs',
+    degisiklikler: [{
+      dosya: 'src/js/skins.js', hedef: 'barAtlas',
+      yeni: '      const img = null;   // HATA: atlas çubuk arka planına taşınmıyor'
     }]
   }
 ];

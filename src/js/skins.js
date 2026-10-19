@@ -691,6 +691,13 @@ PZA.clearPlate = function () {
   if (w.removeAttribute) w.removeAttribute('data-tauri-drag-region');
   ['--plate-w', '--plate-h', '--plate-img', '--plate-olan',
     '--plate-canvas-w', '--plate-canvas-h'].forEach(k => w.style.removeProperty(k));
+  /* v1.36.9: bar modunda set edilen ATLAS arka planı da temizlenir —
+     plaka/klasik dönüşünde çubuk arka planı üstte kalmasın.
+     ÖNEMLİ: removeProperty gerçek DOM'da CSS özellik ADINI ister
+     (kebab-case) — camelCase 'backgroundImage' çalışmaz (2026-10-19
+     ölçüldü: bar→1/4 geçişinde atlas arka planı plakanın üstünde kalıyordu). */
+  ['background-image', 'background-size', 'background-position', 'background-repeat']
+    .forEach(k => w.style.removeProperty(k));
   /* v1.36.7: kökteki plaka yüksekliği de temizlenir (klasik skinde
      `--plaka-h` kalmamalı). */
   if (typeof document !== 'undefined' && document.documentElement)
@@ -731,10 +738,35 @@ PZA.applySkin = function () {
       PZA.plateRenkleri(w, skin);
       const türev = PZA.derive(skin.tokens || {});
       Object.keys(türev).forEach(k => w.style.setProperty(k, türev[k]));
+      /* ══ v1.36.9 — AURORA ÇUBUK SİYAH DEĞİL ══════════════════════════
+         KULLANICI (2026-10-19, 5. tur): "masaüstü 1/2 1/3 1/4 renkli
+         Aurora ama çubuk SİYAH."
+         KÖK NEDEN: v1.36.8 plaka YERLEŞİMİNİ bar modunda kesmişti ama
+         Aurora gibi plaka skinleri arka planı ATLAS GÖRSELİNDE taşır;
+         `tokens`'ında `--bg-1/--bg-2` YOK. Görsel kaldırılınca çubuk
+         CSS varsayılanına (#101722 ≈ siyah) düşüyordu.
+         ÇÖZÜM: çubuk arka planı = plaka ATLAS görseli (`100% 100%` →
+         üç aurora rengi de ince çubukta görünür). Yerleşim/bölge YOK. */
+      const img = (skin.atlas && skin.atlas.image) ? skin.atlas.image
+                : (skin.format !== PZA.SKIN_FORMAT_V3 && skin.plate) ? skin.plate : null;
+      /* Kebab-case CSSOM: setProperty ile yaz, removeProperty ile sil →
+         gerçek DOM'da da aynı depo kullanılır (sahte DOM'la tutarlı). */
+      ['background-image', 'background-size', 'background-position', 'background-repeat']
+        .forEach(k => w.style.removeProperty(k));
+      if (img) {
+        w.style.setProperty('background-image', 'url("' + img + '")');
+        w.style.setProperty('background-size', '100% 100%');
+        w.style.setProperty('background-position', 'center');
+        w.style.setProperty('background-repeat', 'no-repeat');
+      }
       w.dataset.skin = 'plaka';            // Ayarlar listesinde doğru ad görünsün
       PZA.emit('skin', skin);
       return;
     }
+    /* v1.36.9: bar → plaka geçişinde önce clearPlate → çubuk ATLAS
+       arka planı ve plaka değişkenleri temizlenir, sonra applyPlate
+       plakayı YENİDEN kurar (arka plan plakanın üstüne binmez). */
+    PZA.clearPlate();
     PZA.applyPlate(skin);
     return;
   }

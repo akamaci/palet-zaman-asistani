@@ -225,6 +225,20 @@ console.log('\nBAR MODU — PLAKA YOK, ÇUBUK CSS\'İ GEÇERLİ (v1.36.8)\n');
     /\.widget\[data-size="bar"\] \.panel-notes,[\s\S]{0,240}?position:\s*fixed;/.test(css));
   sonuc('widget.css: bar üst/alt konum kuralı var',
     /\[data-bar-konum="ust"\]/.test(css));
+
+  /* ══ v1.36.9 — AURORA ÇUBUK SİYAH DEĞİL ══════════════════════════════
+     KULLANICI (2026-10-19, 5. tur): "masaüstü 1/2 1/3 1/4 renkli Aurora
+     ama çubuk SİYAH." Bar modunda plaka ATLAS görseli çubuk arka planına
+     taşınır (yerleşim/bölge yok); bar → plaka dönüşünde temizlenir. */
+  sonuc('skins.js: bar modunda ATLAS görseli çubuk arka planına taşınıyor',
+    /const img = \(skin\.atlas && skin\.atlas\.image\) \? skin\.atlas\.image/.test(sk) &&
+    /w\.style\.setProperty\('background-image', 'url\("' \+ img \+ '"\)'\);/.test(sk));
+  sonuc('skins.js: bar atlas arka planı 100%/% (çubuğa eşit gerilir)',
+    /w\.style\.setProperty\('background-size', '100% 100%'\);/.test(sk));
+  sonuc('skins.js: clearPlate çubuk arka planını da temizliyor (v1.36.9)',
+    /\['background-image', 'background-size', 'background-position', 'background-repeat'\]\n    \.forEach\(k => w\.style\.removeProperty\(k\)\);/.test(sk));
+  sonuc('skins.js: bar → plaka geçişinde clearPlate ÖNCE çağrılıyor (v1.36.9)',
+    /PZA\.clearPlate\(\);\n    PZA\.applyPlate\(skin\);\n    return;/.test(sk));
 }
 
 console.log(hata === 0 ? '\nSONUC: temiz\n' : `\nSONUC: ${hata} BASARISIZ\n`);

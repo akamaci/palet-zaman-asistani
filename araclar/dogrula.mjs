@@ -696,6 +696,19 @@ head('26 — Bar (cubuk) modu: plaka YOK, cubuk CSS\'i gecerli (v1.36.8)');
   if (!/\[data-bar-konum="ust"\]/.test(css))
     fail('widget.css: bar ust/alt konum kuralı yok');
   else ok('widget.css: bar ust/alt konum kuralı var');
+  /* v1.36.9 — çubuk SİYAH değil: atlas görseli bar arka planına taşınır. */
+  if (!/const img = \(skin\.atlas && skin\.atlas\.image\) \? skin\.atlas\.image/.test(sk))
+    fail('skins.js: bar modunda ATLAS goruntusu arka plana tasinmiyor (cubuk siyah kalir)');
+  else ok('skins.js: ATLAS goruntusu bar arka planina tasiniyor');
+  if (!/w\.style\.setProperty\('background-size', '100% 100%'\);/.test(sk))
+    fail('skins.js: bar atlasi 100%/% ile gerilmiyor (uc renk gorunmez)');
+  else ok('skins.js: bar atlas arka plani 100%/%');
+  if (!/\['background-image', 'background-size', 'background-position', 'background-repeat'\]/.test(sk))
+    fail('skins.js: clearPlate bar arka planini temizlemiyor (plakaya tasar)');
+  else ok('skins.js: clearPlate bar arka planini da temizliyor');
+  if (!/PZA\.clearPlate\(\);\n    PZA\.applyPlate\(skin\);\n    return;/.test(sk))
+    fail('skins.js: bar -> plaka gecisinde clearPlate ONCE cagrilmiyor (atlas plakaya biner)');
+  else ok('skins.js: bar -> plaka gecisinde clearPlate once cagriliyor');
 }
 
 /* ── Sonuç ─────────────────────────────────────────────── */

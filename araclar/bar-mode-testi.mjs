@@ -60,6 +60,18 @@ else x('bar: Aurora renkleri uygulanmıyor (çubuk varsayılan skine döner)');
 if (w.style.getPropertyValue('--flip-1')) ok('bar: flip kart rengi uygulanıyor (skin görünür kalır)');
 else x('bar: flip kart rengi yok (skin sadece plakada çiziliyor)');
 
+/* v1.36.9 — AURORA ÇUBUK SİYAH DEĞİL: atlas görseli çubuk arka planı.
+   Kanonik CSSOM ile okunur: getPropertyValue(kebab-case) — kod da
+   setProperty('background-image', …) kullandığı için iki DOM'da tutarlı. */
+const bgImg = w.style.getPropertyValue('background-image') || '';
+const bgSize = w.style.getPropertyValue('background-size') || '';
+if (/^url\("data:image\/svg/.test(bgImg))
+  ok('bar: ATLAS görseli çubuk arka planına taşınıyor (Aurora RENKLİ görünür)');
+else x('bar: atlas görseli yok (background-image="' + bgImg.slice(0, 40) + '…") → çubuk SİYAH kalır');
+if (bgSize === '100% 100%')
+  ok('bar: atlas 100%/% ile ince çubuğa gerilir (üç aurora rengi görünür)');
+else x('bar: background-size="' + bgSize + '" (beklenen 100% 100%)');
+
 if (w.dataset.skin === 'plaka') ok('bar: `data-skin="plaka"` korunur (Ayarlar listesi doğru)');
 else x('bar: data-skin="' + w.dataset.skin + '" (skin adı eşleşmiyor)');
 
@@ -90,12 +102,18 @@ PZA.settings.size = '2'; PZA.applySkin();
 const onceVar = w.classList.contains('plaka');
 PZA.settings.size = 'bar'; PZA.applySkin();
 const sonraTemiz = !w.classList.contains('plaka') && !(w.style.getPropertyValue('--plate-w') || '');
+const barBgi = w.style.getPropertyValue('background-image') || '';
 PZA.settings.size = '4'; PZA.applySkin();
 const geriVar = w.classList.contains('plaka') && !!PZA.plateSize();
+const geriBg = (w.style.getPropertyValue('background-image') || '').trim();
 if (onceVar && sonraTemiz) ok('2 → bar: plaka sınıfı/değişkenleri temizleniyor (iki yanda sızıntı yok)');
 else x('2 → bar: kalıntı var (sınıf=' + onceVar + ' temiz=' + sonraTemiz + ')');
+if (barBgi) ok('bar → 4: çubuk ATLAS arka planı TEMİZLENİYOR (plaka üstüne binmez)');
+else x('bar → 4: atlas arka planı temizlenmiyor (plaka üstünde kalır)');
 if (geriVar) ok('bar → 4: plaka GERİ yükleniyor (eski boyut da çalışıyor)');
 else x('bar → 4: plaka yüklenemiyor (geçiş kırık)');
+if (!geriBg) ok('4 tarihinde widget arka plan görseli temiz (plaka görseli kendi YERLEŞİMİNDE)');
+else x('4 tarihinde arka plan görseli KALDI: "' + geriBg.slice(0, 40) + '…"');
 
 /* ── `fitBar` penceresi ölçüsü (app.js) — bar yüksekliği PLAKA'dan değil */
 /* Gerçek kaynak blok: kapasitesi `Math.max(46, gerekliH())` olmalı. */
