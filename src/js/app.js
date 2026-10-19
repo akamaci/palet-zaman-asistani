@@ -113,13 +113,29 @@
     /* Gereken yükseklik = widget VEYA açık olan kaplama paneli
        (Ayarlar / Stüdyo). Bu ikisi #widget'ın KARDEŞİ ve
        `position: fixed`: widget'ı büyütmedikleri için tek başına
-       ResizeObserver yetmez — kırpılırlardı. */
+       ResizeObserver yetmez — kırpılırlardı.
+
+       HATA DÜZELTMESİ (kullanıcı 2026-10-19, 3. tur): plaka (Aurora) seçiliyken
+       fonksiyon `return ps.h` ile ERKEN ÇIKIYORDU → Ayarlar/Stüdyo paneli
+       HİÇ ÖLÇÜLMÜYORDU. Pencere Aurora'nın 272px'lik yüksekliğinde kalıyor,
+       Ayarlar (~1125px) kırpılıyor ve **menü açılmıyor** ("Ayarlar menüsü de
+       açılmıyor").
+
+       Çözüm: erken çıkış YOK. Önce widget'ın yüksekliği alınır (plakada
+       `plateSize`, değilse ölçüm), sonra AÇIK KAPLAMA PANELLERİ de
+       hesaba katılır — her skin modunda aynı davranış. */
     const gerekliH = () => {
       const ps = PZA.plateSize && PZA.plateSize();       // pza-skin/2: plaka tuvali
-      if (ps) return Math.ceil(ps.h);
       let h = 0;
-      const w = document.getElementById('widget');
-      if (w) h = w.getBoundingClientRect().height;
+      if (ps) {
+        h = Math.ceil(ps.h);
+      } else {
+        const w = document.getElementById('widget');
+        if (w) h = w.getBoundingClientRect().height;
+      }
+      /* Kaplama paneller (Ayarlar/Stüdyo) HER ZAMAN hesaba katılır —
+         plaka modunda da; `max` sayesinde widget'tan kısa olan panel
+         pencereyi gereksiz büyütmez. */
       for (const id of ['settings', 'studio']) {
         const el = document.getElementById(id);
         if (el && !el.hidden) h = Math.max(h, el.scrollHeight + 24);
@@ -130,15 +146,23 @@
     /* Gereken genişlik = widget'ın ölçek sınırı veya açık panelin
        sabit genişliği (Ayarlar 412px, Stüdyo 470px). Paneller
        `position: fixed` ve genişlikleri sabit olduğundan bu sayı
-       pencere boyutundan bağımsızdır — döngü kurmaz. */
+       pencere boyutundan bağımsızdır — döngü kurmaz.
+
+       HATA DÜZELTMESİ (2026-10-19, 3. tur): `gerekliH` ile aynı erken
+       çıkış sorunu. Plakada pencere 430px (1/4) kalıyordu; Ayarlar 412px
+       sığardı ama Stüdyo 470px KIRPILIYORDU. Artık erken çıkış yok,
+       açık paneller her skin modunda hesaba katılıyor. */
     const gerekliG = () => {
       const ps = PZA.plateSize && PZA.plateSize();       // pza-skin/2: plaka tuvali
-      if (ps) return Math.ceil(ps.w);
       let g = 0;
-      const w = document.getElementById('widget');
-      if (w) {
-        const m = parseFloat(getComputedStyle(w).maxWidth);
-        if (isFinite(m) && m > 0) g = m;
+      if (ps) {
+        g = Math.ceil(ps.w);
+      } else {
+        const w = document.getElementById('widget');
+        if (w) {
+          const m = parseFloat(getComputedStyle(w).maxWidth);
+          if (isFinite(m) && m > 0) g = m;
+        }
       }
       for (const id of ['settings', 'studio']) {
         const el = document.getElementById(id);
@@ -276,8 +300,9 @@
          olduğu için saati ÜSTÜNE biniyor (ekran görüntüsü: ezan menüsü ve
          PA kutusu saatin üstünde yarı saydam).
 
-         Düzeltme: dropdown yüksekliği ÖNCE ölçülür, `istenenH = h + ekH`
-         karşılaştırmaya girer. */
+         Düzeltme: dropdown yüksekliği ÖNCE ölçülür ve pencere boyutuna
+         GİRER. Menü widget'ın ÜSTÜNE binmesin diye `top` sabitlenir
+         (aşağıda `dropdownYerlestir` çağrısından sonra). */
       let ekH = 0;
       if (acikMi('ezan-menu')) {
         const em = document.getElementById('ezan-menu');
@@ -289,8 +314,11 @@
         const o = kutu || pm;
         if (o) ekH = Math.max(ekH, o.offsetHeight || o.scrollHeight || 0);
       }
-      /* Açıkken ek yükseklik: menü düğmeye hizalanıp PENCERENİN ALTINDA
-         açılacağı için widget'ın altına eklenir. */
+      /* Pencere = widget + menü (TOPLAM). Menü widget'ın ALTINA yerleşir;
+         `dropdownYerlestir` onu düğmenin altına sabitler, üstüne binmez.
+         Widget zaten menüden uzunsa menü widget'ın içinde kalır — bu
+         durumda `dropdownYerlestir` "altta yer var" demez, "sığmıyor"
+         deyip iç kaydırmaya geçer. */
       const h = gerekliH();
       const istenenH = h + ekH;
       const g = Math.max(EN_AZ_G, gerekliG());
@@ -1009,30 +1037,29 @@
     el.style.left = 'auto';
     el.style.right = Math.round(Math.max(8, Math.min(vw - rb.right, vw - mw - 8))) + 'px';
 
-    /* HATA DÜZELTMESİ (2026-10-19): eski hâli "aşağıda mh+12 yer varsa
-       aşağı, YOKSA yukarı" idi ve yukarı dalı konumu hiç sınırlama
-       yapmıyordu → menü pencerenin ÜST kenarının dışına kayıp üst
-       yarısı kırpılıyordu (ekran görüntüsü).
+    /* HATA DÜZELTMESİ (2026-10-19, 2. tur): menü widget'ın ÜSTÜNE
+       biniyordu. `fit()` artık pencereyi menü kadar büyüttüğü için
+       menü düğmenin ALTINA, widget'ın dışına yerleşir.
 
-       Yeni kural:
-         1) Altta yer varsa → AŞAĞI (düğmenin altı).
-         2) Altta yoksa AMA üstte varsa → YUKARI, DÜĞMENİN HIZASINDA.
-         3) İki tarafta da yoksa → iç kaydırma aç, pencere yeterince
-            büyüyene kadar AŞAĞI sabit tut (kırpma yerine kaydırma).
-       `top` her zaman piksel olarak verilir; `bottom` kullanılmaz —
-       iki yönlü kurulum birbirini geçersiz kılıyordu. */
+       Yeni kural (öncelik sırası):
+         1) ALTta mh+12 yer varsa → AŞAĞI (düğmenin altı).
+         2) Altta yoksa, ÜSTTE varsa → YUKARI (düğmeyle hizalı).
+         3) İki tarafta da yoksa → iç kaydırma (kırpma değil).
+       `top` daima piksel; `bottom` hiç kullanılmaz. */
     const alta = (vh - rb.bottom);
     const uste = rb.top;
     if (alta >= mh + 12) {
       el.style.top = Math.round(rb.bottom + 8) + 'px';
       el.style.removeProperty('bottom');
       el.style.maxHeight = '';
+      el.style.removeProperty('overflowY');
     } else if (uste >= mh + 12) {
       el.style.top = Math.round(Math.max(8, rb.top - mh - 8)) + 'px';
       el.style.removeProperty('bottom');
       el.style.maxHeight = '';
+      el.style.removeProperty('overflowY');
     } else {
-      /* Hiçbir yön sığmıyor → sığdır + kendi içinde kaydır. */
+      /* Sığmıyor → sığdır + kaydır (kırpma yerine). */
       const kap = Math.max(80, alta - 16);
       el.style.top = Math.round(rb.bottom + 8) + 'px';
       el.style.removeProperty('bottom');
